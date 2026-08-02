@@ -1,3 +1,8 @@
+---
+name: add-domain-pack
+description: Create a namespaced scientific domain pack without changing OpenSDL core execution semantics. Use when adding scientific models, units, standards, or schemas for a domain.
+---
+
 # Add a domain pack
 
 Use this procedure to create a namespaced scientific extension without changing

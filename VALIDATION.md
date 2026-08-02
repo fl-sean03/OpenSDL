@@ -2,83 +2,104 @@
 
 **Release candidate:** `0.1.0a0`  
 **Validation date:** 2026-08-02  
-**Scope:** source repository and clean wheel-installed simulator profile
+**Scope:** locked source workspace, simulator profile, and clean wheel-installed smoke test
 
-OpenSDL is an executable alpha. This report records what was actually exercised while preparing the repository and what remains deployment-specific or untested.
+OpenSDL is an executable public alpha. This report records the checks run against the prepared Git
+repository. Deployment teams must produce separate evidence for their equipment, infrastructure,
+and operating procedures.
 
-## Verified
+## Source workspace
 
-### Source repository
+The workspace lock was generated and checked with uv 0.11.32. It resolves 105 packages for the 21
+workspace members. All normal project and CI commands consume the committed lock with `--locked`.
 
-The complete source workspace passed:
+The complete suite passed on all supported Python versions:
 
-- **39 pytest tests** across package, integration, end-to-end, migration, and conformance suites;
-- laboratory manifest and workflow validation;
-- generation and freshness checks for **11 public JSON Schemas**;
-- configured internal package-dependency boundary checks;
-- TOML, YAML, JSON, and relative Markdown-link validation;
+- CPython 3.12.3: **49 passed**;
+- CPython 3.13.14 in an isolated environment: **49 passed**; and
+- CPython 3.14.6 in an isolated environment: **49 passed**.
+
+The suite covers package units, migrations, API and controller integration, adapter conformance, and
+the complete simulated color campaign. Focused runtime cases cover policy denial, retries, timeout
+diagnostics, lease release, cancellation intervention, and restart reconciliation. Provenance tests
+cover exports with more than 500 events, artifact metadata, unique bundle members, and RO-Crate
+entries.
+
+The following checks also passed:
+
+- Ruff and Pyright with zero errors or warnings;
+- internal package-dependency boundaries;
+- freshness of 11 public JSON Schemas;
+- TOML, YAML, JSON, repository-skill metadata, and relative Markdown links;
+- strict MkDocs build;
 - Python bytecode compilation;
-- SQLite schema creation and the initial Alembic migration;
-- HTTP API lifecycle and representative endpoints;
-- controller startup, health checks, workflow execution, persistence, and shutdown;
-- restart reconciliation behavior;
-- content-addressed artifact writes and verified reads;
-- reference adapter conformance;
-- complete closed-loop simulated color campaign;
-- repository propagation-graph traversal.
+- shell syntax for project scripts and skill helpers;
+- all six repository skills with Codex's skill validator;
+- the three reference-adapter conformance cases;
+- the five-iteration simulated color campaign; and
+- reruns after the example created persistent local state.
 
-### Distribution and generated projects
+The last check found and fixed an order-dependent test defect. Integration fixtures now exclude the
+example's ignored `.opensdl/` runtime state when copying the laboratory definition.
 
-All **21 independently packaged workspace members** built as Python wheels. A clean validation environment installed those wheels and exercised the public console interface rather than importing the source checkout.
+## Distribution smoke test
 
-The wheel-installed validation covered:
+uv 0.11.32 built one wheel and one source archive for each workspace member: **21 wheels and 21
+source archives**. A clean Python 3.12 environment installed all 21 wheels without importing the
+source checkout.
 
-- `opensdl version`;
-- generation of a separate organization laboratory repository;
-- inclusion of the generated repository's hidden `.github/workflows/ci.yml` template;
-- validation of generated manifests and workflows;
-- `opensdl doctor` against the generated laboratory;
-- execution of a generated workflow containing simulated labware movement, mixing, color measurement, and numerical analysis;
-- execution of a generated structured human-attestation workflow;
-- generation of a simulator-first adapter package and passing conformance test;
-- generation of an installable scientific domain pack.
+That environment passed these checks:
+
+- `opensdl version` returned `0.1.0a0`;
+- the SDK exposed its public core contracts;
+- `opensdl init` generated a separate laboratory repository;
+- the generated manifest and first workflow validated;
+- `opensdl doctor` reported healthy simulated, compute, database, and artifact-store components; and
+- the generated workflow completed with four successful tasks and a zero distance score.
+
+These files are build-validation artifacts. This report does not approve a tagged package release or
+publication to a registry. SBOM generation, artifact signing, internal dependency constraints, and
+package-license-file review remain release work.
 
 ## Validated execution profiles
 
 | Profile | Status | Evidence |
 |---|---|---|
-| Simulator-only local laboratory | Verified | Unit, integration, E2E, conformance, and clean wheel-installed runs |
-| Structured human attestation | Verified as a synchronous reference path | Adapter, generated example, and E2E execution |
-| SQLite metadata and local artifacts | Verified | Storage tests, migrations, controller/API tests, campaign run |
-| PostgreSQL metadata | Model and migration compatibility implemented | Not executed against a live PostgreSQL service in this environment |
-| HTTP API | Verified | FastAPI lifecycle and endpoint integration tests |
-| CLI and Python packages | Verified | Source and clean wheel-installed execution |
-| Optional MCP transport | Implemented behind an optional dependency | MCP SDK was not available in the offline validation environment |
-| Docker Compose deployment | Configuration present | Docker was not available in the validation environment |
+| Python 3.12, 3.13, and 3.14 | Verified | Locked full suite on all three versions |
+| Simulator-only local laboratory | Verified | Unit, integration, E2E, conformance, example, and clean wheel-installed run |
+| Structured human attestation | Verified as a synchronous reference path | Adapter and generated-workflow tests |
+| SQLite metadata and local artifacts | Verified | Storage, migration, controller, API, campaign, and clean-install checks |
+| PostgreSQL metadata | Models and migrations implemented | No live PostgreSQL service was exercised |
+| HTTP API | Verified | FastAPI lifecycle and endpoint integration test |
+| CLI and Python packages | Verified | Source tests and clean installation of all 21 wheels |
+| Optional MCP transport | Import boundary tested | The MCP SDK and a live transport were not exercised |
+| Container image | Verified | Podman built the pinned Dockerfile; image CLI and `doctor` checks passed |
 | Physical equipment | Not validated | No hardware qualification or commissioning was attempted |
 
-## Known release-preparation gap
+## Known warnings and tool limits
 
-The repository is configured as one `uv` workspace, but a shared `uv.lock` is not included in this archive. The validation environment could not reach package registries, and generating a trustworthy lockfile requires dependency resolution against a reachable registry. Before the first public release:
+All three test runs emit one upstream Starlette warning about its `TestClient` dependency transition.
+The tests pass, and OpenSDL emits no project-code deprecation warnings.
 
-```bash
-uv lock
-uv sync --all-packages --group dev
-uv run pytest
-```
+The repository validator parsed every workflow as YAML, but `actionlint` was not installed locally.
+GitHub Actions provides the final workflow-parser and runner check after the first push.
 
-Commit the resulting lockfile after those checks pass. No synthetic or hand-written lockfile has been substituted.
+A pre-publication pattern scan found no likely secrets, private keys, or unfinished-code markers in
+295 nonignored source files. This scan is supporting evidence, not a substitute for GitHub secret
+scanning and push protection.
 
 ## Explicit non-claims
 
 This validation does not establish:
 
-- production readiness;
-- safety integrity;
-- regulatory compliance;
+- production readiness or high availability;
+- safety integrity or regulatory compliance;
 - suitability for hazardous operations;
 - correct behavior of arbitrary third-party adapters;
-- PostgreSQL, S3, Slurm, Kubernetes, SiLA 2, MADSci, or live robotics compatibility;
-- performance or high-availability guarantees.
+- live PostgreSQL, S3, Slurm, Kubernetes, SiLA 2, MADSci, or robotics compatibility;
+- an end-to-end cancellation or equipment-abort protocol;
+- performance guarantees; or
+- package-registry release readiness.
 
-Those require deployment-specific engineering, testing, commissioning, and evidence. The current artifact is a complete, functioning reference foundation and extension surface—not a qualified control system for every laboratory.
+Those outcomes require deployment-specific engineering, testing, commissioning, and evidence. The
+current repository is a simulator-first reference foundation and extension surface.

@@ -5,10 +5,10 @@ Contributions should improve interoperability, reproducibility, reliability, ado
 ## Start here
 
 ```bash
-uv sync --all-packages --group dev
-uv run pytest
-uv run python scripts/check-boundaries.py
-uv run python scripts/generate-schemas.py --check
+uv sync --locked --all-packages --group dev
+uv run --locked pytest
+uv run --locked python scripts/check-boundaries.py
+uv run --locked python scripts/generate-schemas.py --check
 ```
 
 Read [DEVELOPMENT.md](DEVELOPMENT.md) and the nearest `AGENTS.md` before editing a subsystem.

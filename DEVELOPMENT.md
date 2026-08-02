@@ -10,13 +10,16 @@
 ## Set up
 
 ```bash
-uv sync --all-packages --group dev
-uv run opensdl validate examples/simulated-color-mixing/opensdl.yaml \
+uv sync --locked --all-packages --group dev
+uv run --locked opensdl validate examples/simulated-color-mixing/opensdl.yaml \
   --workflow examples/simulated-color-mixing/workflow.yaml
-uv run pytest
+uv run --locked pytest
 ```
 
-The workspace is configured for one shared `uv.lock` and independently packaged members. Generate and commit the lockfile from a networked checkout before the first public release; every member has its own `pyproject.toml`, source tree, and tests.
+The workspace uses one committed `uv.lock` across independently packaged members. Normal setup and
+CI use `--locked` so dependency metadata cannot silently rewrite the lockfile. Update dependencies
+with uv 0.11.32, which CI and the container pin. Review the lock diff and rerun the full validation
+matrix. Every member has its own `pyproject.toml`, source tree, and tests.
 
 ## Common commands
 
@@ -37,8 +40,8 @@ Equivalent scripts are in `scripts/` for environments without Make.
 SQLite-only:
 
 ```bash
-uv run opensdl doctor --manifest examples/simulated-color-mixing/opensdl.yaml
-uv run opensdl serve-api --manifest examples/simulated-color-mixing/opensdl.yaml
+uv run --locked opensdl doctor --manifest examples/simulated-color-mixing/opensdl.yaml
+uv run --locked opensdl serve-api --manifest examples/simulated-color-mixing/opensdl.yaml
 ```
 
 PostgreSQL:
@@ -53,8 +56,8 @@ docker compose up --build
 Application code uses SQLAlchemy models in `packages/storage`. Alembic configuration and migration history live in `database/`.
 
 ```bash
-uv run alembic -c database/alembic.ini upgrade head
-uv run alembic -c database/alembic.ini revision --autogenerate -m "describe change"
+uv run --locked alembic -c database/alembic.ini upgrade head
+uv run --locked alembic -c database/alembic.ini revision --autogenerate -m "describe change"
 ```
 
 Set `OPENSDL_DATABASE_URL` before running migrations against a non-default database.
@@ -71,7 +74,7 @@ Schema changes require:
 ## Add a capability
 
 ```bash
-uv run opensdl capability create instrument.measure_temperature \
+uv run --locked opensdl capability create instrument.measure_temperature \
   --name "Measure temperature" \
   --destination capabilities
 ```
@@ -81,7 +84,7 @@ A public capability needs typed inputs and outputs, units where applicable, reso
 ## Add an adapter
 
 ```bash
-uv run opensdl adapter create networked-balance \
+uv run --locked opensdl adapter create networked-balance \
   --capability-id instrument.measure_mass \
   --destination adapters
 ```
@@ -101,7 +104,7 @@ Then add it to the workspace or publish it independently.
 ## Add a domain pack
 
 ```bash
-uv run opensdl domain-pack create electrochemistry --destination domain-packs
+uv run --locked opensdl domain-pack create electrochemistry --destination domain-packs
 ```
 
 Domain packs attach namespaced scientific models without changing the runtime lifecycle. Follow the implemented materials, chemistry, and physics packages. A pack exports a callable under `opensdl.domain_packs` and returns a name, version, and JSON Schemas.
@@ -132,7 +135,7 @@ Every behavior change should be tested at the lowest useful layer and at one rep
 Pydantic models are the Python source. Checked-in language-neutral schemas are generated:
 
 ```bash
-uv run python scripts/generate-schemas.py
+uv run --locked python scripts/generate-schemas.py
 ```
 
 CI fails when generated schemas differ from committed files.
@@ -142,7 +145,7 @@ CI fails when generated schemas differ from committed files.
 Run:
 
 ```bash
-uv run python scripts/check-boundaries.py
+uv run --locked python scripts/check-boundaries.py
 ```
 
 Do not solve a boundary violation by adding a broad common package. Move behavior to the correct layer or introduce a narrow protocol.
@@ -154,11 +157,12 @@ Generate a separate lab repository with `opensdl init`. That repository should c
 ## Releases
 
 1. all tests and conformance pass;
-2. generated schemas are current;
-3. migrations are present;
-4. public changes have release notes and migration guidance;
-5. artifacts and SBOM are built;
-6. packages share the selected release version;
-7. signed tags are preferred for public releases.
+2. `uv lock --check` passes and CI consumes the committed lockfile;
+3. generated schemas are current;
+4. migrations are present;
+5. public changes have release notes and migration guidance;
+6. artifacts and SBOM are built;
+7. packages share the selected release version;
+8. signed tags are preferred for public releases.
 
 The workspace remains pre-1.0; compatibility changes still require explicit notes.

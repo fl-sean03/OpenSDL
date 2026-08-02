@@ -6,7 +6,12 @@ No OpenSDL version is currently supported for production operation. The project 
 
 ## Reporting
 
-Do not disclose vulnerabilities publicly when they could expose credentials, enable unauthorized physical action, bypass policy, corrupt provenance, or reveal facility information. Enable and use GitHub private vulnerability reporting before public launch, or contact the maintainers through a verified private channel.
+Do not disclose vulnerabilities publicly when they could expose credentials, enable unauthorized
+physical action, bypass policy, corrupt provenance, or reveal facility information. Submit those
+reports through [GitHub private vulnerability reporting](https://github.com/fl-sean03/OpenSDL/security/advisories/new).
+If that form is unavailable, email the maintainers at
+[florezsean0822@gmail.com](mailto:florezsean0822@gmail.com) with `OpenSDL security` in the subject.
+Do not include exploit details in a public issue.
 
 A useful report includes the affected version, component, prerequisites, simulator-based reproduction when possible, impact, and mitigation.
 

@@ -3,7 +3,7 @@
 Generate a package:
 
 ```bash
-uv run opensdl adapter create networked-balance \
+uv run --locked opensdl adapter create networked-balance \
   --capability-id instrument.measure_mass \
   --destination adapters
 ```

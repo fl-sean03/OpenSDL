@@ -3,7 +3,7 @@
 Run everything:
 
 ```bash
-uv run pytest
+uv run --locked pytest
 ```
 
 Markers:

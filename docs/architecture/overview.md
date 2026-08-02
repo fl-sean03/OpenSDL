@@ -4,4 +4,6 @@ The reference system is a modular monolith by default: one process composes the 
 
 Components can be separated when scale or equipment-network boundaries justify it. Public contracts and adapters remain stable as deployment topology changes.
 
-See the repository-root [ARCHITECTURE.md](../../ARCHITECTURE.md) for the full package graph.
+See the repository-root
+[ARCHITECTURE.md](https://github.com/fl-sean03/OpenSDL/blob/main/ARCHITECTURE.md)
+for the full package graph.

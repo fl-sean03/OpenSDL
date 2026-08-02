@@ -11,5 +11,7 @@ build/
 *.egg-info/
 .opensdl/
 .env
+.env.*
+!.env.example
 .DS_Store
 site/

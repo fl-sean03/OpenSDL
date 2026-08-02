@@ -1,3 +1,4 @@
+# Development-only stack. The credentials below are local defaults, not deployable secrets.
 services:
   postgres:
     image: postgres:17
@@ -20,7 +21,7 @@ services:
       OPENSDL_DATABASE_URL: postgresql+psycopg://opensdl:opensdl@postgres:5432/opensdl
       OPENSDL_ARTIFACT_ROOT: /data/artifacts
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy

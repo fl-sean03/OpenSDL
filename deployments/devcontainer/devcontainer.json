@@ -4,7 +4,7 @@
   "features": {
     "ghcr.io/devcontainers-extra/features/uv:1": {}
   },
-  "postCreateCommand": "uv sync --all-packages --group dev",
+  "postCreateCommand": "uv sync --locked --all-packages --group dev",
   "forwardPorts": [8000],
   "customizations": {
     "vscode": {

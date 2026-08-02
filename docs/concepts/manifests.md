@@ -7,5 +7,5 @@ A repository may contain separate manifests for simulation, hardware-in-the-loop
 Validate a manifest:
 
 ```bash
-uv run opensdl validate opensdl.yaml
+uv run --locked opensdl validate opensdl.yaml
 ```

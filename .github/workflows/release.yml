@@ -1,9 +1,7 @@
-name: Build release artifacts
+name: Build distribution candidates
 
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
 
 permissions:
   contents: read
@@ -12,18 +10,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
+          version: "0.11.32"
           python-version: "3.12"
-      - run: uv sync --all-packages --group dev
-      - run: uv run pytest
-      - run: |
-          mkdir -p dist
-          for project in packages/* apps/* adapters/* domain-packs/*; do
-            if [ -f "$project/pyproject.toml" ]; then uv build --project "$project" --out-dir dist; fi
-          done
-      - uses: actions/upload-artifact@v6
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv lock --check
+      - run: uv sync --locked --all-packages --group dev
+      - run: uv run --locked pytest
+      - run: uv build --all-packages --out-dir dist
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: python-distributions
           path: dist/

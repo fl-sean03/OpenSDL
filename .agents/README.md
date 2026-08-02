@@ -1,3 +1,7 @@
-# Repository procedures
+# Repository skills
 
-`AGENTS.md` files describe local conventions. This directory contains tested, reusable procedures for recurring repository work. Each procedure calls normal project commands and remains usable by a human or coding system.
+`AGENTS.md` describes repository-wide conventions. Each directory under
+`.agents/skills/` is a Codex-compatible skill with YAML frontmatter, a concise
+procedure, and an optional executable helper. Helpers resolve the repository
+root from their own location, so they can be invoked from any working
+directory.

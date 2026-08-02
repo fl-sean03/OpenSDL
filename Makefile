@@ -1,47 +1,52 @@
-.PHONY: sync test unit integration e2e conformance lint format typecheck boundaries schemas example api clean
+.PHONY: sync test unit integration e2e conformance lint format typecheck boundaries schemas validate example api clean
 
 sync:
-	uv sync --all-packages --group dev
+	uv sync --locked --all-packages --group dev
 
 test:
-	uv run pytest
+	uv run --locked pytest
 
 unit:
-	uv run pytest packages apps adapters domain-packs
+	uv run --locked pytest packages apps adapters domain-packs
 
 integration:
-	uv run pytest -m integration
+	uv run --locked pytest -m integration
 
 e2e:
-	uv run pytest -m e2e
+	uv run --locked pytest -m e2e
 
 conformance:
-	uv run pytest -m conformance
+	uv run --locked pytest -m conformance
 
 lint:
-	uv run ruff check .
-	uv run pyright
-	uv run python scripts/check-boundaries.py
-	uv run python scripts/generate-schemas.py --check
+	uv run --locked ruff check .
+	uv run --locked pyright
+	uv run --locked python scripts/check-boundaries.py
+	uv run --locked python scripts/generate-schemas.py --check
+	uv run --locked python scripts/validate-repository.py
 
 format:
-	uv run ruff format .
-	uv run ruff check --fix .
+	uv run --locked ruff format .
+	uv run --locked ruff check --fix .
 
 typecheck:
-	uv run pyright
+	uv run --locked pyright
 
 boundaries:
-	uv run python scripts/check-boundaries.py
+	uv run --locked python scripts/check-boundaries.py
 
 schemas:
-	uv run python scripts/generate-schemas.py
+	uv run --locked python scripts/generate-schemas.py
+
+validate:
+	uv lock --check
+	uv run --locked python scripts/validate-repository.py
 
 example:
-	uv run python examples/simulated-color-mixing/run_campaign.py
+	uv run --locked python examples/simulated-color-mixing/run_campaign.py
 
 api:
-	uv run opensdl serve-api --manifest examples/simulated-color-mixing/opensdl.yaml
+	uv run --locked opensdl serve-api --manifest examples/simulated-color-mixing/opensdl.yaml
 
 clean:
 	rm -rf .opensdl site .pytest_cache .ruff_cache .coverage htmlcov

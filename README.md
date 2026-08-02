@@ -3,6 +3,7 @@
 **An open foundation for building computational and autonomous laboratories.**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#project-status)
+[![CI](https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml/badge.svg)](https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
@@ -37,13 +38,13 @@ The v0.1 alpha includes:
 Prerequisites: Python 3.12 or newer and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-git clone <repository-url> opensdl
+git clone https://github.com/fl-sean03/OpenSDL.git opensdl
 cd opensdl
 
-uv sync --all-packages --group dev
-uv run opensdl validate examples/simulated-color-mixing/opensdl.yaml \
+uv sync --locked --all-packages --group dev
+uv run --locked opensdl validate examples/simulated-color-mixing/opensdl.yaml \
   --workflow examples/simulated-color-mixing/workflow.yaml
-uv run python examples/simulated-color-mixing/run_campaign.py
+uv run --locked python examples/simulated-color-mixing/run_campaign.py
 ```
 
 The reference campaign needs no hardware, cloud account, model API, graph database, or message broker. It creates virtual samples, measures color and mass, scores each experiment, persists all runs and events, records campaign decisions, and identifies the best recipe.
@@ -51,7 +52,7 @@ The reference campaign needs no hardware, cloud account, model API, graph databa
 Run one workflow directly:
 
 ```bash
-uv run opensdl run examples/simulated-color-mixing/workflow.yaml \
+uv run --locked opensdl run examples/simulated-color-mixing/workflow.yaml \
   --manifest examples/simulated-color-mixing/opensdl.yaml \
   --inputs '{
     "sample_id": "demo-001",
@@ -65,7 +66,7 @@ uv run opensdl run examples/simulated-color-mixing/workflow.yaml \
 Start the API:
 
 ```bash
-uv run opensdl serve-api \
+uv run --locked opensdl serve-api \
   --manifest examples/simulated-color-mixing/opensdl.yaml
 ```
 
@@ -76,7 +77,7 @@ Then open `http://127.0.0.1:8000/docs`.
 The public framework and an organization’s live laboratory implementation should be separate repositories.
 
 ```bash
-uv run opensdl init ../my-lab \
+uv run --locked opensdl init ../my-lab \
   --name my-lab \
   --owner my-organization
 ```
@@ -170,7 +171,7 @@ Local organization adapters may live in the laboratory repository. Public adapte
 Generate an adapter:
 
 ```bash
-uv run opensdl adapter create my-balance \
+uv run --locked opensdl adapter create my-balance \
   --capability-id instrument.measure_mass \
   --destination ../my-lab/adapters
 ```
@@ -180,7 +181,7 @@ Every operational adapter should include a simulator, conformance cases, typed f
 Generate a scientific domain pack:
 
 ```bash
-uv run opensdl domain-pack create electrochemistry \
+uv run --locked opensdl domain-pack create electrochemistry \
   --destination ../my-lab/domain-packs
 ```
 
@@ -202,7 +203,7 @@ A graph is generated from those records rather than treated as the only source o
 `propagation.yaml` describes the blast radius of important changes.
 
 ```bash
-uv run opensdl propagate packages/core/src/opensdl_core/models.py
+uv run --locked opensdl propagate packages/core/src/opensdl_core/models.py
 ```
 
 The result identifies affected adapters, schemas, tests, examples, API contracts, generated documentation, and deployment files. This makes cross-repository consistency testable instead of relying only on search and memory.
@@ -220,6 +221,9 @@ This is an executable alpha, not production-qualified laboratory control softwar
 The core loop, structured human-task path, simulated robotics path, and local compute path are implemented and tested. Current work is focused on production authentication, richer approval workflows, MADSci and SiLA 2 integrations, Slurm execution, expanded conformance, and the first low-risk hardware reference integration.
 
 See [ROADMAP.md](ROADMAP.md), [DEVELOPMENT.md](DEVELOPMENT.md), and the evidence-based [VALIDATION.md](VALIDATION.md).
+
+The supplied alpha archive and its checksum-verified import are documented in
+[IMPORT_PROVENANCE.md](IMPORT_PROVENANCE.md).
 
 ## License
 

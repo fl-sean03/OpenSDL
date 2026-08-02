@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import filecmp
-import shutil
 import tempfile
 from pathlib import Path
 

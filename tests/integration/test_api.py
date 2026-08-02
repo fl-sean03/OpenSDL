@@ -10,7 +10,11 @@ from opensdl_controller import OpenSDLSystem
 def test_api_runs_workflow(tmp_path: Path) -> None:
     source = Path(__file__).parents[2] / "examples" / "simulated-color-mixing"
     target = tmp_path / "lab"
-    shutil.copytree(source, target)
+    shutil.copytree(
+        source,
+        target,
+        ignore=shutil.ignore_patterns(".opensdl", "__pycache__"),
+    )
     system = OpenSDLSystem.from_manifest(target / "opensdl.yaml")
     app = create_app(system)
     workflow = __import__("yaml").safe_load((target / "workflow.yaml").read_text())

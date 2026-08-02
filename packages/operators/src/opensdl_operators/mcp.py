@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+from importlib import import_module
+from importlib.util import find_spec
 from typing import Any
 
 from .tools import OperatorGateway
 
 
 def mcp_available() -> bool:
-    try:
-        import mcp  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    return find_spec("mcp") is not None
 
 
 def build_mcp_server(gateway: OperatorGateway) -> Any:
@@ -22,7 +19,7 @@ def build_mcp_server(gateway: OperatorGateway) -> Any:
     path as the CLI, SDK, and HTTP API.
     """
     try:
-        from mcp.server.fastmcp import FastMCP
+        FastMCP = import_module("mcp.server.fastmcp").FastMCP
     except ImportError as exc:
         raise RuntimeError(
             "install the optional MCP dependency to serve this interface"

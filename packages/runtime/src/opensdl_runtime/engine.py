@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
 from typing import Any
 
 from opensdl_capabilities import CapabilityRegistry, validate_instance
@@ -130,9 +129,30 @@ class ReferenceRuntime:
                 metadata={"role": "run-record"},
             )
             return completed
-        except BaseException as exc:
-            failed = self.repositories.update_run(run.id, state=RunState.FAILED, error=str(exc))
-            self._emit("RunFailed", run=failed, payload={"error": str(exc), "errorType": type(exc).__name__})
+        except asyncio.CancelledError:
+            run_error = (
+                "workflow execution was cancelled while active; "
+                "physical outcome is unknown"
+            )
+            interrupted = self.repositories.update_run(
+                run.id,
+                state=RunState.INTERVENTION_REQUIRED,
+                error=run_error,
+            )
+            self._emit(
+                "RunInterventionRequired",
+                run=interrupted,
+                payload={"error": run_error, "reason": "execution_cancelled"},
+            )
+            raise
+        except Exception as exc:
+            error = str(exc) or type(exc).__name__
+            failed = self.repositories.update_run(run.id, state=RunState.FAILED, error=error)
+            self._emit(
+                "RunFailed",
+                run=failed,
+                payload={"error": error, "errorType": type(exc).__name__},
+            )
             if isinstance(
                 exc,
                 (
@@ -143,7 +163,7 @@ class ReferenceRuntime:
                 ),
             ):
                 raise
-            raise WorkflowExecutionError(str(exc)) from exc
+            raise WorkflowExecutionError(error) from exc
 
     async def execute_capability(
         self,
@@ -270,8 +290,35 @@ class ReferenceRuntime:
                             },
                         )
                         return result.output
-                    except BaseException as exc:
-                        task.error = str(exc)
+                    except asyncio.CancelledError:
+                        task_error = (
+                            f"execution of {step.capability} was cancelled while active; "
+                            "physical outcome is unknown"
+                        )
+                        task.state = TaskState.INTERVENTION_REQUIRED
+                        task.error = task_error
+                        task.updated_at = utc_now()
+                        self.repositories.upsert_task(task)
+                        self._emit(
+                            "TaskInterventionRequired",
+                            run=run,
+                            task=task,
+                            payload={
+                                "attempt": task.attempt,
+                                "error": task_error,
+                                "reason": "execution_cancelled",
+                            },
+                        )
+                        raise
+                    except Exception as exc:
+                        timed_out = isinstance(exc, TimeoutError)
+                        error = (
+                            f"execution of {step.capability} timed out after "
+                            f"{timeout:g} seconds on attempt {task.attempt}"
+                            if timed_out
+                            else str(exc) or type(exc).__name__
+                        )
+                        task.error = error
                         task.updated_at = utc_now()
                         if attempt >= max_retries:
                             task.state = TaskState.FAILED
@@ -280,8 +327,10 @@ class ReferenceRuntime:
                                 "TaskFailed",
                                 run=run,
                                 task=task,
-                                payload={"attempt": task.attempt, "error": str(exc)},
+                                payload={"attempt": task.attempt, "error": error},
                             )
+                            if timed_out:
+                                raise WorkflowExecutionError(error) from exc
                             raise
                         task.state = TaskState.RETRYING
                         self.repositories.upsert_task(task)
@@ -293,12 +342,39 @@ class ReferenceRuntime:
     def recover_incomplete_runs(self) -> list[RunRecord]:
         recovered: list[RunRecord] = []
         for run in self.repositories.list_runs(states=[RunState.RUNNING, RunState.ABORTING]):
+            run_error = "controller restarted while run was active"
             updated = self.repositories.update_run(
                 run.id,
                 state=RunState.INTERVENTION_REQUIRED,
-                error="controller restarted while run was active",
+                error=run_error,
             )
-            self._emit("RunRecoveryRequired", run=updated)
+            for task in self.repositories.list_tasks(run.id):
+                if task.state not in {TaskState.RUNNING, TaskState.RETRYING}:
+                    continue
+                previous_state = task.state
+                task_error = (
+                    "controller restarted while task was active; "
+                    "physical outcome is unknown"
+                )
+                task.state = TaskState.INTERVENTION_REQUIRED
+                task.error = task_error
+                task.updated_at = utc_now()
+                self.repositories.upsert_task(task)
+                self.repositories.release_leases(task.id)
+                self._emit(
+                    "TaskRecoveryRequired",
+                    run=updated,
+                    task=task,
+                    payload={
+                        "previousState": previous_state.value,
+                        "error": task_error,
+                    },
+                )
+            self._emit(
+                "RunRecoveryRequired",
+                run=updated,
+                payload={"error": run_error},
+            )
             recovered.append(updated)
         return recovered
 

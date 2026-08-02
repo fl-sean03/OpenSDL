@@ -53,7 +53,8 @@ class RepositoryStore(Protocol):
         *,
         run_id: str | None = None,
         campaign_id: str | None = None,
-        limit: int = 500,
+        limit: int | None = 500,
+        newest_first: bool = False,
     ) -> list[EventRecord]: ...
 
     def upsert_resource(self, resource: Resource) -> Resource: ...

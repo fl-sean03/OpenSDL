@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import statistics
-from typing import Any
 
 from opensdl_capabilities import CapabilityAdapter
 from opensdl_core import (

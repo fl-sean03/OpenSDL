@@ -11,7 +11,11 @@ from opensdl_controller import OpenSDLSystem
 async def test_controller_loads_manifest_and_reports_health(tmp_path: Path) -> None:
     source = Path(__file__).parents[2] / "examples" / "simulated-color-mixing"
     target = tmp_path / "lab"
-    shutil.copytree(source, target)
+    shutil.copytree(
+        source,
+        target,
+        ignore=shutil.ignore_patterns(".opensdl", "__pycache__"),
+    )
     system = OpenSDLSystem.from_manifest(target / "opensdl.yaml")
     try:
         await system.start()

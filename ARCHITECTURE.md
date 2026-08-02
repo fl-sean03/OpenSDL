@@ -99,11 +99,14 @@ Each capability declares:
 - JSON input and output schemas;
 - resources and side effects;
 - risk class;
-- timeout, retries, and cancellation support;
+- timeout, retries, and whether cancellation is supported;
 - simulator availability;
 - extension metadata.
 
-The adapter controls transport details. Workflows request semantic capabilities rather than vendor commands.
+The adapter controls transport details. Workflows request semantic capabilities rather than vendor
+commands. The v0.1 runtime records each capability's cancellation declaration. It does not expose an
+end-to-end cancellation or abort workflow. Explicit cancellation and abort receipts remain v0.2
+work. Operational behavior remains deployment-specific.
 
 ## Persistence
 

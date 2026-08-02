@@ -6,9 +6,11 @@ from typing import Iterable
 from sqlalchemy import delete, select
 
 from opensdl_core import (
+    ArtifactKind,
     ArtifactRecord,
     CapabilityDefinition,
     EventRecord,
+    Quantity,
     Resource,
     RunRecord,
     RunState,
@@ -127,14 +129,22 @@ class Repositories:
         *,
         run_id: str | None = None,
         campaign_id: str | None = None,
-        limit: int = 500,
+        limit: int | None = 500,
+        newest_first: bool = False,
     ) -> list[EventRecord]:
         with self.database.session() as session:
-            statement = select(EventRow).order_by(EventRow.occurred_at).limit(limit)
+            ordering = (
+                (EventRow.occurred_at.desc(), EventRow.id.desc())
+                if newest_first
+                else (EventRow.occurred_at.asc(), EventRow.id.asc())
+            )
+            statement = select(EventRow).order_by(*ordering)
             if run_id is not None:
                 statement = statement.where(EventRow.run_id == run_id)
             if campaign_id is not None:
                 statement = statement.where(EventRow.campaign_id == campaign_id)
+            if limit is not None:
+                statement = statement.limit(limit)
             return [self._event_from_row(row) for row in session.scalars(statement)]
 
     def upsert_resource(self, resource: Resource) -> Resource:
@@ -230,11 +240,35 @@ class Repositories:
 
     @staticmethod
     def _run_from_row(row: RunRow) -> RunRecord:
-        return RunRecord(id=row.id, workflow_id=row.workflow_id, workflow_version=row.workflow_version, state=row.state, inputs=row.inputs_json or {}, outputs=row.outputs_json or {}, operator_id=row.operator_id, environment=row.environment, error=row.error, created_at=row.created_at, updated_at=row.updated_at)
+        return RunRecord(
+            id=row.id,
+            workflow_id=row.workflow_id,
+            workflow_version=row.workflow_version,
+            state=RunState(row.state),
+            inputs=row.inputs_json or {},
+            outputs=row.outputs_json or {},
+            operator_id=row.operator_id,
+            environment=row.environment,
+            error=row.error,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
 
     @staticmethod
     def _task_from_row(row: TaskRow) -> TaskRecord:
-        return TaskRecord(id=row.id, run_id=row.run_id, step_id=row.step_id, capability_id=row.capability_id, state=row.state, attempt=row.attempt, inputs=row.inputs_json or {}, outputs=row.outputs_json or {}, error=row.error, created_at=row.created_at, updated_at=row.updated_at)
+        return TaskRecord(
+            id=row.id,
+            run_id=row.run_id,
+            step_id=row.step_id,
+            capability_id=row.capability_id,
+            state=TaskState(row.state),
+            attempt=row.attempt,
+            inputs=row.inputs_json or {},
+            outputs=row.outputs_json or {},
+            error=row.error,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
 
     @staticmethod
     def _event_from_row(row: EventRow) -> EventRecord:
@@ -242,11 +276,31 @@ class Repositories:
 
     @staticmethod
     def _resource_from_row(row: ResourceRow) -> Resource:
-        return Resource(id=row.id, name=row.name, type=row.type, state=row.state, location_id=row.location_id, quantity=row.quantity_json, metadata=row.metadata_json or {})
+        quantity = Quantity.model_validate(row.quantity_json) if row.quantity_json else None
+        return Resource(
+            id=row.id,
+            name=row.name,
+            type=row.type,
+            state=row.state,
+            location_id=row.location_id,
+            quantity=quantity,
+            metadata=row.metadata_json or {},
+        )
 
     @staticmethod
     def _artifact_from_row(row: ArtifactRow) -> ArtifactRecord:
-        return ArtifactRecord(id=row.id, sha256=row.sha256, media_type=row.media_type, size_bytes=row.size_bytes, kind=row.kind, storage_path=row.storage_path, run_id=row.run_id, task_id=row.task_id, metadata=row.metadata_json or {}, created_at=row.created_at)
+        return ArtifactRecord(
+            id=row.id,
+            sha256=row.sha256,
+            media_type=row.media_type,
+            size_bytes=row.size_bytes,
+            kind=ArtifactKind(row.kind),
+            storage_path=row.storage_path,
+            run_id=row.run_id,
+            task_id=row.task_id,
+            metadata=row.metadata_json or {},
+            created_at=row.created_at,
+        )
 
     @staticmethod
     def _aware(value: datetime) -> datetime:

@@ -43,6 +43,10 @@ class ContextPackBuilder:
             for run in self.repositories.list_runs()
             if run.state.value not in terminal_states
         ]
+        recent_events = self.repositories.list_events(
+            limit=event_limit,
+            newest_first=True,
+        )
         return ContextPack(
             generated_at=datetime.now(UTC),
             laboratory=self.manifest.metadata.model_dump(mode="json"),
@@ -59,7 +63,7 @@ class ContextPackBuilder:
             active_runs=[item.model_dump(mode="json") for item in active],
             recent_events=[
                 item.model_dump(mode="json")
-                for item in self.repositories.list_events(limit=event_limit)
+                for item in reversed(recent_events)
             ],
             policy_version=self.policy_version,
         )

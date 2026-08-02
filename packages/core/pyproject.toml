@@ -1,0 +1,17 @@
+[project]
+name = "opensdl-core"
+version = "0.1.0a0"
+description = "Domain-neutral contracts and lifecycle primitives for OpenSDL."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "pydantic>=2.10,<3"
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: If you use OpenSDL, cite the exact release or commit.
+title: OpenSDL
+abstract: An open foundation for building computational and autonomous laboratories.
+type: software
+version: 0.1.0-alpha
+date-released: 2026-08-02
+license: Apache-2.0
+authors:
+  - name: OpenSDL contributors

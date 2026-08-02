@@ -1,0 +1,29 @@
+name: Adapter proposal
+description: Propose an instrument, robot, compute, data, or orchestration adapter
+title: "[adapter] "
+labels: [adapter]
+body:
+  - type: input
+    id: target
+    attributes:
+      label: Target system and version
+    validations:
+      required: true
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Capabilities and transport
+    validations:
+      required: true
+  - type: textarea
+    id: lifecycle
+    attributes:
+      label: Lifecycle, failure, and recovery behavior
+  - type: textarea
+    id: simulation
+    attributes:
+      label: Simulator and conformance plan
+  - type: textarea
+    id: safety
+    attributes:
+      label: Operational boundary

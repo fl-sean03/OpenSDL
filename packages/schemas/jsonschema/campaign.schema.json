@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "objective": {
+      "title": "Objective",
+      "type": "string"
+    },
+    "workflow_id": {
+      "title": "Workflow Id",
+      "type": "string"
+    },
+    "optimizer": {
+      "title": "Optimizer",
+      "type": "string"
+    },
+    "max_iterations": {
+      "default": 10,
+      "exclusiveMinimum": 0,
+      "title": "Max Iterations",
+      "type": "integer"
+    },
+    "base_inputs": {
+      "additionalProperties": true,
+      "title": "Base Inputs",
+      "type": "object"
+    },
+    "score_output": {
+      "default": "score",
+      "title": "Score Output",
+      "type": "string"
+    },
+    "minimize": {
+      "default": true,
+      "title": "Minimize",
+      "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "objective",
+    "workflow_id",
+    "optimizer"
+  ],
+  "title": "CampaignDefinition",
+  "type": "object"
+}

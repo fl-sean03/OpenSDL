@@ -1,0 +1,10 @@
+import pytest
+
+from opensdl_adapter_{{ module }} import {{ class_name }}
+from opensdl_capabilities import run_adapter_conformance
+
+
+@pytest.mark.asyncio
+async def test_conformance() -> None:
+    report = await run_adapter_conformance({{ class_name }}())
+    assert report.passed, report.model_dump()

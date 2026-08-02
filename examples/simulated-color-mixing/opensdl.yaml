@@ -1,0 +1,67 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: Laboratory
+metadata:
+  name: simulated-color-mixing
+  owner: OpenSDL
+  description: Complete simulator-only closed-loop reference laboratory
+  tags: [reference, simulation]
+spec:
+  environment: simulation
+  storage:
+    database:
+      url: sqlite:///./.opensdl/opensdl.db
+    artifacts:
+      root: .opensdl/artifacts
+  runtime:
+    max_concurrency: 4
+    default_timeout_seconds: 30
+    lease_ttl_seconds: 60
+  adapters:
+    - name: simulated-lab
+      plugin: simulated-lab
+      config:
+        seed: 7
+        color_noise: 0
+    - name: local-compute
+      plugin: local-compute
+  capabilities:
+    - capability: sim.mix_color
+      adapter: simulated-lab
+    - capability: sim.measure_color
+      adapter: simulated-lab
+    - capability: sim.measure_mass
+      adapter: simulated-lab
+    - capability: sim.move_labware
+      adapter: simulated-lab
+    - capability: sim.locate_labware
+      adapter: simulated-lab
+    - capability: compute.euclidean_distance
+      adapter: local-compute
+  resources:
+    - id: virtual-mixer
+      name: Virtual mixer
+      type: simulator
+    - id: virtual-colorimeter
+      name: Virtual colorimeter
+      type: simulator
+    - id: virtual-balance
+      name: Virtual balance
+      type: simulator
+    - id: virtual-robot
+      name: Virtual robot
+      type: simulator
+  policy:
+    default_effect: deny
+    version: example/v1
+    rules:
+      - id: allow-simulation
+        effect: allow
+        capability: "*"
+        environments: [simulation]
+        operators: ["*"]
+        risk_classes: [R0, R1]
+        reason: Simulator-only reference profile
+        priority: 10
+  domain_packs:
+    - name: materials
+      plugin: materials

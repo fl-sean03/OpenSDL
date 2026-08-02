@@ -1,0 +1,1595 @@
+{
+  "components": [
+    {
+      "description": "Deterministic grid optimizer for reference campaigns.",
+      "name": "opensdl-adapter-grid-optimizer",
+      "path": "adapters/grid-optimizer",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Structured human-attestation capabilities for assisted laboratory workflows.",
+      "name": "opensdl-adapter-human-task",
+      "path": "adapters/human-task",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Safe in-process numerical analysis capabilities.",
+      "name": "opensdl-adapter-local-compute",
+      "path": "adapters/local-compute",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Deterministic virtual balance, mixer, and colorimeter adapter.",
+      "name": "opensdl-adapter-simulated-lab",
+      "path": "adapters/simulated-lab",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "HTTP API for laboratory context, capabilities, runs, resources, and events.",
+      "name": "opensdl-api",
+      "path": "apps/api",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Composition root for an OpenSDL laboratory process.",
+      "name": "opensdl-controller",
+      "path": "apps/controller",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Chemistry domain models and extension schemas.",
+      "name": "opensdl-domain-chemistry",
+      "path": "domain-packs/chemistry",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Materials science domain models and extension schemas.",
+      "name": "opensdl-domain-materials",
+      "path": "domain-packs/materials",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Physics domain models and extension schemas.",
+      "name": "opensdl-domain-physics",
+      "path": "domain-packs/physics",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Capability adapters, registries, plugin discovery, and conformance.",
+      "name": "opensdl-capabilities",
+      "path": "packages/capabilities",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Command-line interface and project generators.",
+      "name": "opensdl-cli",
+      "path": "packages/cli",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Domain-neutral contracts and lifecycle primitives for OpenSDL.",
+      "name": "opensdl-core",
+      "path": "packages/core",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Context packs and typed interfaces for human and software operators.",
+      "name": "opensdl-operators",
+      "path": "packages/operators",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Scoped execution policy and authority decisions.",
+      "name": "opensdl-policy",
+      "path": "packages/policy",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Research provenance, portable run export, and repository propagation graphs.",
+      "name": "opensdl-provenance",
+      "path": "packages/provenance",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Reference workflow and campaign execution runtime.",
+      "name": "opensdl-runtime",
+      "path": "packages/runtime",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Versioned manifests, schema generation, and validation.",
+      "name": "opensdl-schemas",
+      "path": "packages/schemas",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Public Python SDK and HTTP client.",
+      "name": "opensdl-sdk",
+      "path": "packages/sdk",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Deterministic simulation, fault injection, and replay primitives.",
+      "name": "opensdl-simulation",
+      "path": "packages/simulation",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Relational metadata, event, lease, and content-addressed artifact storage.",
+      "name": "opensdl-storage",
+      "path": "packages/storage",
+      "version": "0.1.0a0"
+    },
+    {
+      "description": "Workflow loading, validation, graph compilation, and value resolution.",
+      "name": "opensdl-workflows",
+      "path": "packages/workflows",
+      "version": "0.1.0a0"
+    }
+  ],
+  "files": [
+    {
+      "path": ".agents/README.md",
+      "sha256": "65cbc1783414dc2d4ecbad09952398f1ddc6f86b61f4585fa40a7ba3c0621602",
+      "sizeBytes": 247
+    },
+    {
+      "path": ".agents/skills/add-adapter/SKILL.md",
+      "sha256": "3d41682a562501b4ebff40378db8e21dad13cf758721f80308ce3f03995932d5",
+      "sizeBytes": 674
+    },
+    {
+      "path": ".agents/skills/add-adapter/run.sh",
+      "sha256": "39af8f1ac631662eafbeaa80687e9e6cbea7662d296e971eb5493cd6ff15523f",
+      "sizeBytes": 202
+    },
+    {
+      "path": ".agents/skills/add-capability/SKILL.md",
+      "sha256": "d4eb740ff2f3d4c417ef022779c44ce36f26464243fbfaa054fad18aed0c5cb5",
+      "sizeBytes": 343
+    },
+    {
+      "path": ".agents/skills/add-capability/run.sh",
+      "sha256": "20816c21900039756f3642bafdb6e7fdb820d75660ce7bf71b616fc125c47069",
+      "sizeBytes": 184
+    },
+    {
+      "path": ".agents/skills/add-domain-pack/SKILL.md",
+      "sha256": "10eb363829268e9a883ce194acf5c7f02a777978b18867f9e09b2b5a900f5c55",
+      "sizeBytes": 500
+    },
+    {
+      "path": ".agents/skills/add-domain-pack/run.sh",
+      "sha256": "da6bada23ce654faf0c8baa87c9a081e3f2335a5636c4609640e9d148e952ef3",
+      "sizeBytes": 186
+    },
+    {
+      "path": ".agents/skills/create-lab/SKILL.md",
+      "sha256": "73001cfd6df1969e7c3eb6065a8810ea8f7865109ad1fc3f7bfcf90c08e580bf",
+      "sizeBytes": 431
+    },
+    {
+      "path": ".agents/skills/create-lab/run.sh",
+      "sha256": "6eff46aadc8c54fc99377b1ff3b83d881a38514c9709cb74b815b27ccb463a25",
+      "sizeBytes": 191
+    },
+    {
+      "path": ".agents/skills/debug-run/SKILL.md",
+      "sha256": "542b1b27d751e859072b0207b70f282be4e7d2494cbbe92874e7af4071fe2ffe",
+      "sizeBytes": 435
+    },
+    {
+      "path": ".agents/skills/debug-run/run.sh",
+      "sha256": "986586dc4ef8f5ecdbf972aeb4fe1a3030fa9105a4873a3906f4fc36f80b12fe",
+      "sizeBytes": 151
+    },
+    {
+      "path": ".agents/skills/release/SKILL.md",
+      "sha256": "aeaaeb5b4b87ced5a8ef9eaecd75e72a6a99072de975db4dc3a769ffe097bd92",
+      "sizeBytes": 425
+    },
+    {
+      "path": ".agents/skills/release/run.sh",
+      "sha256": "2e0c56785535aa6d317e37674e3f3afcbcc3d6c74ac3072099d29c14122b2079",
+      "sizeBytes": 136
+    },
+    {
+      "path": ".env.example",
+      "sha256": "8839a69ae0aafd664dbca6806e2c2353cedb7d9b6504445e7a6a5d0bea845ea0",
+      "sizeBytes": 187
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "sha256": "d876ed90edcf3453daea1f4e8d4f9793424873ad4a40d5998588371d6d3956b3",
+      "sizeBytes": 77
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/adapter_proposal.yml",
+      "sha256": "8216852c3630e9877101f13ab711d74042157e11d218ab1c8717f789e55ba453",
+      "sizeBytes": 698
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "sha256": "399e8ff8b9a79fb29306d949d93667d65ee172c8f5b93ae12a72efa5ea6f0d39",
+      "sizeBytes": 865
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "sha256": "650d9ee77a6368894d59dc9e1fd3872c85d5d3896c135d2965ff7261f172693c",
+      "sizeBytes": 370
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "sha256": "066e6fd8874d6309e6dc675c62f9c4b3fb0cab2b1ff29e2f3b9db5d4d8d79d06",
+      "sizeBytes": 251
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "1fbddbde3e1be8b7329cc95ba8aefd37f044b273c46ca189ffc931e8aa50c04e",
+      "sizeBytes": 969
+    },
+    {
+      "path": ".github/workflows/conformance.yml",
+      "sha256": "9c5cd59a1106dcbdd190e67fe6ef08e394b01c9ff70e42413b935da1209dc1d4",
+      "sizeBytes": 593
+    },
+    {
+      "path": ".github/workflows/docs.yml",
+      "sha256": "cbc6d3f33a8a03f15a00b686ce7b67440258a80ecbb61c19c90aa9e4c6c9c280",
+      "sizeBytes": 446
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "6a75602a0d97df8dc19fd88b7c279012bbdae5a16a05ddcfd2eb9bd3ca9d11b3",
+      "sizeBytes": 749
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "9a4dc1c55707f4633d1484414f1a428ff4623377ab19e260e3ebe351192cd4fc",
+      "sizeBytes": 143
+    },
+    {
+      "path": ".python-version",
+      "sha256": "7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d",
+      "sizeBytes": 5
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "3d59d719708513af02c4b12c3a4e817181f92b7673884cc59fc57bf537ee7aec",
+      "sizeBytes": 1230
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "sha256": "610198af7200cdae683081a9f1ee004bc93393a90b84de69c7e7cb45d1067960",
+      "sizeBytes": 5374
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "8b425eaf84558079dc96005a4fef50422961583e16d88a05414c16eeb0cc6281",
+      "sizeBytes": 1424
+    },
+    {
+      "path": "CITATION.cff",
+      "sha256": "1d111cf838868b1ff4402a03fc90e95a26a88e11d45e6e6ce5a8a6bb7d285dd9",
+      "sizeBytes": 304
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "sha256": "5775ae7af673dba695d0d73994835c460eeea37383cd36050368e2e38390c73a",
+      "sizeBytes": 534
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "5c4e356669288a1519626eaa8780c22c2c03ec756c5e8ca2ad55630b59850bae",
+      "sizeBytes": 1898
+    },
+    {
+      "path": "DEVELOPMENT.md",
+      "sha256": "0a3c7596de35a828c06f60a90377f79f4b77ea41d7ec486b868b3d748e2fca7e",
+      "sizeBytes": 4945
+    },
+    {
+      "path": "Dockerfile",
+      "sha256": "1d2e9d3cb4177bf6eb050b8f021e33fe8507a0562e4857d1c57b1741941e70ef",
+      "sizeBytes": 528
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "sha256": "91b6ff2a13e11da051799088e633236d1aa63d537dbeda13e1d4005d628e4baf",
+      "sizeBytes": 1350
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "sizeBytes": 11358
+    },
+    {
+      "path": "Makefile",
+      "sha256": "6b14c2e8c1f50585d3d71e7cac344df9fed2401ddd0cf49b29c209c350827b0d",
+      "sizeBytes": 976
+    },
+    {
+      "path": "NOTICE",
+      "sha256": "43ca045deca4d41104e0ddfdf871f29c6337d60e6e7c17136cfca4af6ddcbef1",
+      "sizeBytes": 223
+    },
+    {
+      "path": "PACKAGE_MANIFEST.md",
+      "sha256": "2851b10d04e400f544cfdf42e6176ccec519461a887b2d89725061923ee45873",
+      "sizeBytes": 3198
+    },
+    {
+      "path": "README.md",
+      "sha256": "055f3ccbfac73f076a5b98bfdb785deda60b2f5d4db7104f04be33ef6772e29c",
+      "sizeBytes": 9186
+    },
+    {
+      "path": "REPO_TREE.txt",
+      "sha256": "7ebc674d0e3922cc62d310ac991cf1d80a12fa701767837efd1decd43e9b4300",
+      "sizeBytes": 16642
+    },
+    {
+      "path": "ROADMAP.md",
+      "sha256": "fd7b0a3813c2570d5ea49208785df23c1a864068d21b49ab63137f492a0cdc22",
+      "sizeBytes": 2757
+    },
+    {
+      "path": "SAFETY.md",
+      "sha256": "2d5923948630b3f72ea221e05cb2f170f09e0fece36d930b2d75430c469e4342",
+      "sizeBytes": 2195
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "f21468e0aa0c1f649ae639af22b8e5638462dcff6c8a12c0af4274a497cef5b1",
+      "sizeBytes": 1817
+    },
+    {
+      "path": "VALIDATION.md",
+      "sha256": "35fcd9266f9fb3e65f47b7da92e4adf699affe6ad8be2b9bb5b9f720b4ed7542",
+      "sizeBytes": 4266
+    },
+    {
+      "path": "adapters/AGENTS.md",
+      "sha256": "a791195740137480eb133f2221561295c857983b06eb2603b4c40558d45b9150",
+      "sizeBytes": 312
+    },
+    {
+      "path": "adapters/grid-optimizer/README.md",
+      "sha256": "087ad45057b4b72b04982f65d6c3476e0f6768049b50af1e032259e98f8bf6cf",
+      "sizeBytes": 88
+    },
+    {
+      "path": "adapters/grid-optimizer/pyproject.toml",
+      "sha256": "d04bd53f28aa636eb3ec79c1eb5b0ded159a9b1a2dc4389da7582dff20b3e8cf",
+      "sizeBytes": 494
+    },
+    {
+      "path": "adapters/grid-optimizer/src/opensdl_adapter_grid_optimizer/__init__.py",
+      "sha256": "a75be8609edd06834c1b1037776a76f86cf3fde441e1c03b9f739cbbf510ab58",
+      "sizeBytes": 66
+    },
+    {
+      "path": "adapters/grid-optimizer/src/opensdl_adapter_grid_optimizer/optimizer.py",
+      "sha256": "93e1d8486ce9698680cf3a43eeb202ac6dab66a70738bf6f9a0819af1935bda9",
+      "sizeBytes": 1060
+    },
+    {
+      "path": "adapters/grid-optimizer/tests/test_optimizer.py",
+      "sha256": "a7dfe01a0ef6ac35ad47f061c95542a10ce61e959abfa850620dced3be707809",
+      "sizeBytes": 218
+    },
+    {
+      "path": "adapters/human-task/README.md",
+      "sha256": "09a48b43de4efd9b4b6dfa714c9da6e123d2dba5c796be85dfc83803b0551cab",
+      "sizeBytes": 514
+    },
+    {
+      "path": "adapters/human-task/pyproject.toml",
+      "sha256": "925506ea879704454be20bd69add776c745011a5d6982c8f09f24f068ba3c345",
+      "sizeBytes": 537
+    },
+    {
+      "path": "adapters/human-task/src/opensdl_adapter_human_task/__init__.py",
+      "sha256": "4c4575e57b9b687cc643874a7439f07cf5a4c0f1fa6f6aeabfb3576d3254b73b",
+      "sizeBytes": 70
+    },
+    {
+      "path": "adapters/human-task/src/opensdl_adapter_human_task/adapter.py",
+      "sha256": "0ba682fbdba3221f7b705a202f1b2d213f7c091cc3e582c9c278437daa6cfa8f",
+      "sizeBytes": 4206
+    },
+    {
+      "path": "adapters/human-task/tests/test_adapter.py",
+      "sha256": "cdba69b3376ebc85bd1d93a7e620172d2ac1af913d237c26da26fed4c8bb18b7",
+      "sizeBytes": 317
+    },
+    {
+      "path": "adapters/local-compute/README.md",
+      "sha256": "38718264925fa6d5cad82683d7786b453a2177d2db945f0130e0a01f15b93af0",
+      "sizeBytes": 82
+    },
+    {
+      "path": "adapters/local-compute/pyproject.toml",
+      "sha256": "c2f8ad29a4aecd2a488859fcdf99d85cd9092f876d6cb005c9ff59dafa0df4ed",
+      "sizeBytes": 521
+    },
+    {
+      "path": "adapters/local-compute/src/opensdl_adapter_local_compute/__init__.py",
+      "sha256": "1569e06908ae529d68628fbe7891586eba2bf26e77c7b5c10e50b2da5c975598",
+      "sizeBytes": 76
+    },
+    {
+      "path": "adapters/local-compute/src/opensdl_adapter_local_compute/adapter.py",
+      "sha256": "ca6f8f307a7cde3767ea711615e0990ad2acb0d851934a943256781491b96508",
+      "sizeBytes": 5404
+    },
+    {
+      "path": "adapters/local-compute/tests/test_adapter.py",
+      "sha256": "f7a5ae84d44b2db4ee7ce087b86dad519a4e843ecf46ee5bfb16b2f9cec03cdb",
+      "sizeBytes": 359
+    },
+    {
+      "path": "adapters/simulated-lab/README.md",
+      "sha256": "c98be58e110528ce79b96cb346d0ee3af34c250c5d8520276ed2ba41467a8b8f",
+      "sizeBytes": 115
+    },
+    {
+      "path": "adapters/simulated-lab/pyproject.toml",
+      "sha256": "230d4fcd090d3c5b50c82369804fa3ccdc1df1b89c98bf6da84e5a297cb384f0",
+      "sizeBytes": 559
+    },
+    {
+      "path": "adapters/simulated-lab/src/opensdl_adapter_simulated_lab/__init__.py",
+      "sha256": "3ffe635c8ac3b251ce0c9cc03a9e1ff0003ba030acc147f38324f967bd008880",
+      "sizeBytes": 76
+    },
+    {
+      "path": "adapters/simulated-lab/src/opensdl_adapter_simulated_lab/adapter.py",
+      "sha256": "8ca709fd3a70df3cbb7475fca25edcc4fd3a10e38d1c6ab537e183442c1c1f5b",
+      "sizeBytes": 12853
+    },
+    {
+      "path": "adapters/simulated-lab/tests/test_adapter.py",
+      "sha256": "311402198a6679251482a96bb38d361848d844cafddf0bf7f093c5c6728005c7",
+      "sizeBytes": 795
+    },
+    {
+      "path": "apps/api/AGENTS.md",
+      "sha256": "aae30631072131a048c750995670d41a145e9bdd535801711d42e9208f02ab98",
+      "sizeBytes": 247
+    },
+    {
+      "path": "apps/api/README.md",
+      "sha256": "77dcc6bfc66b2992e96b6e452d74abed6c40a0d4fa6877c7fac4d8df8b4fda23",
+      "sizeBytes": 91
+    },
+    {
+      "path": "apps/api/pyproject.toml",
+      "sha256": "0130710bc19b913f3108b332e34f0c367331e8e8a12b6526af3d522c64fadfec",
+      "sizeBytes": 516
+    },
+    {
+      "path": "apps/api/src/opensdl_api/__init__.py",
+      "sha256": "5abaf4212df43f25dcd2e0cef8da2b25a97b6756bdfe28f38f172d64f7c22a3e",
+      "sizeBytes": 54
+    },
+    {
+      "path": "apps/api/src/opensdl_api/app.py",
+      "sha256": "abc4298cfc5b02d7cdd41706d5cd87dd84d3f097485f98e642c7ae89a3f41830",
+      "sizeBytes": 3982
+    },
+    {
+      "path": "apps/api/src/opensdl_api/main.py",
+      "sha256": "2bb2ccb2d087248f822b0f19df51af6314d2f1b1e159f0e8c4ae18b06a473c14",
+      "sizeBytes": 363
+    },
+    {
+      "path": "apps/controller/README.md",
+      "sha256": "7ba338afe55926b77632817b83ab5071a8cdbcccb05055fccba13df764e7aac9",
+      "sizeBytes": 74
+    },
+    {
+      "path": "apps/controller/pyproject.toml",
+      "sha256": "b818a2f20d280df4925f40193c03ccee5313ca3f6d39b7fde8f1fcb611abe776",
+      "sizeBytes": 618
+    },
+    {
+      "path": "apps/controller/src/opensdl_controller/__init__.py",
+      "sha256": "bf50e55aa1916bf40f65d54279d16f001dc59b426d4ca4a65ad27d5279f135b5",
+      "sizeBytes": 63
+    },
+    {
+      "path": "apps/controller/src/opensdl_controller/main.py",
+      "sha256": "1a09ec7d212c002aa8705211a8e778ccf588ad32ef9c3101dc3f641d695d9344",
+      "sizeBytes": 943
+    },
+    {
+      "path": "apps/controller/src/opensdl_controller/system.py",
+      "sha256": "3b163b4a9a79d3d0df65ab0f786b0dfccc575d738875a815ec082012641a8472",
+      "sizeBytes": 8132
+    },
+    {
+      "path": "compose.yaml",
+      "sha256": "be078a6e147aec677c5b0b261afd3c251eb754df31ae2b27f614454ac61d1eea",
+      "sizeBytes": 780
+    },
+    {
+      "path": "database/README.md",
+      "sha256": "d23a71f2314ca1701e16314cd55b7188d716a53239f175a52b46d2b4c496c60d",
+      "sizeBytes": 426
+    },
+    {
+      "path": "database/alembic.ini",
+      "sha256": "4aaf9e1e9aff00c15a17a8b8273cdb79f7d216c3ff025853352e826969af842b",
+      "sizeBytes": 633
+    },
+    {
+      "path": "database/env.py",
+      "sha256": "a8d02bb9dcb1d5390e2ce76144b75df3574630d8eca7d6fd7750aa5d504d6ed5",
+      "sizeBytes": 1182
+    },
+    {
+      "path": "database/script.py.mako",
+      "sha256": "738f520224ab075d073f7db6ba62d661267f2b032d1274efb64769c66b8d15fc",
+      "sizeBytes": 589
+    },
+    {
+      "path": "database/versions/0001_initial.py",
+      "sha256": "f4946c6147918ef8523e86b6646f1318034ba7052ffc6830d2d6bbd2d34e7923",
+      "sizeBytes": 4153
+    },
+    {
+      "path": "deployments/devcontainer/devcontainer.json",
+      "sha256": "e79d50d7d7073bcb502e0134b912e899f3f7af3d5cd88072b2814c0e9a0ec5e9",
+      "sizeBytes": 405
+    },
+    {
+      "path": "deployments/local/README.md",
+      "sha256": "fb7d5e0b2159c0c6f990a6d461e8f2d6641181dde7bae6e6683303d96eb9fc8c",
+      "sizeBytes": 177
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "sha256": "aa137f214d0d635c459e32bd0612a310b957ec5b99649ae126e999a061e3816b",
+      "sizeBytes": 542
+    },
+    {
+      "path": "docs/architecture/packages.md",
+      "sha256": "589c76ed7746c86d77f2dcfa694ac8867fc683b0c7e34750934aa7a00305ad2f",
+      "sizeBytes": 749
+    },
+    {
+      "path": "docs/concepts/capabilities.md",
+      "sha256": "4062575c928e95dbc51ef479d79c17f55894b28efb4572cb60b7a8d70049c72e",
+      "sizeBytes": 809
+    },
+    {
+      "path": "docs/concepts/manifests.md",
+      "sha256": "332d5063d75add79131cbe59ef24353ff3106acf94b3f13a029c5c786c035eb0",
+      "sizeBytes": 526
+    },
+    {
+      "path": "docs/concepts/operators.md",
+      "sha256": "3417d713d49b5092ca24a2305ddc3bd4148c1b0f5c729f0a8e2039f95b4f5795",
+      "sizeBytes": 661
+    },
+    {
+      "path": "docs/concepts/propagation.md",
+      "sha256": "08154806c537defc91d16b7feaf222e2d26483803ddac693187de28966643bc6",
+      "sizeBytes": 573
+    },
+    {
+      "path": "docs/concepts/storage-and-provenance.md",
+      "sha256": "3c01bcedc10a9d15e265bcb0fc1af261ec3fe16d702150d566ca193995bb2cc5",
+      "sizeBytes": 465
+    },
+    {
+      "path": "docs/concepts/workflows.md",
+      "sha256": "00311fb54518545af60d75d837735b34f5b3f7b10f7b84166981aa784b2cc905",
+      "sizeBytes": 656
+    },
+    {
+      "path": "docs/development/testing.md",
+      "sha256": "6225189ee146d299a3a059c87753dfdd111986a130b1865f75f87a1c89e365aa",
+      "sizeBytes": 393
+    },
+    {
+      "path": "docs/development/validation.md",
+      "sha256": "507cc7b3978b4896ef3095a4dd366fda8bec97b2e0f735083411bbb2af2dec98",
+      "sizeBytes": 667
+    },
+    {
+      "path": "docs/getting-started/quickstart.md",
+      "sha256": "c0c93ba147a05a954525b560cd06d7fb2ec768ca43d5adbc2d6c4aad25ab06b8",
+      "sizeBytes": 625
+    },
+    {
+      "path": "docs/guides/add-adapter.md",
+      "sha256": "f9d04ec1ed6d79a0ded9d36aa0b6910bd3c757d00f335a3b5edf9852989ee831",
+      "sizeBytes": 439
+    },
+    {
+      "path": "docs/guides/closed-loop-campaign.md",
+      "sha256": "e5dca69ff265fbd66c0e3cf6a287c6789f45231aa176fb5b6a5343c5f7e7fc7a",
+      "sizeBytes": 391
+    },
+    {
+      "path": "docs/guides/create-lab.md",
+      "sha256": "555bb43cfcd4abd95523758c14915af377ae6330bee89e41abce3cb6add58eaf",
+      "sizeBytes": 350
+    },
+    {
+      "path": "docs/index.md",
+      "sha256": "0744c582ff71325a5554b894a8ea4fcbe60a590059f80dcbdc1c0b30f377ec46",
+      "sizeBytes": 885
+    },
+    {
+      "path": "docs/reference/api.md",
+      "sha256": "5153a65fd12fdf39c53aa570dba8e0635457a9a1a7b6b5598c79b3b4f13d8f51",
+      "sizeBytes": 296
+    },
+    {
+      "path": "docs/reference/cli.md",
+      "sha256": "e779e27248370f5d83e9ef221570647525c246b8bb4b9c96d463b3f1719bf0d4",
+      "sizeBytes": 545
+    },
+    {
+      "path": "docs/reference/configuration.md",
+      "sha256": "6f90d4c44c4ce4d594493e0f1178098ce545c345b50385480646c8ea0550cb70",
+      "sizeBytes": 713
+    },
+    {
+      "path": "docs/research/ecosystem.md",
+      "sha256": "c6f142ba10490650e6ff05e0c8ca0de165c539db09bcb043e0186889717cad56",
+      "sizeBytes": 1591
+    },
+    {
+      "path": "domain-packs/chemistry/README.md",
+      "sha256": "126a8d87d0efb3edc69dea68ed91a5d83f3beb3c0b1bb892726eb626998d9187",
+      "sizeBytes": 75
+    },
+    {
+      "path": "domain-packs/chemistry/pyproject.toml",
+      "sha256": "66a9e7ed070b0f550d7ad52ac18bfda678227bb0a6d4a3184ac12a1749f31d0a",
+      "sizeBytes": 469
+    },
+    {
+      "path": "domain-packs/chemistry/src/opensdl_domain_chemistry/__init__.py",
+      "sha256": "1ca6f56b89cb3dc5cb7ff8b37c448c8b74403ed0d0d48280852a4422c9305b7b",
+      "sizeBytes": 135
+    },
+    {
+      "path": "domain-packs/chemistry/src/opensdl_domain_chemistry/models.py",
+      "sha256": "b719f52f0ffe263aeb68212793796c251c433dad7f62c37ab121e28583368389",
+      "sizeBytes": 584
+    },
+    {
+      "path": "domain-packs/chemistry/src/opensdl_domain_chemistry/pack.py",
+      "sha256": "4131536f89bdab14784f62d4beab5cc5843ec59d9d76d8a47a5a84616beb3c7b",
+      "sizeBytes": 249
+    },
+    {
+      "path": "domain-packs/chemistry/tests/test_pack.py",
+      "sha256": "cc5bfe3138d2aa686e0969d87bc41c2ab339a8092988b9dc19890c9dc1b34c09",
+      "sizeBytes": 138
+    },
+    {
+      "path": "domain-packs/materials/README.md",
+      "sha256": "be009b1cf14df400bfc1d0524b3d20c6098dea447970e925350fca5c387cbc8c",
+      "sizeBytes": 83
+    },
+    {
+      "path": "domain-packs/materials/pyproject.toml",
+      "sha256": "aed5808172db9b97863c99174df9430130797638687ae7b7640afa0ade78313d",
+      "sizeBytes": 477
+    },
+    {
+      "path": "domain-packs/materials/src/opensdl_domain_materials/__init__.py",
+      "sha256": "34867b15687048c86a62d6eabf20049be854e7b81a2a7406b411b3fca999214b",
+      "sizeBytes": 191
+    },
+    {
+      "path": "domain-packs/materials/src/opensdl_domain_materials/models.py",
+      "sha256": "9c033060d835c35a6f71f176dd3ad828afe113d13d259a780ec84491afa58857",
+      "sizeBytes": 714
+    },
+    {
+      "path": "domain-packs/materials/src/opensdl_domain_materials/pack.py",
+      "sha256": "22c3d3b777bd53c227700284a93dc2034bd40209cbe68f6b9373f36c791e988b",
+      "sizeBytes": 331
+    },
+    {
+      "path": "domain-packs/materials/tests/test_pack.py",
+      "sha256": "406619774cfd3c80f08948818b84e4c52d361bfe0b2fc117aebf5a109885baad",
+      "sizeBytes": 221
+    },
+    {
+      "path": "domain-packs/physics/README.md",
+      "sha256": "34a9a4fd6e4396ff2d48b26841a8d21eb90f99fecac4493b34ad2097083fc396",
+      "sizeBytes": 71
+    },
+    {
+      "path": "domain-packs/physics/pyproject.toml",
+      "sha256": "4d98db033a1bec37b5e34bd483f68089105c8a42fd09f6d85d6130907339574d",
+      "sizeBytes": 461
+    },
+    {
+      "path": "domain-packs/physics/src/opensdl_domain_physics/__init__.py",
+      "sha256": "0767aa0e9aca0d8e88bafb2f531e6a387b0e4c0b6691c6a698400b45e2b68139",
+      "sizeBytes": 125
+    },
+    {
+      "path": "domain-packs/physics/src/opensdl_domain_physics/models.py",
+      "sha256": "e82758c440eeb39d435d7ee34d6e6d3244d39713203a0ad6ab03b1d6c62b9852",
+      "sizeBytes": 552
+    },
+    {
+      "path": "domain-packs/physics/src/opensdl_domain_physics/pack.py",
+      "sha256": "3e0036afc82f38db4469180118e2fa290c930b472a281fe16355791a2e52c569",
+      "sizeBytes": 232
+    },
+    {
+      "path": "domain-packs/physics/tests/test_pack.py",
+      "sha256": "5011bb0fc50607c40609971d9cc12011db84c13e91511159efe67b4b11109960",
+      "sizeBytes": 140
+    },
+    {
+      "path": "examples/AGENTS.md",
+      "sha256": "cf7b821091d499ee05dc1a4122dd4f990cf1376d6cdff13e576a6614840216e8",
+      "sizeBytes": 248
+    },
+    {
+      "path": "examples/computation-only/README.md",
+      "sha256": "79e1d7caaffac305ab8b98ada76d067e5b903b4c98ee1b5d5bae30e008114d5a",
+      "sizeBytes": 198
+    },
+    {
+      "path": "examples/computation-only/opensdl.yaml",
+      "sha256": "fb3aeafae87599770afef47d3292dd2c2c48ba1471107a250f066e7c8beed6a6",
+      "sizeBytes": 350
+    },
+    {
+      "path": "examples/computation-only/workflow.yaml",
+      "sha256": "207a88f0fd63c9277e6f2fc82ff52e51c794282bbd2d947c4fd06c8e4a14c204",
+      "sizeBytes": 269
+    },
+    {
+      "path": "examples/simulated-color-mixing/README.md",
+      "sha256": "a6078eadc16f259f5da394ad94f41106581d1a422c2ab9bfa94e19df4730d89a",
+      "sizeBytes": 402
+    },
+    {
+      "path": "examples/simulated-color-mixing/opensdl.yaml",
+      "sha256": "21c359cd09d0067b19b17be1e52516da2e0b376d25e436733d8be51ab74c32c7",
+      "sizeBytes": 1718
+    },
+    {
+      "path": "examples/simulated-color-mixing/run_campaign.py",
+      "sha256": "d0c3bacaed1695c6250f7b9c2b50fb4357994493555cfd299e5deafa68fb9fa6",
+      "sizeBytes": 1522
+    },
+    {
+      "path": "examples/simulated-color-mixing/workflow.yaml",
+      "sha256": "8b5bd769d66ab786d2cd8fb1fbe132fd1468eff93915d15e4a2e75500f663637",
+      "sizeBytes": 981
+    },
+    {
+      "path": "mkdocs.yml",
+      "sha256": "aaf7f58a4d788cd91b28fe2188b8fa6b6ea85210ef3837c814aed1f25f25909f",
+      "sizeBytes": 1553
+    },
+    {
+      "path": "packages/capabilities/README.md",
+      "sha256": "6930aad318605df57d374dbd1e6c9cd272ec0f9518678e9ce344b8058fd625dd",
+      "sizeBytes": 92
+    },
+    {
+      "path": "packages/capabilities/pyproject.toml",
+      "sha256": "667e4fbda5d2c71c82532e430fa48127c3ffff2900ffb74bf3d6ca1b3b856037",
+      "sizeBytes": 408
+    },
+    {
+      "path": "packages/capabilities/src/opensdl_capabilities/__init__.py",
+      "sha256": "b77fab9d4655a4fc928485b57634188f74af43ce6164f51d49abdfdf4993edcb",
+      "sizeBytes": 433
+    },
+    {
+      "path": "packages/capabilities/src/opensdl_capabilities/adapter.py",
+      "sha256": "4778a549f10f1c0e41a750cc3e6693643268d14b66c4db7834ed40d5f4746688",
+      "sizeBytes": 1041
+    },
+    {
+      "path": "packages/capabilities/src/opensdl_capabilities/conformance.py",
+      "sha256": "a981dff38ccdf411d6834392e8624c0a475f88f61dbac4903fe1832351338036",
+      "sizeBytes": 3670
+    },
+    {
+      "path": "packages/capabilities/src/opensdl_capabilities/plugins.py",
+      "sha256": "1a96950ad1e57d3dfc8f09ebe428ca2078115fe54c44b1c89683cc3dd135d32d",
+      "sizeBytes": 3308
+    },
+    {
+      "path": "packages/capabilities/src/opensdl_capabilities/registry.py",
+      "sha256": "a96e8ae84e95acac3a473d6050653456acf09a621d59317ac819b0d347b4f9a3",
+      "sizeBytes": 2858
+    },
+    {
+      "path": "packages/capabilities/src/opensdl_capabilities/validation.py",
+      "sha256": "57363a528314106a40802f1d35cea75e1c3f7934fdfbb6c4e11f166dbab45c2f",
+      "sizeBytes": 1093
+    },
+    {
+      "path": "packages/capabilities/tests/test_registry.py",
+      "sha256": "03c20dc711412a4c0bd148ff6c52c17ef8e98af04a55deff1962680783c3c3f2",
+      "sizeBytes": 2009
+    },
+    {
+      "path": "packages/cli/README.md",
+      "sha256": "ce8b4e115fff77083e2e0efc38d06d6e15c46687de29f66cfb11d8769be13805",
+      "sizeBytes": 62
+    },
+    {
+      "path": "packages/cli/pyproject.toml",
+      "sha256": "c0ce40b004b15fe5259ae8157aecacac1cdaa5b0f8be7ce042aa31fcf36b16b1",
+      "sizeBytes": 715
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/__init__.py",
+      "sha256": "35cd9ce29664f7c05d667f9db4aebe4e070b6d1d854c5ab54505c555acb3f751",
+      "sizeBytes": 61
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/__main__.py",
+      "sha256": "e87b363d5ec461ce5389de20e0eb5c2d786a54788d6131b34817683a75b61d70",
+      "sizeBytes": 29
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/main.py",
+      "sha256": "6f0ad62be7a4d920dbde06c3d9f45004c6f8cadc9d061dd3459680d0c786417e",
+      "sizeBytes": 8380
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/scaffold.py",
+      "sha256": "fc05e8b695e10904ab86ad89ea82257f8d89f08cd2f18af222abd74d69b34540",
+      "sizeBytes": 4072
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/.gitignore.j2",
+      "sha256": "a1f1705694c9608d6a3e226f71ceb611ccfdbf54d78c60178b91cdb138573685",
+      "sizeBytes": 60
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/AGENTS.md.j2",
+      "sha256": "4890a199db42dcbb2a47bc721acbe10d022e83d6b03538ba758a4a3d00d77187",
+      "sizeBytes": 182
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/README.md.j2",
+      "sha256": "a0457eb5563f6fcf7b0734c826611e2f7519620a22a4e4b455a1bb924b3f916f",
+      "sizeBytes": 253
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/pyproject.toml.j2",
+      "sha256": "675076f48dd0a0facaebc39a701b90da5bb58e0e451a8b2c5dfd158d43bca9ca",
+      "sizeBytes": 533
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/src/opensdl_adapter_{{ module }}/__init__.py.j2",
+      "sha256": "92291f975e6d695d8f2e3122903009e6d8af461f85e678d2c9ca14647391259d",
+      "sizeBytes": 70
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/src/opensdl_adapter_{{ module }}/adapter.py.j2",
+      "sha256": "d55d78eb740629ac294e45cecc6bbcbe2a0d5254aa4058e199f2365e772ac32c",
+      "sizeBytes": 1781
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/adapter/tests/test_adapter.py.j2",
+      "sha256": "d6a3fdea63b9bfd73503be636e469a186ed86dad931ead22c8b39bc31c4f92e5",
+      "sizeBytes": 300
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/capability/capability.yaml.j2",
+      "sha256": "31ec2a698890ba421ffe8b0c6cff956dc0e812d0963cdcc47a0e31d2111f3e9b",
+      "sizeBytes": 363
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/.gitignore.j2",
+      "sha256": "a1f1705694c9608d6a3e226f71ceb611ccfdbf54d78c60178b91cdb138573685",
+      "sizeBytes": 60
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/AGENTS.md.j2",
+      "sha256": "7dfbe31319e1105affaa702b1017e88da6ca2d5ab9cb3d8d9d2f0ef9a4b8ab0c",
+      "sizeBytes": 274
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/README.md.j2",
+      "sha256": "d379d0e40d02da6a5d3b0946f4baca16c8a92857e62bfd7778a8d1610faea0ef",
+      "sizeBytes": 249
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/pyproject.toml.j2",
+      "sha256": "e0b4f6bd392815a77861d8d0515d16d345ed17c5f17de65219534f4879e6ff68",
+      "sizeBytes": 411
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/src/opensdl_domain_{{ module }}/__init__.py.j2",
+      "sha256": "115254e171f6dc01acdc7242ed8e266cf89f6c55abf8cb1816a1322907f1719c",
+      "sizeBytes": 100
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/src/opensdl_domain_{{ module }}/models.py.j2",
+      "sha256": "86c2560850fc7feab4e985719fa8139350816f6be48efe4c5bb765c9cd91edc4",
+      "sizeBytes": 292
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/src/opensdl_domain_{{ module }}/pack.py.j2",
+      "sha256": "a7d8e6aec14a4d26d40f8f0050f76579863d08106c949eefb7b16fd165355e55",
+      "sizeBytes": 279
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/domain-pack/tests/test_pack.py.j2",
+      "sha256": "850d84ee05608f50740317557dbeea867ea1d6d2f524f4ef54ce93f4c778df4c",
+      "sizeBytes": 265
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/.env.example.j2",
+      "sha256": "7a2e3a378c595b799dca963729af4338c81dc5e6e52b40c829463cbba121ceb1",
+      "sizeBytes": 30
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/.github/workflows/ci.yml.j2",
+      "sha256": "7a9f7c48ffb770ad68447dd28cdc695dc674c0215a65ead11de57b547e4d49dd",
+      "sizeBytes": 381
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/.gitignore.j2",
+      "sha256": "8f1728ca7fdd326be6293567289b260029eaecc0ab96192540a0977649392469",
+      "sizeBytes": 85
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/.python-version.j2",
+      "sha256": "7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d",
+      "sizeBytes": 5
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/AGENTS.md.j2",
+      "sha256": "05d2da25f2683b9f1787cd97b676d6b848b4e90316723d0cd549adbe7d759b5f",
+      "sizeBytes": 603
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/DEVELOPMENT.md.j2",
+      "sha256": "2e9c8de7e322cebe9ce1bcf1f954c9a658170ea4dc074cc046565ab841dce405",
+      "sizeBytes": 337
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/README.md.j2",
+      "sha256": "9877f5e6c3e4fc06b12394f87febcf16d2249a5f46c7815339fef3f17a530d62",
+      "sizeBytes": 603
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/capabilities/README.md.j2",
+      "sha256": "2a5ed642c87848b38089ad393b94fc393df5b6655a3f571893140642715c8a1b",
+      "sizeBytes": 158
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/deployments/README.md.j2",
+      "sha256": "4037550ae79754b20af9dccaccce6eb8ab09153a119a54697aa4534af66825e9",
+      "sizeBytes": 165
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/opensdl.yaml.j2",
+      "sha256": "dddfc79e2fdcf37516368acaf793b66f950c865a4fca03c1bb07c2121bb632af",
+      "sizeBytes": 1733
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/policies/README.md.j2",
+      "sha256": "0c61c1129f7f75ac5c866b778cce26229fa6abd22d6ec4507f9119d2a6fd94fa",
+      "sizeBytes": 178
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/pyproject.toml.j2",
+      "sha256": "fbce0cb61e5786f2d91395207a1427f2f23f6a87940596732126337b4de8e3cc",
+      "sizeBytes": 498
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/scripts/check.sh.j2",
+      "sha256": "4501a97be0d7ecf62b4731fb9a5ce6f27f3ea2b17887367b8ba9a1e9023b2bb0",
+      "sizeBytes": 218
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/scripts/dev.sh.j2",
+      "sha256": "d2adb04ffac7edcc70182ed59c20d24e91c1ba893a0896b3dbcfefe2531dd5ea",
+      "sizeBytes": 97
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/src/{{ package }}/__init__.py.j2",
+      "sha256": "066d5abe5ec82b2565f042ef37e01d973ffcc2b1daa3dd240f9a6d60cf4b9e56",
+      "sizeBytes": 73
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/src/{{ package }}/adapters/__init__.py.j2",
+      "sha256": "6cd58304d4c6f13ccb517a715456b5b4aedf1f774b42e862c983898c3c2ee8c5",
+      "sizeBytes": 64
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/src/{{ package }}/domain/__init__.py.j2",
+      "sha256": "b39c91c66739549cde44a0b7d30a304e766067c9e1a544681d40e7badc2916d3",
+      "sizeBytes": 72
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/tests/test_configuration.py.j2",
+      "sha256": "0be484a87079b3401f14fc7d0c36eb33557ef295654927f872963ab7ab52182f",
+      "sizeBytes": 609
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/workflows/first-run.yaml.j2",
+      "sha256": "a703fb8227be7baa4451774bf470d5f244cf496131eb3788e31a2235a96785db",
+      "sizeBytes": 1195
+    },
+    {
+      "path": "packages/cli/src/opensdl_cli/templates/laboratory/workflows/manual-check.yaml.j2",
+      "sha256": "14412e9b434749a0c027dd3e3979121a27313992fdc0234016a9907687668d9e",
+      "sizeBytes": 583
+    },
+    {
+      "path": "packages/cli/tests/test_scaffold.py",
+      "sha256": "4b5b134e84f26e6b1bcefd0bf7c900135382bacef68d13e618c2081dc65dd07e",
+      "sizeBytes": 2700
+    },
+    {
+      "path": "packages/core/AGENTS.md",
+      "sha256": "a0f5716853bef5d7afec7dbf365b1a087466cfcc4be1bc29f83c8fbcfd72e2eb",
+      "sizeBytes": 269
+    },
+    {
+      "path": "packages/core/README.md",
+      "sha256": "5d4291c492ebe9b9b16d19def152b6a84557c39794c08138b413a5aaf32677a1",
+      "sizeBytes": 79
+    },
+    {
+      "path": "packages/core/pyproject.toml",
+      "sha256": "28e67f0e8ce416f7e0893d50bb71bd9cca51dcd2ab289706e11d057dab670a6b",
+      "sizeBytes": 378
+    },
+    {
+      "path": "packages/core/src/opensdl_core/__init__.py",
+      "sha256": "40085d12bd8a57b949896ba4c1c24d33ae20f371cfad975362cf391f69670565",
+      "sizeBytes": 1546
+    },
+    {
+      "path": "packages/core/src/opensdl_core/enums.py",
+      "sha256": "518c68bcff93e45ea65e20b48fb1dcfe49567dd5653d73b14dfab2be1e9a3457",
+      "sizeBytes": 1351
+    },
+    {
+      "path": "packages/core/src/opensdl_core/errors.py",
+      "sha256": "cc7550ac0a6b51589773b3f5d4a49b063e5870fbbf0cd96bc92b422694f6d4b9",
+      "sizeBytes": 702
+    },
+    {
+      "path": "packages/core/src/opensdl_core/ids.py",
+      "sha256": "eb55979c1be712060974e5a5cbb855c31d06147782fef256c0e0cbe59d72aa98",
+      "sizeBytes": 319
+    },
+    {
+      "path": "packages/core/src/opensdl_core/lifecycle.py",
+      "sha256": "977adfad08bee5088a2a192ffaf76c5b056e80c2bc249f33146be4f99ac544c5",
+      "sizeBytes": 2263
+    },
+    {
+      "path": "packages/core/src/opensdl_core/models.py",
+      "sha256": "58f4be92648c2d3cbdf504e8752227f17c51973ab2d3e10669f75ec54a49f150",
+      "sizeBytes": 7613
+    },
+    {
+      "path": "packages/core/tests/test_models.py",
+      "sha256": "2f3656b4fdd58d2547b8361ffdfc5a8e6db61ca55b8c56b84e1918bc86ca42b6",
+      "sizeBytes": 1112
+    },
+    {
+      "path": "packages/operators/README.md",
+      "sha256": "56c3db2f833764f6e984863c45674f267fb74b49368042e56426570b446136ac",
+      "sizeBytes": 90
+    },
+    {
+      "path": "packages/operators/pyproject.toml",
+      "sha256": "03bb6ba288b6f73205c27d33ecfd3a3683422465f45e280df4bf8d7811247cef",
+      "sizeBytes": 553
+    },
+    {
+      "path": "packages/operators/src/opensdl_operators/__init__.py",
+      "sha256": "c369fc23767bd67b3a2d8c17650c14a0f88322a37dcab0ae5fac7a734dacce1c",
+      "sizeBytes": 264
+    },
+    {
+      "path": "packages/operators/src/opensdl_operators/context.py",
+      "sha256": "5b04c32ca245cfd75da198413c5d6aff85ca7779018ac516cb1664d5df679abe",
+      "sizeBytes": 2181
+    },
+    {
+      "path": "packages/operators/src/opensdl_operators/mcp.py",
+      "sha256": "361530704f3949d36d1f5bd4b1670819c028320c4a0a44eb5fce4fecbae8e4f4",
+      "sizeBytes": 2006
+    },
+    {
+      "path": "packages/operators/src/opensdl_operators/tools.py",
+      "sha256": "5b5f87a747dc54e67b9b3277469a59e27108750e6d0705e86d7a501262bb4d16",
+      "sizeBytes": 2523
+    },
+    {
+      "path": "packages/operators/tests/test_tools.py",
+      "sha256": "0cef1f85b0a199725f7770ad3f668b8998313ea8c7b822127cd934fe528f362f",
+      "sizeBytes": 218
+    },
+    {
+      "path": "packages/policy/README.md",
+      "sha256": "71d1563f082f89f7c1aa34f5f5930b0a8aaf1de6d8651fe5ba27b50b7274d198",
+      "sizeBytes": 67
+    },
+    {
+      "path": "packages/policy/pyproject.toml",
+      "sha256": "71f20c3be9693e25016bf1aa72179a58ebadc77b7892929a827848e904ee57cc",
+      "sizeBytes": 361
+    },
+    {
+      "path": "packages/policy/src/opensdl_policy/__init__.py",
+      "sha256": "123937e2f8dd0607d50ad1616226d2214fa9e532ac613a0175e932878a58d856",
+      "sizeBytes": 180
+    },
+    {
+      "path": "packages/policy/src/opensdl_policy/engine.py",
+      "sha256": "a1a714ec1b69380ef91b1dcd8cca97adbffcc5febc29b6baaa792443c13c3954",
+      "sizeBytes": 2369
+    },
+    {
+      "path": "packages/policy/src/opensdl_policy/interfaces.py",
+      "sha256": "2f371b59cd614c3b28d0560bbe6f52af8cdfeaad81709715770e9702f2eb06c7",
+      "sizeBytes": 462
+    },
+    {
+      "path": "packages/policy/tests/test_policy.py",
+      "sha256": "cc16259f20ba1c9fa0c5367a0649055b0636d8a15810ba585c22bd089f743a69",
+      "sizeBytes": 608
+    },
+    {
+      "path": "packages/provenance/README.md",
+      "sha256": "cf73eb037ef6e2375dac773972b9a2f9e3fc80e4d25621fca74cb74413cc4b0e",
+      "sizeBytes": 99
+    },
+    {
+      "path": "packages/provenance/pyproject.toml",
+      "sha256": "7b13d908bc07e9610632347c4ed4212d16c0d8df179fb5ad0cee99bde204827a",
+      "sizeBytes": 429
+    },
+    {
+      "path": "packages/provenance/src/opensdl_provenance/__init__.py",
+      "sha256": "13367e5d36a0b799eaf7b646cf5dbd4e5457b3a44495ad8963d245cc6a7c2cde",
+      "sizeBytes": 467
+    },
+    {
+      "path": "packages/provenance/src/opensdl_provenance/export.py",
+      "sha256": "9c82091b58943119d5d7441deead1b63b311a678047a59e9b083eec99829a8e7",
+      "sizeBytes": 2346
+    },
+    {
+      "path": "packages/provenance/src/opensdl_provenance/graph.py",
+      "sha256": "d5598a72ea0525a2765955161379e3f3df6f885750d3386a1be734e1b6c33210",
+      "sizeBytes": 1370
+    },
+    {
+      "path": "packages/provenance/src/opensdl_provenance/propagation.py",
+      "sha256": "8c5d184dd8ddbfc5d99306e66efac22e8d79f9c428a6222beb70027a08b0eabe",
+      "sizeBytes": 2555
+    },
+    {
+      "path": "packages/provenance/tests/test_propagation.py",
+      "sha256": "dd0454a7818051171dcb6f4ec651008aa78f38c2e437992edfeca7e6f79eee1b",
+      "sizeBytes": 1161
+    },
+    {
+      "path": "packages/runtime/AGENTS.md",
+      "sha256": "fa0775b480827964dd6f3532b393f3f4a5935ce2c2fe3bfc2f27204f8dcb9228",
+      "sizeBytes": 310
+    },
+    {
+      "path": "packages/runtime/README.md",
+      "sha256": "a8bebbe02568bb511bef577655cb310f3c30c8ce2e55a0f4f06943050fa8bcb7",
+      "sizeBytes": 70
+    },
+    {
+      "path": "packages/runtime/pyproject.toml",
+      "sha256": "118be24e636b6daeca255d0787b10c3e3031bf5d7bb25c05a99feead537dd061",
+      "sizeBytes": 454
+    },
+    {
+      "path": "packages/runtime/src/opensdl_runtime/__init__.py",
+      "sha256": "b3228fa5ffa92b55eb738312f97d603ec3067f19f5daeda5ec50a7b16e0405fe",
+      "sizeBytes": 226
+    },
+    {
+      "path": "packages/runtime/src/opensdl_runtime/campaign.py",
+      "sha256": "4109b48669d8a6af50db15bb554d6fd2063cde151dff9e767b5da5567012858b",
+      "sizeBytes": 3817
+    },
+    {
+      "path": "packages/runtime/src/opensdl_runtime/engine.py",
+      "sha256": "b2894ea1ae15fa028d6517b5fe61fd01482b4bdc9b27d11bc3a28c295a1aa5af",
+      "sizeBytes": 13101
+    },
+    {
+      "path": "packages/runtime/tests/test_runtime.py",
+      "sha256": "435616fd265d4c031ea4f64f96daf6152264323890bdb9a9e9f7d23db7bdcd01",
+      "sizeBytes": 2525
+    },
+    {
+      "path": "packages/schemas/README.md",
+      "sha256": "6bb17d1346e54586826f0a3f1ec2d5a45fc063875509d495fd414d57a8c84da6",
+      "sizeBytes": 75
+    },
+    {
+      "path": "packages/schemas/jsonschema/artifact.schema.json",
+      "sha256": "9dee8d2ab5a0c911eac78f0d22912b79f8302ec55f853fcb6d6a9573ae6c7816",
+      "sizeBytes": 1501
+    },
+    {
+      "path": "packages/schemas/jsonschema/campaign.schema.json",
+      "sha256": "1e0a4bb1320d036669b8a6b5613ea92925d169981c39298cbf1b78eee10939e6",
+      "sizeBytes": 1145
+    },
+    {
+      "path": "packages/schemas/jsonschema/capability.schema.json",
+      "sha256": "53122f498585b4a0ff28f6658265d816bbffdbf0350df95f0cdac425b01732f4",
+      "sizeBytes": 2487
+    },
+    {
+      "path": "packages/schemas/jsonschema/event.schema.json",
+      "sha256": "c88f84e4c367af9f7c48b9f2d4090c4a08226d657a7fa652eb4174a72d79c0ce",
+      "sizeBytes": 1580
+    },
+    {
+      "path": "packages/schemas/jsonschema/execution-request.schema.json",
+      "sha256": "855ee7eab5a8dc66d078dbacb9ee32ccf680c94a7fb7c5acebab6b46ff2e4d0d",
+      "sizeBytes": 1349
+    },
+    {
+      "path": "packages/schemas/jsonschema/execution-result.schema.json",
+      "sha256": "772d0386e720ac3557cb42e8b1049e8d6b1df22e73586b17dab1df3a41283c96",
+      "sizeBytes": 790
+    },
+    {
+      "path": "packages/schemas/jsonschema/lab-manifest.schema.json",
+      "sha256": "f35919f840f069d5e57faaab36170deb88ae2d12df4b278f8fe1cc5327f30e47",
+      "sizeBytes": 9628
+    },
+    {
+      "path": "packages/schemas/jsonschema/resource.schema.json",
+      "sha256": "2a5c7611a39bbd54d5a782eb80680ac33db339b25383d5fb36e8e92571e97564",
+      "sizeBytes": 1590
+    },
+    {
+      "path": "packages/schemas/jsonschema/run.schema.json",
+      "sha256": "71e077e1c6ec5f70d23b061d38265d7400e3c647c06967efee26defe77de088b",
+      "sizeBytes": 1633
+    },
+    {
+      "path": "packages/schemas/jsonschema/task.schema.json",
+      "sha256": "e9eef9c143c3ccb0adfc5fe8f655a0e5a06e4b14404f09c13f40bfec323f2708",
+      "sizeBytes": 1621
+    },
+    {
+      "path": "packages/schemas/jsonschema/workflow.schema.json",
+      "sha256": "3ee8a49a31fe967f79819ddf8c29a349ea21ba01fb0a79a4e8768006547c567a",
+      "sizeBytes": 2373
+    },
+    {
+      "path": "packages/schemas/pyproject.toml",
+      "sha256": "7d5480c9afe6ee8050a4f0119b76191589a00c026bf6ac93d959c5b7436b06c2",
+      "sizeBytes": 406
+    },
+    {
+      "path": "packages/schemas/src/opensdl_schemas/__init__.py",
+      "sha256": "ee9d7c959e8d43081b56a83da93d2346975e6965da2f4ecbf70cca2ca0245f03",
+      "sizeBytes": 832
+    },
+    {
+      "path": "packages/schemas/src/opensdl_schemas/generate.py",
+      "sha256": "0fe4c28f810ae6640279f5788b998fdc2f26a46726322693f123a03a67e95a31",
+      "sizeBytes": 1214
+    },
+    {
+      "path": "packages/schemas/src/opensdl_schemas/manifest.py",
+      "sha256": "c0f0fd2dd8c3d4ed43c929e1e045cbf3056e8261b0b30c4294c31f098e05f163",
+      "sizeBytes": 3405
+    },
+    {
+      "path": "packages/schemas/src/opensdl_schemas/validation.py",
+      "sha256": "c3ff88e8dc4b8b1a778c0d2f67f938d34c4c91ea694b54310f1421dcf8816780",
+      "sizeBytes": 773
+    },
+    {
+      "path": "packages/schemas/tests/test_manifest.py",
+      "sha256": "64c23af9c508c735fb722c5a9b5fb325833fbc89d852404065e6c0015167aefa",
+      "sizeBytes": 490
+    },
+    {
+      "path": "packages/sdk/README.md",
+      "sha256": "ed3df1a58979216b0740b4bdd1db2257c8e7452d70f4c79b737bb8d6cf0a108d",
+      "sizeBytes": 50
+    },
+    {
+      "path": "packages/sdk/pyproject.toml",
+      "sha256": "32a061ae351d77c55bc906104f726022a64faaf14b3e3f48c25a2d33c289f602",
+      "sizeBytes": 385
+    },
+    {
+      "path": "packages/sdk/src/opensdl/__init__.py",
+      "sha256": "2f98ef97a1a6724140b1664b0961ef546558c541fd073cdac9d04b693972efb5",
+      "sizeBytes": 192
+    },
+    {
+      "path": "packages/sdk/src/opensdl/client.py",
+      "sha256": "046a6c3164cd19fb70b4278e3d98e3a62c885625779d7ab3b6934c5071bd1f2c",
+      "sizeBytes": 1671
+    },
+    {
+      "path": "packages/sdk/tests/test_client.py",
+      "sha256": "1fcb160d117a054b47daeccda99c60adfaf1a073ba6ccb60dfce65922ebe9829",
+      "sizeBytes": 145
+    },
+    {
+      "path": "packages/simulation/README.md",
+      "sha256": "3747a1e3171be790d2d897c7fafa403145e52dab1fd1b680366cd765da093d54",
+      "sizeBytes": 88
+    },
+    {
+      "path": "packages/simulation/pyproject.toml",
+      "sha256": "efaad647cef8b99c3670bc14a40c8e785847d18d14511b5ead8e934a5cb873fe",
+      "sizeBytes": 408
+    },
+    {
+      "path": "packages/simulation/src/opensdl_simulation/__init__.py",
+      "sha256": "81f493f15e691e69ff0e49d47c6394685c74e74fb277a308f1144bbe54b0d83b",
+      "sizeBytes": 160
+    },
+    {
+      "path": "packages/simulation/src/opensdl_simulation/faults.py",
+      "sha256": "1da96558e54d5f1d0e64833d497d6604117ce18666c62b78c967b1c02b27f0db",
+      "sizeBytes": 676
+    },
+    {
+      "path": "packages/simulation/src/opensdl_simulation/replay.py",
+      "sha256": "b4e1c8922dad2b3b8e1d2c5263d5dba8e91363ec424336059df53169d3358514",
+      "sizeBytes": 1223
+    },
+    {
+      "path": "packages/simulation/src/opensdl_simulation/state.py",
+      "sha256": "7e10cd0c3b179a036845ac86bcabda23e126123d559455b17a3e7907a3ffcaee",
+      "sizeBytes": 815
+    },
+    {
+      "path": "packages/simulation/tests/test_simulation.py",
+      "sha256": "5358d01ca65dc0b33cedfb0ecd9cf5642139f8c68145cf08472c341f541b1aef",
+      "sizeBytes": 532
+    },
+    {
+      "path": "packages/storage/AGENTS.md",
+      "sha256": "99dac3d18bdb5aadd7ab10441763dbbc134efffc66a459eb3953721d79bb68f2",
+      "sizeBytes": 299
+    },
+    {
+      "path": "packages/storage/README.md",
+      "sha256": "a9a0c498879300e0593728daf07dd1cdcda9cf488bdc6400b3c6a7b9f6b5c715",
+      "sizeBytes": 94
+    },
+    {
+      "path": "packages/storage/pyproject.toml",
+      "sha256": "bb2b3594e5a5fa3368472b577549a5ae63bd9162758f509b994c42cf626f3c95",
+      "sizeBytes": 463
+    },
+    {
+      "path": "packages/storage/src/opensdl_storage/__init__.py",
+      "sha256": "f6aff539118965a41163a16c7abd49b696f1fff19e96ae41fd3271be50be51ad",
+      "sizeBytes": 328
+    },
+    {
+      "path": "packages/storage/src/opensdl_storage/artifacts.py",
+      "sha256": "3943255ae5a421abe1a6bd008aa06b4ad922eebf64f2aac8a91f1020261db40a",
+      "sizeBytes": 1829
+    },
+    {
+      "path": "packages/storage/src/opensdl_storage/database.py",
+      "sha256": "d56516124d48a39d897693f852352e42dbe415c2cb4d030eb8812bece075b0ad",
+      "sizeBytes": 1955
+    },
+    {
+      "path": "packages/storage/src/opensdl_storage/db_models.py",
+      "sha256": "3baba01896d5b758bfd989d2afd6160091bd4d5d7ad8c7cd2a0d38618f12213b",
+      "sizeBytes": 5408
+    },
+    {
+      "path": "packages/storage/src/opensdl_storage/interfaces.py",
+      "sha256": "41831c3691b16e2d4517f9a165ab9fcc816ea38eda590898036a6c066012c2ba",
+      "sizeBytes": 2756
+    },
+    {
+      "path": "packages/storage/src/opensdl_storage/repositories.py",
+      "sha256": "fc5100b587db575beab514162daeda34e11f5cbaaf934f2634ded6bb397df45d",
+      "sizeBytes": 11424
+    },
+    {
+      "path": "packages/storage/tests/test_storage.py",
+      "sha256": "7dfe0077b6be2263299599fe86ddd246e180eb501ade4092dbf4a22a0ed9c08a",
+      "sizeBytes": 1700
+    },
+    {
+      "path": "packages/workflows/README.md",
+      "sha256": "19309db4880937efb795fdec93d0f5e3f0b726df6793bce71778ab5f0158b313",
+      "sizeBytes": 92
+    },
+    {
+      "path": "packages/workflows/pyproject.toml",
+      "sha256": "7ed8c07d78a3e2f213d2cadf5ab58a5dbb0535645ce7e8b65138564dfd6c4446",
+      "sizeBytes": 401
+    },
+    {
+      "path": "packages/workflows/src/opensdl_workflows/__init__.py",
+      "sha256": "79f591a761893b121902bd1dcc70ff2bf85299c6db3d25ba96e8f90e96de45ab",
+      "sizeBytes": 264
+    },
+    {
+      "path": "packages/workflows/src/opensdl_workflows/graph.py",
+      "sha256": "9a26b68ac93328a18a22d5dc5620e8fc66fbe391f8a4f782cc06eff5aefb7d49",
+      "sizeBytes": 1428
+    },
+    {
+      "path": "packages/workflows/src/opensdl_workflows/loader.py",
+      "sha256": "e672eff6990e13f9e70fcb07f05a0807e7db788976194b39652e5811ecdb8ced",
+      "sizeBytes": 392
+    },
+    {
+      "path": "packages/workflows/src/opensdl_workflows/resolver.py",
+      "sha256": "adca4b157be6dca20266be6bb75faacd5617b8ea74cae581b69ece85f5aecf09",
+      "sizeBytes": 1936
+    },
+    {
+      "path": "packages/workflows/tests/test_workflow.py",
+      "sha256": "ad8e5fa0c820499f135cf0876a4f8b05d7915c27c12a7918b64c35756ef69980",
+      "sizeBytes": 886
+    },
+    {
+      "path": "propagation.yaml",
+      "sha256": "95b97492dd8771e37521d436a99199db0f470753c8e774a752897179ea021f24",
+      "sizeBytes": 3093
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "927d7d563d7f03e7e38d8ff93662bcf20722f7b32fce055bc95c746a3e3d786c",
+      "sizeBytes": 3038
+    },
+    {
+      "path": "scripts/bootstrap.sh",
+      "sha256": "ecb5781dcaae84445c5a23895ce2a4e8409bf42c864279cd8d2d67d597029a1f",
+      "sizeBytes": 365
+    },
+    {
+      "path": "scripts/check-boundaries.py",
+      "sha256": "f16a7c7307814765b1d2c2e27055491246a4e1947677dbcabbf97a0be1011c09",
+      "sizeBytes": 2864
+    },
+    {
+      "path": "scripts/create-adapter.py",
+      "sha256": "ba0302ba536d28a32df460bec5102da7e4786b36c5611506469ebfddd06ed532",
+      "sizeBytes": 445
+    },
+    {
+      "path": "scripts/create-domain-pack.py",
+      "sha256": "6b7724e46130c1e10a28ff01e01cf29e6683e709fbdd51a474cda59fc62daa21",
+      "sizeBytes": 372
+    },
+    {
+      "path": "scripts/dev.sh",
+      "sha256": "28769556ffd954ee3b9381b831c330bb8e9002b27cfb3035885999daac6bd1df",
+      "sizeBytes": 304
+    },
+    {
+      "path": "scripts/generate-schemas.py",
+      "sha256": "32c48f3665816780d0e5712d5189368d43f381adc73cbf2fad72a667739626d7",
+      "sizeBytes": 1282
+    },
+    {
+      "path": "scripts/lint.sh",
+      "sha256": "627ab6be3b94c1af09120dcc056cbcc2e2c3f647ab6cb0857d61d4d1311b3c88",
+      "sizeBytes": 189
+    },
+    {
+      "path": "scripts/release.py",
+      "sha256": "a6150421f04f4223c19dba3633707595aa4a6ccc9133e2c916a222f27a51d7df",
+      "sizeBytes": 805
+    },
+    {
+      "path": "scripts/seed-example.py",
+      "sha256": "e3c47a161488837f4e0bbc63dbf0c576aad4a622d887aa35b4ed55976e9f61b2",
+      "sizeBytes": 226
+    },
+    {
+      "path": "scripts/test.sh",
+      "sha256": "f7346d5f9f84430b75beae7480f6eaf929b6fc61ed8d5823a02d2d8130b47b75",
+      "sizeBytes": 81
+    },
+    {
+      "path": "scripts/validate-repository.py",
+      "sha256": "d7c69177bd5bdb4085f264bd3c65a8b8b069d40198832501fce0e25cbcdffb3f",
+      "sizeBytes": 1650
+    },
+    {
+      "path": "tests/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    {
+      "path": "tests/conformance/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    {
+      "path": "tests/conformance/test_reference_adapters.py",
+      "sha256": "f9b6a7213ae3f37bc57a52e11c4f76669ba0de5af4c806b009b18de34d171ec7",
+      "sizeBytes": 576
+    },
+    {
+      "path": "tests/end_to_end/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    {
+      "path": "tests/end_to_end/test_color_campaign.py",
+      "sha256": "76c56df57a250fc4dea6b0070f2a001aa42211761928a60726ae39eed1f92d58",
+      "sizeBytes": 1482
+    },
+    {
+      "path": "tests/integration/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0
+    },
+    {
+      "path": "tests/integration/test_api.py",
+      "sha256": "a864ab2e9d8744d822b7e0de73ba54777a06f29070faf21344a3521521898d4c",
+      "sizeBytes": 972
+    },
+    {
+      "path": "tests/integration/test_controller.py",
+      "sha256": "d08e665e477f17b00e33f1b4957687b189b18d6fdf37a0d86c78b2eba19e5201",
+      "sizeBytes": 1115
+    },
+    {
+      "path": "tests/integration/test_migrations.py",
+      "sha256": "1b5ba022c5dda2f847fd8c12d59ce41eb0292f82edd86647c61f39fb77c47622",
+      "sizeBytes": 622
+    }
+  ],
+  "formatVersion": 1,
+  "generatedAt": "2026-08-02T22:12:17.357183+00:00",
+  "license": "Apache-2.0",
+  "project": "OpenSDL",
+  "python": ">=3.12",
+  "status": "executable-alpha",
+  "verification": {
+    "jsonSchemas": 11,
+    "pytest": {
+      "failed": 0,
+      "passed": 39
+    },
+    "sourceChecks": [
+      "dependency-boundaries",
+      "schema-freshness",
+      "toml-yaml-json-parse",
+      "relative-markdown-links",
+      "bytecode-compilation",
+      "stale-marker-scan"
+    ],
+    "wheelBuilds": 21
+  },
+  "version": "0.1.0a0"
+}

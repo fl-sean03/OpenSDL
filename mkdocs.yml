@@ -1,0 +1,50 @@
+site_name: OpenSDL
+site_description: Open foundation for computational and autonomous laboratories
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Getting started:
+      - Quick start: getting-started/quickstart.md
+      - Create a laboratory: guides/create-lab.md
+  - Concepts:
+      - Capabilities: concepts/capabilities.md
+      - Laboratory manifests: concepts/manifests.md
+      - Workflows and campaigns: concepts/workflows.md
+      - Storage and provenance: concepts/storage-and-provenance.md
+      - Operators and context: concepts/operators.md
+      - Propagation graphs: concepts/propagation.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Package boundaries: architecture/packages.md
+  - Guides:
+      - Add an adapter: guides/add-adapter.md
+      - Closed-loop campaign: guides/closed-loop-campaign.md
+  - Development:
+      - Testing: development/testing.md
+      - Validation: development/validation.md
+  - Reference:
+      - Configuration: reference/configuration.md
+      - CLI: reference/cli.md
+      - API: reference/api.md
+  - Ecosystem: research/ecosystem.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

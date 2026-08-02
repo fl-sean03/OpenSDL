@@ -1,0 +1,84 @@
+version: v0alpha1
+nodes:
+  - id: core-contracts
+    description: Domain-neutral models and lifecycle
+    paths: ["packages/core/**"]
+  - id: generated-schemas
+    description: Language-neutral public schemas
+    paths: ["packages/schemas/jsonschema/**", "packages/schemas/src/**"]
+  - id: storage-model
+    description: Relational schema, repositories, and migrations
+    paths: ["packages/storage/**", "database/**"]
+  - id: runtime
+    description: Workflow and campaign execution
+    paths: ["packages/runtime/**", "packages/workflows/**", "packages/policy/**"]
+  - id: adapters
+    description: Physical, compute, human, and optimization integrations
+    paths: ["adapters/**"]
+  - id: domain-packs
+    description: Namespaced scientific data models and schemas
+    paths: ["domain-packs/**"]
+  - id: operator-interfaces
+    description: CLI, API, SDK, and context tools
+    paths: ["packages/cli/**", "packages/sdk/**", "packages/operators/**", "apps/**"]
+  - id: examples
+    description: Runnable public laboratories
+    paths: ["examples/**"]
+  - id: conformance
+    description: Cross-implementation compatibility tests
+    paths: ["tests/conformance/**", "packages/capabilities/**"]
+  - id: documentation
+    description: Public guidance and architecture
+    paths: ["README.md", "ARCHITECTURE.md", "DEVELOPMENT.md", "docs/**"]
+  - id: deployment
+    description: Containers, CI, and development environments
+    paths: ["Dockerfile", "compose.yaml", "deployments/**", ".github/workflows/**"]
+edges:
+  - source: core-contracts
+    target: generated-schemas
+    reason: public models generate schemas
+  - source: core-contracts
+    target: storage-model
+    reason: persistence maps public records
+  - source: core-contracts
+    target: runtime
+    reason: execution uses lifecycle contracts
+  - source: core-contracts
+    target: adapters
+    reason: adapters implement capability contracts
+  - source: core-contracts
+    target: domain-packs
+    reason: domain packs extend public scientific models
+  - source: generated-schemas
+    target: operator-interfaces
+    reason: interfaces expose public contracts
+  - source: storage-model
+    target: runtime
+    reason: runtime depends on durable state
+  - source: runtime
+    target: operator-interfaces
+    reason: interfaces invoke runtime behavior
+  - source: adapters
+    target: conformance
+    reason: adapters require compatibility evidence
+  - source: adapters
+    target: examples
+    reason: examples demonstrate integrations
+  - source: domain-packs
+    target: examples
+    reason: examples validate scientific extensions
+  - source: domain-packs
+    target: documentation
+    reason: domain contracts require public guidance
+  - source: operator-interfaces
+    target: examples
+    reason: examples exercise public interfaces
+  - source: examples
+    target: documentation
+    reason: docs show tested workflows
+  - source: conformance
+    target: deployment
+    reason: CI and releases enforce conformance
+  - source: operator-interfaces
+    target: documentation
+    reason: command and API references must stay current

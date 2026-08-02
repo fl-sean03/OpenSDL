@@ -1,0 +1,17 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: Laboratory
+metadata:
+  name: computation-only
+  owner: OpenSDL
+spec:
+  environment: simulation
+  storage:
+    database:
+      url: sqlite:///./.opensdl/opensdl.db
+    artifacts:
+      root: .opensdl/artifacts
+  adapters:
+    - name: local-compute
+      plugin: local-compute
+  policy:
+    default_effect: allow

@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "RunState": {
+      "enum": [
+        "planned",
+        "queued",
+        "running",
+        "paused",
+        "intervention_required",
+        "aborting",
+        "aborted",
+        "failed",
+        "completed"
+      ],
+      "title": "RunState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "workflow_id": {
+      "title": "Workflow Id",
+      "type": "string"
+    },
+    "workflow_version": {
+      "default": "0.1.0",
+      "title": "Workflow Version",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/RunState",
+      "default": "planned"
+    },
+    "inputs": {
+      "additionalProperties": true,
+      "title": "Inputs",
+      "type": "object"
+    },
+    "outputs": {
+      "additionalProperties": true,
+      "title": "Outputs",
+      "type": "object"
+    },
+    "operator_id": {
+      "default": "operator/local",
+      "title": "Operator Id",
+      "type": "string"
+    },
+    "environment": {
+      "default": "simulation",
+      "title": "Environment",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workflow_id"
+  ],
+  "title": "RunRecord",
+  "type": "object"
+}

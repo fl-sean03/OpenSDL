@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from opensdl_capabilities import CapabilityAdapter
+from opensdl_core import (
+    CapabilityDefinition,
+    ExecutionRequest,
+    ExecutionResult,
+    ExecutorType,
+    RiskClass,
+    utc_now,
+)
+
+
+class {{ class_name }}(CapabilityAdapter):
+    name = "{{ name }}"
+
+    def capability_definitions(self) -> list[CapabilityDefinition]:
+        return [
+            CapabilityDefinition(
+                id="{{ capability_id }}",
+                name="{{ capability_id }}",
+                description="Generated simulator-first capability.",
+                executor_type=ExecutorType.SIMULATOR,
+                input_schema={"type": "object"},
+                output_schema={
+                    "type": "object",
+                    "required": ["received", "simulated"],
+                    "properties": {
+                        "received": {"type": "object"},
+                        "simulated": {"type": "boolean"},
+                    },
+                    "additionalProperties": False,
+                },
+                risk_class=RiskClass.R0,
+                simulator_available=True,
+            )
+        ]
+
+    async def execute(self, request: ExecutionRequest) -> ExecutionResult:
+        started = utc_now()
+        return ExecutionResult(
+            request_id=request.request_id,
+            output={"received": request.inputs, "simulated": True},
+            started_at=started,
+            completed_at=utc_now(),
+            metadata={"adapter": self.name},
+        )
+
+    def conformance_cases(self) -> list[ExecutionRequest]:
+        return [
+            ExecutionRequest(
+                capability_id="{{ capability_id }}",
+                inputs={"example": "replace with a real typed case"},
+            )
+        ]

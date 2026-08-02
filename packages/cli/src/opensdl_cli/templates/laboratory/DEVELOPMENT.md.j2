@@ -1,0 +1,12 @@
+# Development
+
+```bash
+uv sync
+./scripts/check.sh
+./scripts/dev.sh
+```
+
+Add organization-specific behavior under `src/{{ package }}/`. Install public
+or private adapters through normal Python dependencies and declare them in
+`opensdl.yaml`. Every physical adapter should have a simulator and a deployment-
+controlled hardware test plan.

@@ -1,0 +1,226 @@
+# OpenSDL
+
+**An open foundation for building computational and autonomous laboratories.**
+
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#project-status)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
+OpenSDL is a modular framework for defining laboratory capabilities, connecting physical and computational systems, executing reproducible workflows, preserving evidence, and progressively moving from manual operation to bounded closed-loop experimentation.
+
+It is built as normal scientific software: installable packages, deployable applications, versioned schemas, replaceable adapters, database migrations, simulations, tests, project generators, and complete runnable examples.
+
+## What works now
+
+The v0.1 alpha includes:
+
+- a versioned laboratory manifest;
+- domain-neutral models for capabilities, resources, workflows, runs, tasks, events, artifacts, observations, decisions, authorizations, and incidents;
+- a durable reference runtime with DAG execution, retries, timeouts, resource leases, restart reconciliation, and policy checks;
+- SQLite and PostgreSQL-compatible metadata storage through SQLAlchemy;
+- content-addressed local artifact storage;
+- adapter and optimizer plugin discovery through Python entry points;
+- deterministic virtual mixer, balance, colorimeter, and labware-transport capabilities;
+- safe local numerical-analysis capabilities;
+- structured human-task attestations for assisted workflows;
+- a closed-loop campaign runner and reference grid optimizer;
+- CLI, Python SDK, HTTP API, and optional MCP transport hook;
+- JSON Schema generation and YAML validation;
+- run export as a portable RO-Crate-style ZIP;
+- a repository propagation graph for identifying affected contracts, code, tests, examples, and documentation;
+- materials, chemistry, and physics extension packs;
+- generators for organization laboratory repositories, adapters, capabilities, and domain packs;
+- unit, integration, end-to-end, and conformance tests.
+
+## Quick start
+
+Prerequisites: Python 3.12 or newer and [`uv`](https://docs.astral.sh/uv/).
+
+```bash
+git clone <repository-url> opensdl
+cd opensdl
+
+uv sync --all-packages --group dev
+uv run opensdl validate examples/simulated-color-mixing/opensdl.yaml \
+  --workflow examples/simulated-color-mixing/workflow.yaml
+uv run python examples/simulated-color-mixing/run_campaign.py
+```
+
+The reference campaign needs no hardware, cloud account, model API, graph database, or message broker. It creates virtual samples, measures color and mass, scores each experiment, persists all runs and events, records campaign decisions, and identifies the best recipe.
+
+Run one workflow directly:
+
+```bash
+uv run opensdl run examples/simulated-color-mixing/workflow.yaml \
+  --manifest examples/simulated-color-mixing/opensdl.yaml \
+  --inputs '{
+    "sample_id": "demo-001",
+    "red_fraction": 0.5,
+    "blue_fraction": 0.5,
+    "total_mass_g": 5,
+    "target_rgb": [127.5, 0, 127.5]
+  }'
+```
+
+Start the API:
+
+```bash
+uv run opensdl serve-api \
+  --manifest examples/simulated-color-mixing/opensdl.yaml
+```
+
+Then open `http://127.0.0.1:8000/docs`.
+
+## Create an organization laboratory repository
+
+The public framework and an organization’s live laboratory implementation should be separate repositories.
+
+```bash
+uv run opensdl init ../my-lab \
+  --name my-lab \
+  --owner my-organization
+```
+
+The generated repository contains:
+
+```text
+my-lab/
+├── .github/workflows/
+├── capabilities/
+├── deployments/
+├── policies/
+├── scripts/
+├── src/my_lab/
+├── tests/
+├── workflows/
+├── AGENTS.md
+├── DEVELOPMENT.md
+├── README.md
+├── opensdl.yaml
+└── pyproject.toml
+```
+
+That repository can add private equipment definitions, domain models, workflows, compute backends, policies, deployments, and local adapters without modifying OpenSDL core.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    OP[Human or software operator]
+    CLI[CLI · SDK · HTTP · MCP]
+    CTX[Context and tool gateway]
+    RT[Reference runtime]
+    POL[Policy and authority]
+    REG[Capability registry]
+    WF[Workflow compiler]
+    DB[(Runs · tasks · events · leases)]
+    ART[(Content-addressed artifacts)]
+    PHY[Instruments · robots · humans]
+    CMP[Local · HPC · cloud compute]
+    SIM[Simulation · replay · fault injection]
+
+    OP --> CLI --> CTX --> RT
+    RT --> POL
+    RT --> REG
+    RT --> WF
+    RT --> DB
+    RT --> ART
+    REG --> PHY
+    REG --> CMP
+    REG --> SIM
+```
+
+A capability is the central abstraction. It can be executed by a person, instrument, robot, simulator, analysis routine, compute system, or optimizer. Every capability declares typed inputs and outputs, resources, side effects, risk class, timeout, retry behavior, and simulation status.
+
+OpenSDL does not require one device protocol or orchestration backend. Adapters can wrap SiLA 2, OPC UA, EPICS, ROS 2, SCPI/VISA, Bluesky, PyLabRobot, MADSci, Slurm, Kubernetes, vendor SDKs, human tasks, or internal services.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Repository layout
+
+```text
+.
+├── apps/                 # Thin deployable controller and HTTP API
+├── packages/             # Reusable libraries plus packaged project templates
+├── adapters/             # Reference physical, compute, and optimization extensions
+├── domain-packs/         # Materials, chemistry, and physics schemas
+├── examples/             # Complete runnable laboratories and campaigns
+├── database/             # Alembic configuration and migrations
+├── deployments/          # Local containers and development environment
+├── tests/                # Cross-package integration, E2E, and conformance tests
+├── scripts/              # Development and release automation
+├── docs/                 # Concepts, architecture, guides, and reference
+├── .agents/              # Reusable repository-development procedures
+├── AGENTS.md             # Concise root instructions for coding systems
+├── DEVELOPMENT.md        # Exact developer workflow
+└── pyproject.toml        # uv workspace and shared tooling configuration
+```
+
+## Extensibility
+
+Installable extensions use standard Python entry points:
+
+```toml
+[project.entry-points."opensdl.adapters"]
+my-balance = "my_lab.adapters.balance:BalanceAdapter"
+```
+
+Local organization adapters may live in the laboratory repository. Public adapters may ship as independent packages. The same pattern supports optimizers and domain packs.
+
+Generate an adapter:
+
+```bash
+uv run opensdl adapter create my-balance \
+  --capability-id instrument.measure_mass \
+  --destination ../my-lab/adapters
+```
+
+Every operational adapter should include a simulator, conformance cases, typed failures, lifecycle behavior, and hardware validation notes.
+
+Generate a scientific domain pack:
+
+```bash
+uv run opensdl domain-pack create electrochemistry \
+  --destination ../my-lab/domain-packs
+```
+
+## Data and provenance
+
+OpenSDL separates:
+
+- planned workflow inputs;
+- executed task inputs and outputs;
+- append-only events;
+- immutable artifact bytes and hashes;
+- campaign decisions;
+- current-state projections.
+
+A graph is generated from those records rather than treated as the only source of truth. Run bundles include the run, tasks, events, artifacts, and RO-Crate metadata.
+
+## Repository propagation
+
+`propagation.yaml` describes the blast radius of important changes.
+
+```bash
+uv run opensdl propagate packages/core/src/opensdl_core/models.py
+```
+
+The result identifies affected adapters, schemas, tests, examples, API contracts, generated documentation, and deployment files. This makes cross-repository consistency testable instead of relying only on search and memory.
+
+## Safety boundary
+
+OpenSDL is not a safety instrumented system, emergency-stop circuit, process hazard analysis, or compliance certification. Physical interlocks and deterministic protective systems remain independent from the framework.
+
+The reference profile is simulator-only. Real deployments are responsible for appropriate engineering controls, validation, authorization, network segmentation, training, operating procedures, and regulatory requirements. See [SAFETY.md](SAFETY.md).
+
+## Project status
+
+This is an executable alpha, not production-qualified laboratory control software.
+
+The core loop, structured human-task path, simulated robotics path, and local compute path are implemented and tested. Current work is focused on production authentication, richer approval workflows, MADSci and SiLA 2 integrations, Slurm execution, expanded conformance, and the first low-risk hardware reference integration.
+
+See [ROADMAP.md](ROADMAP.md), [DEVELOPMENT.md](DEVELOPMENT.md), and the evidence-based [VALIDATION.md](VALIDATION.md).
+
+## License
+
+Software, schemas, examples, and documentation are provided under the [Apache License 2.0](LICENSE) unless a directory states otherwise. Hardware designs and datasets should carry explicit licenses appropriate to those artifacts.

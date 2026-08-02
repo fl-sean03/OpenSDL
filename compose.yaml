@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: opensdl
+      POSTGRES_PASSWORD: opensdl
+      POSTGRES_DB: opensdl
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opensdl"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - opensdl-postgres:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      OPENSDL_MANIFEST: examples/simulated-color-mixing/opensdl.yaml
+      OPENSDL_DATABASE_URL: postgresql+psycopg://opensdl:opensdl@postgres:5432/opensdl
+      OPENSDL_ARTIFACT_ROOT: /data/artifacts
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - opensdl-artifacts:/data/artifacts
+
+volumes:
+  opensdl-postgres:
+  opensdl-artifacts:

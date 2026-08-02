@@ -1,0 +1,41 @@
+id: first-run
+name: First simulated run
+input_schema:
+  type: object
+  required: [sample_id, red_fraction, blue_fraction, total_mass_g]
+  properties:
+    sample_id: {type: string}
+    red_fraction: {type: number, minimum: 0, maximum: 1}
+    blue_fraction: {type: number, minimum: 0, maximum: 1}
+    total_mass_g: {type: number, exclusiveMinimum: 0}
+  additionalProperties: false
+steps:
+  - id: move-in
+    capability: sim.move_labware
+    inputs:
+      labware_id: ${inputs.sample_id}
+      source: staging
+      destination: mixer
+  - id: mix
+    capability: sim.mix_color
+    depends_on: [move-in]
+    inputs:
+      sample_id: ${inputs.sample_id}
+      red_fraction: ${inputs.red_fraction}
+      blue_fraction: ${inputs.blue_fraction}
+      total_mass_g: ${inputs.total_mass_g}
+  - id: color
+    capability: sim.measure_color
+    depends_on: [mix]
+    inputs:
+      sample_id: ${steps.mix.output.sample_id}
+  - id: score
+    capability: compute.euclidean_distance
+    depends_on: [color]
+    inputs:
+      a: ${steps.color.output.rgb}
+      b: [127.5, 0, 127.5]
+outputs:
+  sample: ${steps.mix.output.sample_id}
+  measured_rgb: ${steps.color.output.rgb}
+  score: ${steps.score.output.distance}

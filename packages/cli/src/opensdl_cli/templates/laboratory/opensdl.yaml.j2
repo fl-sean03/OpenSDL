@@ -1,0 +1,67 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: Laboratory
+metadata:
+  name: {{ name }}
+  owner: {{ owner }}
+  description: Generated OpenSDL laboratory
+  tags: [organization, simulation]
+spec:
+  environment: simulation
+  storage:
+    database:
+      url: sqlite:///./.opensdl/opensdl.db
+    artifacts:
+      root: .opensdl/artifacts
+  runtime:
+    max_concurrency: 4
+    default_timeout_seconds: 60
+    lease_ttl_seconds: 300
+  adapters:
+    - name: simulated-lab
+      plugin: simulated-lab
+      config:
+        seed: 7
+    - name: local-compute
+      plugin: local-compute
+    - name: human-task
+      plugin: human-task
+  capabilities:
+    - capability: sim.mix_color
+      adapter: simulated-lab
+    - capability: sim.measure_color
+      adapter: simulated-lab
+    - capability: sim.measure_mass
+      adapter: simulated-lab
+    - capability: sim.move_labware
+      adapter: simulated-lab
+    - capability: sim.locate_labware
+      adapter: simulated-lab
+    - capability: compute.euclidean_distance
+      adapter: local-compute
+    - capability: human.attest
+      adapter: human-task
+  resources:
+    - id: virtual-mixer
+      name: Virtual mixer
+      type: simulator
+    - id: virtual-colorimeter
+      name: Virtual colorimeter
+      type: simulator
+    - id: virtual-balance
+      name: Virtual balance
+      type: simulator
+    - id: virtual-robot
+      name: Virtual robot
+      type: simulator
+  policy:
+    default_effect: deny
+    version: {{ name }}/v1
+    rules:
+      - id: allow-reference-profile
+        effect: allow
+        capability: "*"
+        environments: [simulation]
+        operators: ["*"]
+        risk_classes: [R0, R1]
+        reason: Generated simulator and assisted-workflow profile
+        priority: 10

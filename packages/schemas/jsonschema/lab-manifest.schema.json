@@ -1,0 +1,435 @@
+{
+  "$defs": {
+    "AdapterConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "plugin": {
+          "title": "Plugin",
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "plugin"
+      ],
+      "title": "AdapterConfig",
+      "type": "object"
+    },
+    "ArtifactStoreConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "default": ".opensdl/artifacts",
+          "title": "Root",
+          "type": "string"
+        }
+      },
+      "title": "ArtifactStoreConfig",
+      "type": "object"
+    },
+    "CapabilityBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "title": "Capability",
+          "type": "string"
+        },
+        "adapter": {
+          "title": "Adapter",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "capability",
+        "adapter"
+      ],
+      "title": "CapabilityBinding",
+      "type": "object"
+    },
+    "DatabaseConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "default": "sqlite:///./.opensdl/opensdl.db",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "title": "DatabaseConfig",
+      "type": "object"
+    },
+    "DomainPackConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "plugin": {
+          "title": "Plugin",
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "plugin"
+      ],
+      "title": "DomainPackConfig",
+      "type": "object"
+    },
+    "LabMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "owner"
+      ],
+      "title": "LabMetadata",
+      "type": "object"
+    },
+    "LabSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "environment": {
+          "default": "simulation",
+          "title": "Environment",
+          "type": "string"
+        },
+        "storage": {
+          "$ref": "#/$defs/StorageConfig"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeConfig"
+        },
+        "adapters": {
+          "items": {
+            "$ref": "#/$defs/AdapterConfig"
+          },
+          "title": "Adapters",
+          "type": "array"
+        },
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/CapabilityBinding"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/Resource"
+          },
+          "title": "Resources",
+          "type": "array"
+        },
+        "policy": {
+          "$ref": "#/$defs/PolicyConfig"
+        },
+        "domain_packs": {
+          "items": {
+            "$ref": "#/$defs/DomainPackConfig"
+          },
+          "title": "Domain Packs",
+          "type": "array"
+        },
+        "extensions": {
+          "additionalProperties": true,
+          "title": "Extensions",
+          "type": "object"
+        }
+      },
+      "title": "LabSpec",
+      "type": "object"
+    },
+    "PolicyConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "default_effect": {
+          "default": "deny",
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "title": "Default Effect",
+          "type": "string"
+        },
+        "version": {
+          "default": "local/v0alpha1",
+          "title": "Version",
+          "type": "string"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/PolicyRuleSpec"
+          },
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "title": "PolicyConfig",
+      "type": "object"
+    },
+    "PolicyRuleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "effect": {
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "capability": {
+          "default": "*",
+          "title": "Capability",
+          "type": "string"
+        },
+        "environments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Environments",
+          "type": "array"
+        },
+        "operators": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operators",
+          "type": "array"
+        },
+        "risk_classes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Classes",
+          "type": "array"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "priority": {
+          "default": 100,
+          "title": "Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "effect"
+      ],
+      "title": "PolicyRuleSpec",
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "Quantity",
+      "type": "object"
+    },
+    "Resource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "state": {
+          "default": "available",
+          "title": "State",
+          "type": "string"
+        },
+        "location_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location Id"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "Resource",
+      "type": "object"
+    },
+    "RuntimeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "max_concurrency": {
+          "default": 4,
+          "exclusiveMinimum": 0,
+          "title": "Max Concurrency",
+          "type": "integer"
+        },
+        "default_timeout_seconds": {
+          "default": 60.0,
+          "exclusiveMinimum": 0,
+          "title": "Default Timeout Seconds",
+          "type": "number"
+        },
+        "lease_ttl_seconds": {
+          "default": 300.0,
+          "exclusiveMinimum": 0,
+          "title": "Lease Ttl Seconds",
+          "type": "number"
+        }
+      },
+      "title": "RuntimeConfig",
+      "type": "object"
+    },
+    "StorageConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "database": {
+          "$ref": "#/$defs/DatabaseConfig"
+        },
+        "artifacts": {
+          "$ref": "#/$defs/ArtifactStoreConfig"
+        }
+      },
+      "title": "StorageConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "opensdl.dev/v0alpha1",
+      "default": "opensdl.dev/v0alpha1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "Laboratory",
+      "default": "Laboratory",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/LabMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/LabSpec"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec"
+  ],
+  "title": "LabManifest",
+  "type": "object"
+}

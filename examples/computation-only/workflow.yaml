@@ -1,0 +1,12 @@
+id: quadratic-evaluation
+name: Evaluate and summarize a quadratic
+steps:
+  - id: evaluate
+    capability: compute.quadratic
+    inputs:
+      x: ${inputs.x}
+      a: ${inputs.a}
+      b: ${inputs.b}
+      c: ${inputs.c}
+outputs:
+  value: ${steps.evaluate.output.value}

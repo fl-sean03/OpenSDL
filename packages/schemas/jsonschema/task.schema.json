@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "TaskState": {
+      "enum": [
+        "pending",
+        "waiting_for_resources",
+        "waiting_for_authorization",
+        "running",
+        "retrying",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "intervention_required"
+      ],
+      "title": "TaskState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "step_id": {
+      "title": "Step Id",
+      "type": "string"
+    },
+    "capability_id": {
+      "title": "Capability Id",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/TaskState",
+      "default": "pending"
+    },
+    "attempt": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "inputs": {
+      "additionalProperties": true,
+      "title": "Inputs",
+      "type": "object"
+    },
+    "outputs": {
+      "additionalProperties": true,
+      "title": "Outputs",
+      "type": "object"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "step_id",
+    "capability_id"
+  ],
+  "title": "TaskRecord",
+  "type": "object"
+}

@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "ArtifactKind": {
+      "enum": [
+        "raw",
+        "derived",
+        "log",
+        "model",
+        "report",
+        "other"
+      ],
+      "title": "ArtifactKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "sha256": {
+      "title": "Sha256",
+      "type": "string"
+    },
+    "media_type": {
+      "title": "Media Type",
+      "type": "string"
+    },
+    "size_bytes": {
+      "minimum": 0,
+      "title": "Size Bytes",
+      "type": "integer"
+    },
+    "kind": {
+      "$ref": "#/$defs/ArtifactKind",
+      "default": "other"
+    },
+    "storage_path": {
+      "title": "Storage Path",
+      "type": "string"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sha256",
+    "media_type",
+    "size_bytes",
+    "storage_path"
+  ],
+  "title": "ArtifactRecord",
+  "type": "object"
+}

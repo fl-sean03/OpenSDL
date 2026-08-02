@@ -1,0 +1,19 @@
+# {{ name }}
+
+Organization-owned laboratory implementation built on OpenSDL.
+
+## Start locally
+
+```bash
+uv sync
+uv run opensdl validate opensdl.yaml \
+  --workflow workflows/first-run.yaml \
+  --workflow workflows/manual-check.yaml
+uv run opensdl doctor --manifest opensdl.yaml
+uv run opensdl run workflows/first-run.yaml \
+  --manifest opensdl.yaml \
+  --inputs '{"red_fraction":0.5,"blue_fraction":0.5,"sample_id":"demo","total_mass_g":5}'
+```
+
+The initial profile is simulator-only. Replace or extend adapters, capabilities,
+policies, domain models, workflows, and deployments for this organization.

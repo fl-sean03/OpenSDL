@@ -1,0 +1,28 @@
+[project]
+name = "opensdl-controller"
+version = "0.1.0a0"
+description = "Composition root for an OpenSDL laboratory process."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core",
+  "opensdl-schemas",
+  "opensdl-capabilities",
+  "opensdl-policy",
+  "opensdl-storage",
+  "opensdl-workflows",
+  "opensdl-runtime",
+  "opensdl-provenance",
+  "opensdl-operators"
+]
+
+[project.scripts]
+opensdl-controller = "opensdl_controller.main:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

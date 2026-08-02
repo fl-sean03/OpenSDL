@@ -1,0 +1,20 @@
+[project]
+name = "opensdl-storage"
+version = "0.1.0a0"
+description = "Relational metadata, event, lease, and content-addressed artifact storage."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core",
+  "SQLAlchemy>=2.0,<3",
+  "alembic>=1.14,<2",
+  "psycopg[binary]>=3.2,<4"
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

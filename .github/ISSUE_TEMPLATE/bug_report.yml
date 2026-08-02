@@ -1,0 +1,35 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "[bug] "
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Prefer simulation or synthetic data. Remove credentials and facility details.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Safety or security impact
+      description: Follow SECURITY.md instead of publicly disclosing an exploitable issue.

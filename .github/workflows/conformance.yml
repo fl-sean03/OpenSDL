@@ -1,0 +1,23 @@
+name: Conformance
+
+on:
+  pull_request:
+    paths: ["adapters/**", "packages/capabilities/**", "tests/conformance/**"]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-packages --group dev
+      - run: uv run pytest -m conformance
+      - run: uv run python examples/simulated-color-mixing/run_campaign.py

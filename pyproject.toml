@@ -1,0 +1,95 @@
+[project]
+name = "opensdl-workspace"
+version = "0.1.0a0"
+description = "Open foundation for computational and autonomous laboratories"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core",
+  "opensdl-schemas",
+  "opensdl-capabilities",
+  "opensdl-policy",
+  "opensdl-workflows",
+  "opensdl-storage",
+  "opensdl-simulation",
+  "opensdl-runtime",
+  "opensdl-provenance",
+  "opensdl-operators",
+  "opensdl-sdk",
+  "opensdl-cli",
+  "opensdl-controller",
+  "opensdl-api",
+  "opensdl-adapter-simulated-lab",
+  "opensdl-adapter-local-compute",
+  "opensdl-adapter-grid-optimizer",
+  "opensdl-adapter-human-task",
+  "opensdl-domain-materials",
+  "opensdl-domain-chemistry",
+  "opensdl-domain-physics",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3,<10",
+  "pytest-asyncio>=0.24,<2",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
+  "pyright>=1.1.390,<2",
+]
+docs = [
+  "mkdocs-material>=9.6,<10",
+  "mkdocstrings[python]>=0.27,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ['packages/core', 'packages/schemas', 'packages/capabilities', 'packages/policy', 'packages/workflows', 'packages/storage', 'packages/simulation', 'packages/runtime', 'packages/provenance', 'packages/operators', 'packages/sdk', 'packages/cli', 'apps/controller', 'apps/api', 'adapters/simulated-lab', 'adapters/local-compute', 'adapters/grid-optimizer', 'adapters/human-task', 'domain-packs/materials', 'domain-packs/chemistry', 'domain-packs/physics']
+
+[tool.uv.sources]
+opensdl-core = { workspace = true }
+opensdl-schemas = { workspace = true }
+opensdl-capabilities = { workspace = true }
+opensdl-policy = { workspace = true }
+opensdl-workflows = { workspace = true }
+opensdl-storage = { workspace = true }
+opensdl-simulation = { workspace = true }
+opensdl-runtime = { workspace = true }
+opensdl-provenance = { workspace = true }
+opensdl-operators = { workspace = true }
+opensdl-sdk = { workspace = true }
+opensdl-cli = { workspace = true }
+opensdl-controller = { workspace = true }
+opensdl-api = { workspace = true }
+opensdl-adapter-simulated-lab = { workspace = true }
+opensdl-adapter-local-compute = { workspace = true }
+opensdl-adapter-grid-optimizer = { workspace = true }
+opensdl-adapter-human-task = { workspace = true }
+opensdl-domain-materials = { workspace = true }
+opensdl-domain-chemistry = { workspace = true }
+opensdl-domain-physics = { workspace = true }
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --import-mode=importlib"
+testpaths = ["packages", "apps", "adapters", "domain-packs", "tests"]
+asyncio_mode = "auto"
+markers = [
+  "integration: crosses package or process boundaries",
+  "e2e: runs a complete laboratory workflow",
+  "conformance: verifies an extension contract",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["packages/schemas/jsonschema"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["packages", "apps", "adapters", "domain-packs"]
+exclude = ["**/__pycache__", ".venv"]

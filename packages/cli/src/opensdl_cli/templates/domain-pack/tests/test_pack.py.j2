@@ -1,0 +1,8 @@
+from opensdl_domain_{{ module }} import DomainRecord, get_pack
+
+
+def test_pack_exports_schema() -> None:
+    pack = get_pack()
+    assert pack["name"] == "{{ name }}"
+    assert "DomainRecord" in pack["models"]
+    assert DomainRecord(id="example").id == "example"

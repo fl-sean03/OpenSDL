@@ -1,0 +1,35 @@
+[project]
+name = "opensdl-cli"
+version = "0.1.0a0"
+description = "Command-line interface and project generators."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-controller",
+  "opensdl-provenance",
+  "opensdl-operators",
+  "opensdl-sdk",
+  "opensdl-api",
+  "typer>=0.16,<1",
+  "rich>=13,<15",
+  "Jinja2>=3.1,<4",
+  "uvicorn>=0.32,<1"
+]
+
+[project.scripts]
+opensdl = "opensdl_cli.main:app"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+opensdl_cli = [
+  "templates/**/*",
+  "templates/**/.*",
+  "templates/laboratory/.github/workflows/*.j2",
+]

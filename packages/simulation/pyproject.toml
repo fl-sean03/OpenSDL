@@ -1,0 +1,18 @@
+[project]
+name = "opensdl-simulation"
+version = "0.1.0a0"
+description = "Deterministic simulation, fault injection, and replay primitives."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core",
+  "opensdl-capabilities"
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,23 @@
+[project]
+name = "opensdl-api"
+version = "0.1.0a0"
+description = "HTTP API for laboratory context, capabilities, runs, resources, and events."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-controller",
+  "opensdl-operators",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.32,<1"
+]
+
+[project.scripts]
+opensdl-api = "opensdl_api.main:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

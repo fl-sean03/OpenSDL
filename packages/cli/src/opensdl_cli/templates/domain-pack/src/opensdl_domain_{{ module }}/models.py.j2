@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import Field
+
+from opensdl_core import OpenSDLModel
+
+
+class DomainRecord(OpenSDLModel):
+    """Replace with a precise {{ name }} domain model."""
+
+    id: str
+    metadata: dict[str, Any] = Field(default_factory=dict)

@@ -1,0 +1,19 @@
+# Repository instructions
+
+## Layout
+
+- Laboratory configuration: `opensdl.yaml`
+- Workflows: `workflows/`
+- Organization code: `src/{{ package }}/`
+- Local adapters: `src/{{ package }}/adapters/`
+- Organization domain models: `src/{{ package }}/domain/`
+- Tests: `tests/`
+
+## Required checks
+
+- `uv run opensdl validate opensdl.yaml --workflow workflows/first-run.yaml`
+- `uv run opensdl doctor --manifest opensdl.yaml`
+- `uv run pytest`
+
+Keep credentials, live endpoints, sensitive facility details, and generated run
+state out of Git. Implement changes end to end, including tests and configuration.

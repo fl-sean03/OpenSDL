@@ -1,0 +1,21 @@
+from pathlib import Path
+
+from opensdl_schemas import load_manifest, validate_workflow_file
+
+
+ROOT = Path(__file__).parents[1]
+
+
+def test_manifest_loads() -> None:
+    manifest = load_manifest(ROOT / "opensdl.yaml")
+    assert manifest.metadata.name == "{{ name }}"
+    assert {adapter.plugin for adapter in manifest.spec.adapters} == {
+        "human-task",
+        "local-compute",
+        "simulated-lab",
+    }
+
+
+def test_workflows_validate() -> None:
+    assert validate_workflow_file(ROOT / "workflows/first-run.yaml").steps
+    assert validate_workflow_file(ROOT / "workflows/manual-check.yaml").steps

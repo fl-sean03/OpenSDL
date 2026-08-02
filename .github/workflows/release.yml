@@ -1,0 +1,29 @@
+name: Build release artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-packages --group dev
+      - run: uv run pytest
+      - run: |
+          mkdir -p dist
+          for project in packages/* apps/* adapters/* domain-packs/*; do
+            if [ -f "$project/pyproject.toml" ]; then uv build --project "$project" --out-dir dist; fi
+          done
+      - uses: actions/upload-artifact@v6
+        with:
+          name: python-distributions
+          path: dist/

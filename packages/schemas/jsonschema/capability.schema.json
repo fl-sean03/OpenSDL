@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "ExecutorType": {
+      "enum": [
+        "human",
+        "instrument",
+        "robot",
+        "compute",
+        "analysis",
+        "optimizer",
+        "simulator"
+      ],
+      "title": "ExecutorType",
+      "type": "string"
+    },
+    "RiskClass": {
+      "enum": [
+        "R0",
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "title": "RiskClass",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "default": "0.1.0",
+      "title": "Version",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "executor_type": {
+      "$ref": "#/$defs/ExecutorType"
+    },
+    "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+    },
+    "output_schema": {
+      "additionalProperties": true,
+      "title": "Output Schema",
+      "type": "object"
+    },
+    "risk_class": {
+      "$ref": "#/$defs/RiskClass",
+      "default": "R0"
+    },
+    "required_resources": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Resources",
+      "type": "array"
+    },
+    "side_effects": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Side Effects",
+      "type": "array"
+    },
+    "timeout_seconds": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Timeout Seconds"
+    },
+    "max_retries": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Max Retries",
+      "type": "integer"
+    },
+    "supports_cancellation": {
+      "default": false,
+      "title": "Supports Cancellation",
+      "type": "boolean"
+    },
+    "simulator_available": {
+      "default": false,
+      "title": "Simulator Available",
+      "type": "boolean"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "executor_type",
+    "input_schema",
+    "output_schema"
+  ],
+  "title": "CapabilityDefinition",
+  "type": "object"
+}

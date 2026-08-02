@@ -1,0 +1,20 @@
+[project]
+name = "opensdl-domain-materials"
+version = "0.1.0a0"
+description = "Materials science domain models and extension schemas."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core"
+]
+
+[project.entry-points."opensdl.domain_packs"]
+materials = "opensdl_domain_materials.pack:get_pack"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

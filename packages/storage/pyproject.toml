@@ -9,7 +9,7 @@ dependencies = [
   "opensdl-core",
   "SQLAlchemy>=2.0,<3",
   "alembic>=1.14,<2",
-  "psycopg[binary]>=3.2,<4"
+  "psycopg[binary]>=3.3.4,<4"
 ]
 
 [build-system]

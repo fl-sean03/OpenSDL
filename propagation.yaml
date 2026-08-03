@@ -5,13 +5,22 @@ nodes:
     paths: ["packages/core/**"]
   - id: generated-schemas
     description: Language-neutral public schemas
-    paths: ["packages/schemas/jsonschema/**", "packages/schemas/src/**"]
+    paths: ["packages/schemas/**"]
+  - id: twin
+    description: Scene binding contract and deterministic event projection
+    paths: ["packages/twin/**"]
   - id: storage-model
     description: Relational schema, repositories, and migrations
     paths: ["packages/storage/**", "database/**"]
+  - id: simulation
+    description: Deterministic simulation, fault injection, and replay
+    paths: ["packages/simulation/**"]
   - id: runtime
     description: Workflow and campaign execution
     paths: ["packages/runtime/**", "packages/workflows/**", "packages/policy/**"]
+  - id: provenance
+    description: Run exports, research graphs, and propagation
+    paths: ["packages/provenance/**"]
   - id: adapters
     description: Physical, compute, human, and optimization integrations
     paths: ["adapters/**"]
@@ -27,6 +36,9 @@ nodes:
   - id: conformance
     description: Cross-implementation compatibility tests
     paths: ["tests/conformance/**", "packages/capabilities/**"]
+  - id: cross-package-tests
+    description: Integration, end-to-end, and repository-wide suites
+    paths: ["tests/**"]
   - id: documentation
     description: Public guidance and architecture
     paths: ["README.md", "ARCHITECTURE.md", "DEVELOPMENT.md", "docs/**"]
@@ -38,8 +50,14 @@ edges:
     target: generated-schemas
     reason: public models generate schemas
   - source: core-contracts
+    target: twin
+    reason: scene bindings reference public identifiers
+  - source: core-contracts
     target: storage-model
     reason: persistence maps public records
+  - source: core-contracts
+    target: simulation
+    reason: simulated behavior uses lifecycle contracts
   - source: core-contracts
     target: runtime
     reason: execution uses lifecycle contracts
@@ -52,12 +70,39 @@ edges:
   - source: generated-schemas
     target: operator-interfaces
     reason: interfaces expose public contracts
+  - source: twin
+    target: generated-schemas
+    reason: the binding contract generates a public schema
+  - source: twin
+    target: operator-interfaces
+    reason: interfaces expose twin definitions and projections
+  - source: twin
+    target: examples
+    reason: the reference showcase exercises the binding contract
+  - source: twin
+    target: documentation
+    reason: the scene binding contract requires public guidance
   - source: storage-model
     target: runtime
     reason: runtime depends on durable state
+  - source: storage-model
+    target: provenance
+    reason: exports and graphs read durable state
+  - source: storage-model
+    target: cross-package-tests
+    reason: migrations require integration evidence
+  - source: simulation
+    target: adapters
+    reason: simulated adapters build on deterministic simulation
   - source: runtime
     target: operator-interfaces
     reason: interfaces invoke runtime behavior
+  - source: runtime
+    target: cross-package-tests
+    reason: execution changes require end-to-end evidence
+  - source: provenance
+    target: operator-interfaces
+    reason: interfaces expose exports, graphs, and propagation
   - source: adapters
     target: conformance
     reason: adapters require compatibility evidence
@@ -73,12 +118,18 @@ edges:
   - source: operator-interfaces
     target: examples
     reason: examples exercise public interfaces
+  - source: operator-interfaces
+    target: cross-package-tests
+    reason: interface changes require integration evidence
   - source: examples
     target: documentation
     reason: docs show tested workflows
   - source: conformance
     target: deployment
     reason: CI and releases enforce conformance
+  - source: cross-package-tests
+    target: deployment
+    reason: CI runs the cross-package suites
   - source: operator-interfaces
     target: documentation
     reason: command and API references must stay current

@@ -2,6 +2,7 @@
 
 - `opensdl-core`: models, identifiers, enums, errors, lifecycle.
 - `opensdl-schemas`: manifests, JSON Schemas, validation.
+- `opensdl-twin`: scene bindings, digests, event projection.
 - `opensdl-capabilities`: adapters, registry, plugins, conformance.
 - `opensdl-policy`: scoped allow and deny decisions.
 - `opensdl-workflows`: loading, DAG validation, reference resolution.

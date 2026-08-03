@@ -20,46 +20,84 @@ This separation prevents proprietary operational state from leaking into the pub
 
 ```mermaid
 flowchart LR
-    CORE[core]
-    SCH[schemas]
-    CAP[capabilities]
-    POL[policy]
-    WF[workflows]
-    ST[storage]
-    SIM[simulation]
-    RT[runtime]
-    PROV[provenance]
-    OPS[operators]
-    SDK[sdk]
-    CTRL[controller]
-    API[api]
-    CLI[cli]
-    AD[adapters]
+    subgraph Foundation
+        CORE[core]
+        SCH[schemas]
+    end
+    subgraph Contracts
+        TWIN[twin]
+        CAP[capabilities]
+        POL[policy]
+        WF[workflows]
+        ST[storage]
+    end
+    subgraph Execution
+        SIM[simulation]
+        RT[runtime]
+        PROV[provenance]
+        OPS[operators]
+    end
+    subgraph Interfaces
+        SDK[sdk]
+        CTRL[controller]
+        API[api]
+        CLI[cli]
+    end
+    subgraph Extensions
+        AD[adapters]
+        DP[domain packs]
+    end
 
     CORE --> SCH
+    CORE --> TWIN
     CORE --> CAP
     CORE --> POL
     CORE --> WF
     CORE --> ST
     CORE --> SIM
+    CORE --> RT
+    CORE --> PROV
+    CORE --> OPS
+    CORE --> SDK
+    CORE --> CTRL
+    CORE --> API
+    CORE --> AD
+    CORE --> DP
+    SCH --> OPS
+    SCH --> SDK
+    SCH --> CTRL
+    SCH --> CLI
+    TWIN --> CTRL
+    TWIN --> CLI
     CAP --> SIM
     CAP --> RT
+    CAP --> OPS
+    CAP --> CTRL
+    CAP --> AD
     POL --> RT
+    POL --> CTRL
     WF --> RT
+    WF --> CTRL
     ST --> RT
     ST --> PROV
+    ST --> OPS
+    ST --> CTRL
+    SIM --> AD
     RT --> OPS
-    PROV --> OPS
-    SCH --> OPS
-    SCH --> CTRL
     RT --> CTRL
+    RT --> AD
+    PROV --> OPS
+    PROV --> CTRL
+    PROV --> CLI
     OPS --> CTRL
+    OPS --> CLI
+    SDK --> CLI
     CTRL --> API
     CTRL --> CLI
-    SDK --> CLI
-    CORE --> AD
-    CAP --> AD
+    API --> CLI
 ```
+
+The boxes are dependency tiers, not packages. Every edge is an allowed import direction in the enforced map. `adapters` and `domain packs` are grouped nodes; an edge into a group holds for at least one member.
 
 Rules:
 
@@ -70,6 +108,7 @@ Rules:
 5. Storage is accessed through repository interfaces.
 6. Simulation is available without importing physical adapters.
 7. Operator transports depend on the runtime; the runtime does not depend on a particular transport.
+8. The digital twin imports `core` only; nothing on the execution path depends on it.
 
 `scripts/check-boundaries.py` enforces these rules.
 
@@ -119,6 +158,20 @@ Artifact bytes live outside the relational database. The local store uses SHA-25
 The append-only event stream is the historical source. Current state and research graphs are projections. Portable exports package run metadata, tasks, events, and artifact bytes.
 
 The repository propagation graph is separate from the scientific graph. It tracks implementation dependencies such as schema → adapter → tests → examples → docs.
+
+## Digital twin projection
+
+`opensdl-twin` binds an authored 3D scene to the semantic laboratory. A versioned definition declares
+a coordinate frame, a digest-pinned scene asset, stable entities and anchors, and rules that map
+persisted events to visual cues. The package imports `core` only. The controller loads the configured
+definition, verifies the scene digest, and projects one stored run. The CLI and the HTTP API expose
+that result read-only.
+
+The twin is a projection of the recorded event stream, like the research graph. It does not execute
+capabilities, command equipment, advance a run, or report physical state. It does not sit on the
+execution path, and a laboratory that declares no twin runs identically. The framework carries one
+reference showcase; each laboratory owns its scene source. See
+[lab-specific digital twins](docs/architecture/digital-twin.md).
 
 ## Operator interfaces
 

@@ -18,6 +18,8 @@ opensdl capability create
 opensdl adapter create
 opensdl domain-pack create
 opensdl schema generate
+opensdl twin validate
+opensdl twin project
 ```
 
 Run `opensdl COMMAND --help` or `opensdl GROUP COMMAND --help` for current arguments and options.

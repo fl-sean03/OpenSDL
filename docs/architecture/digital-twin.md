@@ -155,6 +155,7 @@ GET /twin
 GET /twin/scene.glb
 GET /twin/runs/{run_id}
 GET /viewer
+GET /viewer/{asset_path}
 ```
 
 The viewer can play, pause, reset, scrub, orbit, and zoom. It displays the current capability,

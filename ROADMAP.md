@@ -28,6 +28,22 @@ running implementation list.
 - complete simulator-only closed-loop example
 - unit, integration, end-to-end, and adapter-conformance tests
 
+## Unreleased
+
+Merged after the v0.1 alpha and not yet part of a release. See [CHANGELOG.md](CHANGELOG.md).
+
+- versioned, engine-neutral digital-twin scene binding with a digest-pinned scene asset
+- deterministic projection of persisted run events into immutable visual cues
+- twin commands in the CLI, read-only twin and viewer routes in the HTTP API, and SDK twin methods
+- runs pinned to the twin revision, definition digest, and scene digest used for projection
+- read-only Three.js viewer with demonstration playback and stored-run replay
+- one complete surrogate-cell reference showcase for the binding contract and viewer
+- laboratory onboarding guidance and a start-here skill for simulator-first setup planning
+
+Historical replay across twin revisions, general scene validation, and an on-demand
+build-digital-twin skill remain open work. See
+[lab-specific digital twins](docs/architecture/digital-twin.md).
+
 ## v0.2 — real integration and richer human work
 
 - queued human tasks with identity, witness, and configurable evidence requirements

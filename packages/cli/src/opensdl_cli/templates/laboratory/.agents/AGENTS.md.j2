@@ -1,0 +1,9 @@
+# Laboratory skill instructions
+
+- Keep canonical skills at `.agents/skills/<name>/SKILL.md`.
+- Use portable `name` and `description` frontmatter. The name must match the directory.
+- Give each skill one job, explicit inputs, a procedure, evidence, and stop conditions.
+- Reference every helper and use only commands available in this repository.
+- Do not store credentials, mutable runtime state, conversation transcripts, or authority in skills.
+- Keep the matching `.claude/skills/` adapter synchronized.
+- Run `uv run python scripts/validate-skills.py` after a skill change.

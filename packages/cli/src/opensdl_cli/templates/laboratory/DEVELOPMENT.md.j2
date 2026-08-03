@@ -1,10 +1,17 @@
 # Development
 
+Use a configured package registry when available. A local alpha smoke test can instead use wheels
+built from the OpenSDL framework checkout:
+
 ```bash
-uv sync
+uv sync --find-links /path/to/OpenSDL/dist
 ./scripts/check.sh
 ./scripts/dev.sh
 ```
+
+Because the wheelhouse location can be recorded in `uv.lock`, use a stable registry or committed
+artifact source before treating the lockfile as portable. Set the repository variable
+`OPENSDL_PACKAGES_AVAILABLE=true` only after CI can resolve that source.
 
 Add organization-specific behavior under `src/{{ package }}/`. Install public
 or private adapters through normal Python dependencies and declare them in

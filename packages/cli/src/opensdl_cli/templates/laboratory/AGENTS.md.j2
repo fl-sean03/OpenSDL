@@ -15,5 +15,15 @@
 - `uv run opensdl doctor --manifest opensdl.yaml`
 - `uv run pytest`
 
-Keep credentials, live endpoints, sensitive facility details, and generated run
-state out of Git. Implement changes end to end, including tests and configuration.
+## Working state
+
+- Start fresh work with `git status --short`, the `orient-lab` skill, and the selected manifest.
+- Resume work by refreshing Git, tests, and the selected manifest. Query runtime evidence only when
+  the task requires it, account for query side effects, and preserve unrelated changes and setup.
+- Git records intended implementation. `.opensdl/` records local execution state and stays out of
+  Git. Conversation history is private context.
+- The active harness controls local permissions. The manifest, policy, and runtime control
+  laboratory actions.
+
+Repository skills live in `.agents/skills/`. Keep credentials, live endpoints, sensitive facility
+details, and generated run state out of Git. Implement changes with tests and configuration.

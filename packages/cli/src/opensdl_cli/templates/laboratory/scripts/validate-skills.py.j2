@@ -1,0 +1,116 @@
+from __future__ import annotations
+
+import re
+import subprocess
+from pathlib import Path
+
+import yaml
+
+
+ROOT = Path(__file__).parents[1]
+NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+IGNORED_DIRECTORIES = {
+    ".git",
+    ".opensdl",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+}
+
+
+def tree_files(root: Path) -> dict[Path, bytes]:
+    return {
+        path.relative_to(root): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+
+
+def instruction_adapter_failures() -> list[str]:
+    failures: list[str] = []
+    for agents_path in ROOT.rglob("AGENTS.md"):
+        relative = agents_path.relative_to(ROOT)
+        if any(part in IGNORED_DIRECTORIES for part in relative.parts):
+            continue
+        claude_path = agents_path.with_name("CLAUDE.md")
+        if not claude_path.is_file():
+            failures.append(f"{relative}: missing adjacent CLAUDE.md")
+        elif "@AGENTS.md" not in claude_path.read_text(encoding="utf-8").splitlines():
+            failures.append(f"{claude_path.relative_to(ROOT)}: must import @AGENTS.md")
+    return failures
+
+
+def main() -> None:
+    failures = instruction_adapter_failures()
+    canonical_root = ROOT / ".agents" / "skills"
+    claude_root = ROOT / ".claude" / "skills"
+    skill_dirs = sorted(path for path in canonical_root.iterdir() if path.is_dir())
+    for skill_dir in skill_dirs:
+        path = skill_dir / "SKILL.md"
+        relative = path.relative_to(ROOT)
+        if not path.is_file():
+            failures.append(f"{skill_dir.relative_to(ROOT)}: missing SKILL.md")
+            continue
+        content = path.read_text(encoding="utf-8")
+        if not content.startswith("---\n"):
+            failures.append(f"{relative}: frontmatter must start at the beginning of the file")
+            continue
+        try:
+            _, frontmatter, body = content.split("---\n", 2)
+            metadata = yaml.safe_load(frontmatter)
+        except (ValueError, yaml.YAMLError) as error:
+            failures.append(f"{relative}: invalid frontmatter ({error})")
+            continue
+        if not isinstance(metadata, dict) or set(metadata) != {"name", "description"}:
+            failures.append(f"{relative}: frontmatter must contain only name and description")
+            continue
+        name = metadata["name"]
+        description = metadata["description"]
+        if not isinstance(name, str):
+            failures.append(f"{relative}: name must be a string")
+        elif name != skill_dir.name or len(name) > 64 or NAME.fullmatch(name) is None:
+            failures.append(f"{relative}: invalid or mismatched name")
+        if not isinstance(description, str) or not 1 <= len(description.strip()) <= 1024:
+            failures.append(f"{relative}: description must contain 1 to 1024 characters")
+        elif "use when" not in description.lower():
+            failures.append(f"{relative}: description must state when to use the skill")
+        if not body.strip() or len(body.splitlines()) > 500:
+            failures.append(f"{relative}: body must contain 1 to 500 lines")
+        for helper in skill_dir.rglob("*.sh"):
+            if helper.name not in body:
+                failures.append(f"{relative}: helper {helper.name!r} is not referenced")
+            syntax = subprocess.run(
+                ["bash", "-n", str(helper)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if syntax.returncode:
+                failures.append(f"{relative}: helper {helper.name!r} has invalid shell syntax")
+            if not helper.stat().st_mode & 0o111:
+                failures.append(f"{relative}: helper {helper.name!r} is not executable")
+
+        adapter = claude_root / skill_dir.name
+        if adapter.is_symlink():
+            if adapter.resolve() != skill_dir.resolve():
+                failures.append(f"{adapter.relative_to(ROOT)}: points to the wrong skill")
+        elif adapter.is_dir():
+            if tree_files(adapter) != tree_files(skill_dir):
+                failures.append(f"{adapter.relative_to(ROOT)}: generated mirror has drifted")
+        else:
+            failures.append(f"{adapter.relative_to(ROOT)}: missing Claude Code adapter")
+
+    expected = {path.name for path in skill_dirs}
+    actual = {path.name for path in claude_root.iterdir()} if claude_root.is_dir() else set()
+    if actual != expected:
+        failures.append(".claude/skills: adapters do not match canonical skills")
+    if failures:
+        raise SystemExit("invalid laboratory skills:\n" + "\n".join(failures))
+    print(
+        f"Validated {len(skill_dirs)} laboratory skills, instructions, and Claude Code adapters"
+    )
+
+
+if __name__ == "__main__":
+    main()

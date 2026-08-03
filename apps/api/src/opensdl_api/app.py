@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -45,7 +46,7 @@ def create_app(
 
     app = FastAPI(
         title="OpenSDL API",
-        version="0.1.0a0",
+        version=distribution_version("opensdl-api"),
         description="Typed access to laboratory context, capabilities, resources, runs, and events.",
         lifespan=lifespan,
     )

@@ -1,0 +1,33 @@
+---
+name: debug-run
+description: Diagnose a failed OpenSDL run from persisted tasks and events, reproduce it in simulation, and validate a small fix. Use when a workflow or task has failed or needs intervention analysis.
+---
+
+# Debug a failed run
+
+## Inputs
+
+- persisted run identifier
+- manifest path, default `opensdl.yaml`
+- workflow and inputs when a simulation reproduction is possible
+
+## Procedure
+
+1. Run `.agents/skills/debug-run/run.sh RUN_ID [MANIFEST]`.
+2. Identify the first failed task and trace its policy, lease, adapter, timeout, retry, and error
+   events.
+3. Reproduce with the simulation manifest when the workflow and inputs are available.
+4. Fix the smallest correct local adapter, workflow, test, or configuration layer.
+5. Add a regression test.
+6. Re-run the simulation and export the completed run evidence.
+
+## Completion
+
+The cause is tied to persisted evidence, a regression test covers it, and the simulation rerun has
+the expected result.
+
+## Stop conditions
+
+Stop on ambiguous physical state or when recovery needs hold, abort, resume, or reconciliation
+behavior that the typed interface does not expose. Do not infer physical reversal from database
+state.

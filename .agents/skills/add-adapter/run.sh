@@ -5,4 +5,5 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
 cd -- "$REPO_ROOT"
 name=${1:?adapter name required}
 capability=${2:?capability id required}
-uv run --locked opensdl adapter create "$name" --capability-id "$capability" --destination adapters
+destination=${3:-adapters}
+uv run --locked opensdl adapter create "$name" --capability-id "$capability" --destination "$destination"

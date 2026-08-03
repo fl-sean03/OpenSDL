@@ -20,11 +20,13 @@ nav:
       - Propagation graphs: concepts/propagation.md
   - Architecture:
       - Overview: architecture/overview.md
+      - Agent-native operation: architecture/agent-native-operation.md
       - Package boundaries: architecture/packages.md
   - Guides:
       - Add an adapter: guides/add-adapter.md
       - Closed-loop campaign: guides/closed-loop-campaign.md
   - Development:
+      - Agent instructions and skills: development/agent-skills.md
       - Testing: development/testing.md
       - Validation: development/validation.md
   - Reference:

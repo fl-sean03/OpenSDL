@@ -1,6 +1,6 @@
 ---
 name: add-adapter
-description: Scaffold and implement an OpenSDL adapter with simulation and conformance coverage. Use when adding support for an instrument, robot, compute service, human task, or other capability executor.
+description: Add an OpenSDL adapter with simulation and conformance evidence. Use when integrating an instrument, robot, compute service, human task, or other capability executor.
 ---
 
 # Add an adapter
@@ -9,18 +9,25 @@ description: Scaffold and implement an OpenSDL adapter with simulation and confo
 
 - adapter name
 - first capability identifier
-- target directory
+- destination directory, default `adapters`
 
 ## Procedure
 
-1. Run `uv run --locked opensdl adapter create NAME --capability-id ID --destination adapters`.
-2. Implement transport, health, lifecycle, and typed failure behavior.
-3. Add a deterministic simulator or mock.
-4. Add conformance cases and package tests.
-5. Add the workspace member or publish the package independently.
-6. Add one runnable example or integration fixture.
-7. Run `uv run --locked pytest -m conformance` and the propagation check.
+1. Inspect the nearest `AGENTS.md` and the capability contract.
+2. Run `.agents/skills/add-adapter/run.sh NAME CAPABILITY_ID [DESTINATION]`.
+3. Implement typed transport, health, lifecycle, timeout, retry, and failure behavior.
+4. Keep a deterministic simulator or mock beside the operational transport.
+5. Add conformance cases, package tests, and one runnable simulation fixture.
+6. Add the package to the workspace only when it belongs in this coordinated repository.
+7. Run the package tests, `uv run --locked pytest -m conformance`, and repository validation.
 
 ## Completion
 
-The adapter is discoverable by entry point, passes conformance, and can run against simulation without physical equipment.
+The adapter is discoverable by entry point, passes conformance, and executes its declared capability
+against simulation. Report the tested transport or equipment version without claiming untested
+hardware behavior.
+
+## Stop conditions
+
+Stop if the semantic capability, equipment limits, safe failure behavior, or simulator contract is
+unclear. Do not connect physical equipment as part of scaffolding.

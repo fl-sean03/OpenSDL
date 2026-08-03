@@ -5,4 +5,5 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
 cd -- "$REPO_ROOT"
 id=${1:?capability id required}
 name=${2:?display name required}
-uv run --locked opensdl capability create "$id" --name "$name" --destination capabilities
+destination=${3:-capabilities}
+uv run --locked opensdl capability create "$id" --name "$name" --destination "$destination"

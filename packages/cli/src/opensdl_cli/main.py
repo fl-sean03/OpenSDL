@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -39,7 +40,7 @@ def _json_input(value: str) -> dict[str, Any]:
 @app.command()
 def version() -> None:
     """Print the workspace version."""
-    console.print("0.1.0a0")
+    console.print(distribution_version("opensdl-cli"))
 
 
 @app.command()

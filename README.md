@@ -82,10 +82,26 @@ uv run --locked opensdl init ../my-lab \
   --owner my-organization
 ```
 
+The generated lab needs a package source for the OpenSDL alpha distributions. If they are absent
+from your configured registry, build a local wheelhouse from this checkout for a smoke test:
+
+```bash
+uv build --all-packages --wheel --out-dir dist
+cd ../my-lab
+uv sync --find-links ../opensdl/dist
+```
+
+This local source can be recorded in the generated `uv.lock`. Use a stable registry or committed
+artifact source before treating that lockfile as portable across clones. Generated CI validates
+agent files immediately and runs full checks after `OPENSDL_PACKAGES_AVAILABLE=true` is configured
+as a repository variable.
+
 The generated repository contains:
 
 ```text
 my-lab/
+├── .agents/skills/
+├── .claude/skills/
 ├── .github/workflows/
 ├── capabilities/
 ├── deployments/
@@ -95,6 +111,7 @@ my-lab/
 ├── tests/
 ├── workflows/
 ├── AGENTS.md
+├── CLAUDE.md
 ├── DEVELOPMENT.md
 ├── README.md
 ├── opensdl.yaml
@@ -135,7 +152,8 @@ A capability is the central abstraction. It can be executed by a person, instrum
 
 OpenSDL does not require one device protocol or orchestration backend. Adapters can wrap SiLA 2, OPC UA, EPICS, ROS 2, SCPI/VISA, Bluesky, PyLabRobot, MADSci, Slurm, Kubernetes, vendor SDKs, human tasks, or internal services.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md) and the
+[agent-native operation plan](docs/architecture/agent-native-operation.md).
 
 ## Repository layout
 
@@ -151,8 +169,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md).
 ├── tests/                # Cross-package integration, E2E, and conformance tests
 ├── scripts/              # Development and release automation
 ├── docs/                 # Concepts, architecture, guides, and reference
-├── .agents/              # Reusable repository-development procedures
-├── AGENTS.md             # Concise root instructions for coding systems
+├── .agents/              # Canonical repository and laboratory lifecycle skills
+├── .claude/              # Claude Code adapters for the canonical skills
+├── AGENTS.md             # Concise scoped project instructions
+├── CLAUDE.md             # Claude Code import for the root instructions
 ├── DEVELOPMENT.md        # Exact developer workflow
 └── pyproject.toml        # uv workspace and shared tooling configuration
 ```

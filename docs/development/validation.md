@@ -13,6 +13,7 @@ uv run --locked pytest
 uv run --locked python scripts/check-boundaries.py
 uv run --locked python scripts/generate-schemas.py --check
 uv run --locked python scripts/validate-repository.py
+uv run --locked python scripts/check-version.py
 ```
 
 Run database-specific, hardware-in-the-loop, and facility acceptance tests in the deployment repository rather than treating simulator conformance as equipment qualification.

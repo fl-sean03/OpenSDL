@@ -1,0 +1,37 @@
+---
+name: author-skill
+description: Create, revise, split, or remove a repository-local laboratory skill. Use when a recurring agent procedure needs portable triggers, instructions, resources, validation, and fresh-session tests.
+---
+
+# Author a laboratory skill
+
+## Inputs
+
+- recurring job and intended users
+- three positive trigger requests
+- two nearby requests that should select a different skill or no skill
+- supported commands, evidence, and stop conditions
+
+## Procedure
+
+1. Read `.agents/AGENTS.md` and nearby skills.
+2. Put durable global rules in `AGENTS.md`, exact behavior in typed tooling, and equipment procedures
+   in a reviewed runbook.
+3. Create or revise one canonical directory under `.agents/skills/`.
+4. Use a lowercase hyphenated name of at most 64 characters and a matching directory.
+5. Use only `name` and `description` frontmatter. State what the skill does and when it applies.
+6. Keep `SKILL.md` below 500 lines. Add only the references, scripts, or assets the procedure needs.
+7. Add or update the matching `.claude/skills/` symlink or generated mirror.
+8. Run `uv run python scripts/validate-skills.py` and the procedure's tests.
+9. Test positive selection, negative selection, representative execution, and continuing work in a
+   dirty worktree.
+
+## Completion
+
+The canonical skill validates, both supported harnesses discover it, its commands exist, and fresh
+tests show correct selection and completion behavior.
+
+## Stop conditions
+
+Stop if the procedure depends on a planned command, duplicates operational authority, or would
+store credentials, conversation transcripts, or mutable runtime state in Git.

@@ -24,6 +24,7 @@ lint:
 	uv run --locked python scripts/check-boundaries.py
 	uv run --locked python scripts/generate-schemas.py --check
 	uv run --locked python scripts/validate-repository.py
+	uv run --locked python scripts/check-version.py
 
 format:
 	uv run --locked ruff format .
@@ -41,6 +42,7 @@ schemas:
 validate:
 	uv lock --check
 	uv run --locked python scripts/validate-repository.py
+	uv run --locked python scripts/check-version.py
 
 example:
 	uv run --locked python examples/simulated-color-mixing/run_campaign.py

@@ -30,6 +30,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "packaging>=24,<27",
   "pytest>=8.3,<10",
   "pytest-asyncio>=0.24,<2",
   "pytest-cov>=6,<8",

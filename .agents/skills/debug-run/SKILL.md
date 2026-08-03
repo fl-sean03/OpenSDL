@@ -5,10 +5,31 @@ description: Diagnose a failed OpenSDL run, reproduce it in simulation, and vali
 
 # Debug a failed run
 
-1. Inspect the run: `uv run --locked opensdl inspect RUN_ID --manifest MANIFEST`.
-2. Identify the first failed task and its policy, lease, adapter, and error events.
-3. Reproduce against the simulator or replay adapter.
-4. Fix the smallest correct layer.
-5. Add a regression test and, when relevant, a conformance case.
-6. Re-run the workflow and export the evidence bundle.
-7. Check propagation impact before completion.
+## Inputs
+
+- persisted run identifier
+- manifest path
+- workflow and inputs when a simulation reproduction is possible
+
+## Procedure
+
+1. Run `.agents/skills/debug-run/run.sh RUN_ID [MANIFEST]`.
+2. Run `uv run --locked opensdl events --manifest MANIFEST --run-id RUN_ID` and identify the first
+   failed task.
+3. Trace the policy decision, lease, adapter call, timeout, retry, and error events.
+4. Reproduce with a simulation manifest when the workflow and inputs are available.
+5. Fix the smallest correct contract, adapter, runtime, storage, or configuration layer.
+6. Add a regression test and a conformance case when an adapter contract changed.
+7. Re-run the simulation and export it with `uv run --locked opensdl export RUN_ID --manifest MANIFEST`.
+8. Check propagation impact before completion.
+
+## Completion
+
+The cause is tied to persisted evidence, the regression test fails before the fix and passes after
+it, and the simulation rerun has an exported evidence bundle.
+
+## Stop conditions
+
+Stop on ambiguous physical state or when safe recovery needs hold, abort, resume, or reconciliation
+behavior that the typed interface does not expose. Do not infer physical reversal from database
+state.

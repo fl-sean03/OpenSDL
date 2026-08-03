@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -51,6 +52,24 @@ def _render_tree(template_name: str, destination: Path, context: dict[str, Any])
         _write(target, rendered, executable=target.suffix == ".sh")
 
 
+def _expose_skills_to_claude(root: Path) -> None:
+    """Expose canonical Agent Skills through Claude Code's project discovery path."""
+    canonical_root = root / ".agents" / "skills"
+    claude_root = root / ".claude" / "skills"
+    claude_root.mkdir(parents=True, exist_ok=True)
+    for canonical in sorted(canonical_root.iterdir()):
+        if not canonical.is_dir():
+            continue
+        target = claude_root / canonical.name
+        relative = Path("../../.agents/skills") / canonical.name
+        try:
+            target.symlink_to(relative, target_is_directory=True)
+        except OSError:
+            # Some Windows checkouts cannot create directory symlinks. A byte-for-byte mirror keeps
+            # both harnesses usable; generated validation detects later drift.
+            shutil.copytree(canonical, target)
+
+
 def create_laboratory(
     destination: str | Path,
     *,
@@ -72,6 +91,7 @@ def create_laboratory(
             "owner": owner,
         },
     )
+    _expose_skills_to_claude(root)
     return root
 
 

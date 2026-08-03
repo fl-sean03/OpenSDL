@@ -8,6 +8,28 @@ OpenSDL is an executable public alpha. This report records the checks run agains
 repository. Deployment teams must produce separate evidence for their equipment, infrastructure,
 and operating procedures.
 
+## Agent-native extension validation
+
+On 2026-08-03, the repository instruction, skill, and generated-laboratory extension passed on
+CPython 3.12.3:
+
+- **72 tests**, including skill metadata and adapters, generated-lab cold rendering, installed CLI
+  and API version reporting, release-version propagation, plugin-entry-point collision checks, and
+  rejection of an unused physical adapter before its lifecycle starts;
+- Ruff, Pyright, package boundaries, schema freshness, repository validation, release-version
+  consistency, the five-iteration simulation example, and a strict documentation build;
+- all nine canonical skills through the Agent Skills validator;
+- a wheelhouse-installed generated lab with manifest and workflow validation, doctor, two tests,
+  and a completed simulator workflow; and
+- an isolated `0.1.0a1` release rehearsal that built 21 wheels and 21 source archives, reported the
+  synchronized CLI and API version, preserved immutable import evidence, and refused a second build
+  into the nonempty artifact directory;
+- a native fresh Codex session that selected orientation and simulation-development skills and
+  stopped rather than inventing unsupported physical cancel or resume commands.
+
+The Python 3.13 and 3.14 matrix was not rerun locally for this extension; hosted CI remains the
+cross-version evidence source. The upstream Starlette `TestClient` warning described below remains.
+
 ## Source workspace
 
 The workspace lock was generated and checked with uv 0.11.32. It resolves 105 packages for the 21
@@ -34,7 +56,7 @@ The following checks also passed:
 - strict MkDocs build;
 - Python bytecode compilation;
 - shell syntax for project scripts and skill helpers;
-- all six repository skills with Codex's skill validator;
+- all nine repository skills with the Agent Skills validator;
 - the three reference-adapter conformance cases;
 - the five-iteration simulated color campaign; and
 - reruns after the example created persistent local state.

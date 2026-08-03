@@ -1,17 +1,36 @@
 ---
 name: release
-description: Prepare a reproducible OpenSDL release by versioning, validating, and building every workspace distribution. Use when cutting or rehearsing a coordinated project release.
+description: Prepare OpenSDL release candidates by versioning, validating, and building every workspace distribution. Use when cutting or rehearsing a coordinated project release.
 ---
 
 # Prepare a release
 
-1. Synchronize package versions with `uv run --locked python scripts/release.py VERSION`.
-2. Run tests, lint, type checking, boundary checks, schema checks, and migrations.
-3. Run the complete simulator campaign and adapter conformance suite.
-4. Build every workspace distribution.
-5. Review public API changes and migration guidance.
-6. Generate the SBOM and check license files in every distribution.
-7. Create signed release notes and tag only after the artifacts are reproducible.
+## Inputs
+
+- target version
+- reviewed release scope and notes
+
+## Procedure
+
+1. Start from a clean worktree and an absent or empty `dist/`. Review changes since the previous
+   release.
+2. Run `.agents/skills/release/run.sh VERSION`.
+3. Review synchronized workspace versions, installed CLI and API version reporting, citation
+   metadata, generated dependency floors, public API changes, schemas, and migration guidance.
+4. Keep `PACKAGE_MANIFEST.md`, `package-manifest.json`, `REPO_TREE.txt`, and `SHA256SUMS` unchanged;
+   `IMPORT_PROVENANCE.md` defines them as evidence for the immutable source import.
+5. Inspect every wheel and source archive under `dist/`.
+6. Record the exact validation evidence and unresolved release work.
+
+## Completion
+
+All workspace distributions build from the reviewed revision, and the test, lint, type, schema,
+boundary, example, and conformance checks pass.
+
+## Stop conditions
+
+Stop on a dirty worktree, a nonempty `dist/`, a failing check, an unexpected public API change, or
+an unexpected artifact.
 
 The helper builds distribution candidates. It does not publish packages, sign artifacts, generate an
 SBOM, or create a tag.

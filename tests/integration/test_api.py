@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+from importlib.metadata import version as distribution_version
 
 from fastapi.testclient import TestClient
 
@@ -17,6 +18,7 @@ def test_api_runs_workflow(tmp_path: Path) -> None:
     )
     system = OpenSDLSystem.from_manifest(target / "opensdl.yaml")
     app = create_app(system)
+    assert app.version == distribution_version("opensdl-api")
     workflow = __import__("yaml").safe_load((target / "workflow.yaml").read_text())
     with TestClient(app) as client:
         assert client.get("/health").json()["passed"]

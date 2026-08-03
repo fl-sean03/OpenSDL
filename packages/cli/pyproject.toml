@@ -31,5 +31,6 @@ where = ["src"]
 opensdl_cli = [
   "templates/**/*",
   "templates/**/.*",
+  "templates/laboratory/.agents/**/*",
   "templates/laboratory/.github/workflows/*.j2",
 ]

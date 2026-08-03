@@ -26,7 +26,7 @@ matrix. Every member has its own `pyproject.toml`, source tree, and tests.
 ```bash
 make sync          # install all workspace packages and dev tools
 make test          # unit, integration, E2E, and conformance tests
-make lint          # Ruff, Pyright, dependency boundaries, and schemas
+make lint          # Ruff, Pyright, boundaries, schemas, repository, and version checks
 make schemas       # regenerate checked-in JSON Schemas
 make example       # run the complete simulated campaign
 make api           # serve the reference API
@@ -139,6 +139,13 @@ uv run --locked python scripts/generate-schemas.py
 ```
 
 CI fails when generated schemas differ from committed files.
+
+Release versions must also agree across workspace packages, citation metadata, and generated
+dependency floors:
+
+```bash
+uv run --locked python scripts/check-version.py
+```
 
 ## Dependency boundaries
 

@@ -1,5 +1,9 @@
 # Roadmap
 
+The [agent-native operation plan](docs/architecture/agent-native-operation.md) defines the
+repository, simulator, collaboration, live-equipment, and optional external-harness sequence. This
+roadmap tracks product releases.
+
 ## Implemented in v0.1 alpha
 
 - uv Python monorepo with independently packaged members

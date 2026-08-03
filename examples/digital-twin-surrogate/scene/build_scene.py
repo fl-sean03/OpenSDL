@@ -2629,7 +2629,7 @@ def validate_motion(
     liquid_columns: Sequence[bpy.types.Object],
     input_shuttle: bpy.types.Object,
     output_shuttle: bpy.types.Object,
-) -> None:
+) -> list[dict[str, object]]:
     scene = bpy.context.scene
     original_frame = scene.frame_current
     checks: list[dict[str, object]] = []
@@ -2821,14 +2821,20 @@ def validate_motion(
     record("plate does not yaw", max(yaw_values) <= 1e-9, max(yaw_values), 0.0)
 
     scene.frame_set(original_frame)
-    report = {
-        "passed": not failures,
-        "frameRange": {"start": 1, "end": FRAME_END, "fps": FPS},
-        "checks": checks,
-    }
-    VALIDATION_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if failures:
         raise RuntimeError("Digital-twin motion validation failed:\n- " + "\n- ".join(failures))
+    return checks
+
+
+def write_validation(checks: Sequence[dict[str, object]]) -> None:
+    digest = hashlib.sha256(GLB_PATH.read_bytes()).hexdigest() if GLB_PATH.exists() else None
+    report = {
+        "sha256": digest,
+        "passed": all(check["passed"] for check in checks),
+        "frameRange": {"start": 1, "end": FRAME_END, "fps": FPS},
+        "checks": list(checks),
+    }
+    VALIDATION_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
 
 def write_inventory() -> None:
@@ -2976,7 +2982,7 @@ def build_scene(options: argparse.Namespace) -> None:
         camera,
     )
     configure_render(options)
-    validate_motion(
+    motion_checks = validate_motion(
         slots,
         gripper=gripper,
         sample=sample,
@@ -2993,6 +2999,7 @@ def build_scene(options: argparse.Namespace) -> None:
     if not options.no_export:
         export_glb()
     write_inventory()
+    write_validation(motion_checks)
     render_outputs(options)
 
 

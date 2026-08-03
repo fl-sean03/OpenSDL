@@ -15,7 +15,7 @@ read [SOURCES.md](SOURCES.md) for provenance and reuse boundaries.
 | `assets/surrogate-cell.glb` | Binary glTF scene for the read-only viewer |
 | `assets/preview.png` | Still image at the requested frame and resolution |
 | `assets/node-inventory.json` | Exported node names, coordinate frame, required bindings, source basis, and GLB digest |
-| `assets/motion-validation.json` | Machine-readable motion and placement check results |
+| `assets/motion-validation.json` | Machine-readable motion and placement check results, and GLB digest |
 | `renders/opensdl-surrogate-cell.mp4` | Optional H.264 animation |
 
 The animation spans frames 1–960 at 24 frames per second. Its duration is 40 seconds.
@@ -30,7 +30,8 @@ blender -b --factory-startup -noaudio \
 ```
 
 The default build uses Eevee render settings, saves frame 548 in the Blender file, and exports the
-GLB. It writes the inventory and validation report on every run.
+GLB. A failed motion check stops the build before any of that. Both reports are written after the
+export, so each one records the digest of the GLB it describes.
 
 The current validation covers 70 conditions. These include deck pitch, required labware counts,
 plate and reader-lid checkpoints, gripper coupling, tip attachment, liquid fill state, Stacker
@@ -72,7 +73,8 @@ Use `--no-export` during render-only iteration when the checked GLB must remain 
 
 ## Check the binding after a rebuild
 
-The twin definition pins the GLB digest. After an intentional scene rebuild:
+The twin definition pins the GLB digest. Both build reports record the digest of the exported GLB,
+so a report left over from an earlier scene cannot pass review. After an intentional scene rebuild:
 
 1. Inspect `assets/preview.png` and the animation.
 2. Inspect `assets/motion-validation.json` and require `passed: true`.

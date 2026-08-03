@@ -86,18 +86,16 @@ flowchart LR
     RT --> OPS
     RT --> CTRL
     RT --> AD
-    PROV --> OPS
     PROV --> CTRL
     PROV --> CLI
     OPS --> CTRL
-    OPS --> CLI
-    SDK --> CLI
     CTRL --> API
     CTRL --> CLI
     API --> CLI
 ```
 
-The boxes are dependency tiers, not packages. Every edge is an allowed import direction in the enforced map. `adapters` and `domain packs` are grouped nodes; an edge into a group holds for at least one member.
+The boxes are dependency tiers, not packages. `adapters` and `domain packs` are grouped nodes; an
+edge into a group holds for at least one member.
 
 Rules:
 
@@ -109,8 +107,11 @@ Rules:
 6. Simulation is available without importing physical adapters.
 7. Operator transports depend on the runtime; the runtime does not depend on a particular transport.
 8. The digital twin imports `core` only; nothing on the execution path depends on it.
+9. The allowed map grants only what the code imports. Widening it is a deliberate change, so an
+   unused permission is removed rather than left standing.
 
-`scripts/check-boundaries.py` enforces these rules.
+`scripts/check-boundaries.py` enforces these rules. Every edge above is an allowed import direction
+in that map, and each one is currently exercised.
 
 ## Execution model
 

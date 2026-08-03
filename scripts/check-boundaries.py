@@ -28,7 +28,6 @@ ALLOWED: dict[str, set[str]] = {
         "opensdl_runtime",
         "opensdl_storage",
         "opensdl_schemas",
-        "opensdl_provenance",
     },
     "opensdl": {"opensdl_core", "opensdl_schemas"},
     "opensdl_controller": {
@@ -47,8 +46,6 @@ ALLOWED: dict[str, set[str]] = {
     "opensdl_cli": {
         "opensdl_controller",
         "opensdl_provenance",
-        "opensdl_operators",
-        "opensdl",
         "opensdl_schemas",
         "opensdl_api",
         "opensdl_twin",

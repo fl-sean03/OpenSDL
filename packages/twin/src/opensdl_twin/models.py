@@ -498,6 +498,11 @@ class TwinCue(FrozenTwinModel):
     run_id: str | None = Field(default=None, alias="runId")
     task_id: str = Field(alias="taskId")
     capability_id: str = Field(alias="capabilityId")
+    # The projector normalizes every timestamp to UTC, so this format claim is accurate.
+    # It documents the contract for language-neutral consumers; Python conformance is proven
+    # by parsing in the projector tests, not by a format assertion. `jsonschema` only checks
+    # `date-time` when `rfc3339-validator` is installed, and a format assertion without it
+    # passes on malformed input, so do not add that dependency to make this "enforced".
     occurred_at: str = Field(alias="occurredAt", json_schema_extra={"format": "date-time"})
     phase: TwinPhase
     action: TwinAction

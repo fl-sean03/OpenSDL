@@ -1,0 +1,381 @@
+{
+  "$defs": {
+    "AnimationBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/TwinAction"
+        },
+        "parameterMatch": {
+          "additionalProperties": true,
+          "title": "Parametermatch",
+          "type": "object"
+        },
+        "frameStart": {
+          "minimum": 0,
+          "title": "Framestart",
+          "type": "integer"
+        },
+        "frameEnd": {
+          "minimum": 0,
+          "title": "Frameend",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "parameterMatch",
+        "frameStart",
+        "frameEnd"
+      ],
+      "title": "AnimationBinding",
+      "type": "object"
+    },
+    "AnimationTimeline": {
+      "additionalProperties": false,
+      "properties": {
+        "frameRate": {
+          "exclusiveMinimum": 0,
+          "title": "Framerate",
+          "type": "number"
+        },
+        "frameStart": {
+          "minimum": 0,
+          "title": "Framestart",
+          "type": "integer"
+        },
+        "frameEnd": {
+          "minimum": 0,
+          "title": "Frameend",
+          "type": "integer"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/AnimationBinding"
+          },
+          "minItems": 1,
+          "title": "Bindings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "frameRate",
+        "frameStart",
+        "frameEnd",
+        "bindings"
+      ],
+      "title": "AnimationTimeline",
+      "type": "object"
+    },
+    "CoordinateFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "const": "m",
+          "title": "Unit",
+          "type": "string"
+        },
+        "handedness": {
+          "$ref": "#/$defs/Handedness"
+        },
+        "upAxis": {
+          "$ref": "#/$defs/UpAxis"
+        },
+        "origin": {
+          "default": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Origin",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "handedness",
+        "upAxis"
+      ],
+      "title": "CoordinateFrame",
+      "type": "object"
+    },
+    "Handedness": {
+      "enum": [
+        "left",
+        "right"
+      ],
+      "title": "Handedness",
+      "type": "string"
+    },
+    "ProjectionMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "eventType": {
+          "title": "Eventtype",
+          "type": "string"
+        },
+        "capability": {
+          "title": "Capability",
+          "type": "string"
+        },
+        "phase": {
+          "$ref": "#/$defs/TwinPhase"
+        }
+      },
+      "required": [
+        "eventType",
+        "capability",
+        "phase"
+      ],
+      "title": "ProjectionMatch",
+      "type": "object"
+    },
+    "ProjectionRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/ProjectionMatch"
+        },
+        "action": {
+          "$ref": "#/$defs/TwinAction"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "parameterPointers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Parameterpointers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "match",
+        "action",
+        "target"
+      ],
+      "title": "ProjectionRule",
+      "type": "object"
+    },
+    "TwinAction": {
+      "enum": [
+        "highlight",
+        "transfer",
+        "play_clip",
+        "set_property"
+      ],
+      "title": "TwinAction",
+      "type": "string"
+    },
+    "TwinAnchor": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "node": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node"
+        }
+      },
+      "required": [
+        "id",
+        "position"
+      ],
+      "title": "TwinAnchor",
+      "type": "object"
+    },
+    "TwinEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "node": {
+          "title": "Node",
+          "type": "string"
+        },
+        "resources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "node"
+      ],
+      "title": "TwinEntity",
+      "type": "object"
+    },
+    "TwinPhase": {
+      "enum": [
+        "started",
+        "retrying",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "intervention_required"
+      ],
+      "title": "TwinPhase",
+      "type": "string"
+    },
+    "TwinScene": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "TwinScene",
+      "type": "object"
+    },
+    "UpAxis": {
+      "enum": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "title": "UpAxis",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "opensdl.dev/v0alpha1",
+      "default": "opensdl.dev/v0alpha1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "DigitalTwin",
+      "default": "DigitalTwin",
+      "title": "Kind",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "revision": {
+      "title": "Revision",
+      "type": "string"
+    },
+    "coordinateFrame": {
+      "$ref": "#/$defs/CoordinateFrame"
+    },
+    "scene": {
+      "$ref": "#/$defs/TwinScene"
+    },
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/TwinEntity"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "anchors": {
+      "items": {
+        "$ref": "#/$defs/TwinAnchor"
+      },
+      "title": "Anchors",
+      "type": "array"
+    },
+    "projectionRules": {
+      "items": {
+        "$ref": "#/$defs/ProjectionRule"
+      },
+      "title": "Projectionrules",
+      "type": "array"
+    },
+    "animationTimeline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnimationTimeline"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "version",
+    "revision",
+    "coordinateFrame",
+    "scene",
+    "entities"
+  ],
+  "title": "TwinDefinition",
+  "type": "object"
+}

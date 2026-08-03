@@ -26,10 +26,12 @@ from .models import (
     validate_safe_relative_path,
 )
 from .projector import TwinProjectionError, project_events, resolve_json_pointer
+from .schemas import TWIN_SCHEMAS, generate_twin_json_schemas
 from .service import TwinService
 
 __all__ = [
     "EVENT_PHASES",
+    "TWIN_SCHEMAS",
     "AnimationBinding",
     "AnimationTimeline",
     "CoordinateFrame",
@@ -50,6 +52,7 @@ __all__ = [
     "TwinService",
     "UpAxis",
     "VerifiedTwinScene",
+    "generate_twin_json_schemas",
     "load_twin_definition",
     "project_events",
     "resolve_json_pointer",

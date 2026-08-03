@@ -328,3 +328,30 @@ def test_service_exposes_verified_paths_and_delegates_projection(
         [event],
         {"task-transfer": "cell.transfer_labware"},
     )
+
+
+def test_cue_timestamps_are_rfc_3339_date_times(twin_definition: TwinDefinition) -> None:
+    started = _event("event-started", "TaskStarted", seconds=1)
+
+    cues = project_events(twin_definition, [started], {"task-transfer": "cell.transfer_labware"})
+
+    parsed = datetime.fromisoformat(cues[0].occurred_at)
+    assert parsed.utcoffset() is not None
+    assert parsed == NOW + timedelta(seconds=1)
+
+
+def test_naive_event_timestamps_are_published_with_an_explicit_offset(
+    twin_definition: TwinDefinition,
+) -> None:
+    naive = EventRecord(
+        id="event-started",
+        type="TaskStarted",
+        occurred_at=datetime(2026, 8, 3, 12, 0),
+        run_id="run-demo",
+        task_id="task-transfer",
+    )
+
+    cues = project_events(twin_definition, [naive], {"task-transfer": "cell.transfer_labware"})
+
+    assert cues[0].occurred_at == "2026-08-03T12:00:00+00:00"
+    assert datetime.fromisoformat(cues[0].occurred_at).utcoffset() is not None

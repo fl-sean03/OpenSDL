@@ -6,7 +6,21 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from opensdl_twin import TwinDefinition, validate_json_pointer, validate_safe_relative_path
+from opensdl_twin import TwinCue, TwinDefinition, validate_json_pointer, validate_safe_relative_path
+
+
+def cue_data() -> dict[str, Any]:
+    return {
+        "id": "cue_0123456789abcdef01234567",
+        "sequence": 0,
+        "sourceEventId": "event-started",
+        "taskId": "task-transfer",
+        "capabilityId": "cell.transfer_labware",
+        "occurredAt": "2026-08-03T12:00:00+00:00",
+        "phase": "started",
+        "action": "highlight",
+        "target": "robot",
+    }
 
 
 def test_definition_accepts_camel_case_contract_and_dumps_aliases(
@@ -371,3 +385,35 @@ def test_animation_timeline_rejects_ambiguous_parameter_matches(
 
     with pytest.raises(ValidationError, match="are ambiguous"):
         TwinDefinition.model_validate(definition_data)
+
+
+def test_cue_accepts_a_complete_projected_contract() -> None:
+    cue = TwinCue.model_validate(cue_data())
+
+    assert cue.source_event_id == "event-started"
+    assert cue.run_id is None
+    assert cue.model_dump(mode="json", by_alias=True)["occurredAt"] == "2026-08-03T12:00:00+00:00"
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["id", "sourceEventId", "taskId", "capabilityId", "occurredAt", "target"],
+)
+@pytest.mark.parametrize("value", ["", "   ", "\t\n"])
+def test_cue_rejects_blank_identifier_values(field: str, value: str) -> None:
+    data = cue_data()
+    data[field] = value
+
+    with pytest.raises(ValidationError, match="cannot be blank"):
+        TwinCue.model_validate(data)
+
+
+def test_cue_normalizes_surrounding_whitespace_like_its_sibling_contracts() -> None:
+    data = cue_data()
+    data["taskId"] = "  task-transfer  "
+    data["target"] = "\trobot\n"
+
+    cue = TwinCue.model_validate(data)
+
+    assert cue.task_id == "task-transfer"
+    assert cue.target == "robot"

@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "TwinAction": {
+      "enum": [
+        "highlight",
+        "transfer",
+        "play_clip",
+        "set_property"
+      ],
+      "title": "TwinAction",
+      "type": "string"
+    },
+    "TwinPhase": {
+      "enum": [
+        "started",
+        "retrying",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "intervention_required"
+      ],
+      "title": "TwinPhase",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "sequence": {
+      "minimum": 0,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "sourceEventId": {
+      "title": "Sourceeventid",
+      "type": "string"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "taskId": {
+      "title": "Taskid",
+      "type": "string"
+    },
+    "capabilityId": {
+      "title": "Capabilityid",
+      "type": "string"
+    },
+    "occurredAt": {
+      "format": "date-time",
+      "title": "Occurredat",
+      "type": "string"
+    },
+    "phase": {
+      "$ref": "#/$defs/TwinPhase"
+    },
+    "action": {
+      "$ref": "#/$defs/TwinAction"
+    },
+    "target": {
+      "title": "Target",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "sequence",
+    "sourceEventId",
+    "taskId",
+    "capabilityId",
+    "occurredAt",
+    "phase",
+    "action",
+    "target"
+  ],
+  "title": "TwinCue",
+  "type": "object"
+}

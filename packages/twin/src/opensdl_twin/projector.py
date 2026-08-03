@@ -76,7 +76,7 @@ def project_events(
                     runId=event.run_id,
                     taskId=event.task_id,
                     capabilityId=capability_id,
-                    occurredAt=event.occurred_at.isoformat(),
+                    occurredAt=_as_utc(event.occurred_at).isoformat(),
                     phase=phase,
                     action=rule.action,
                     target=rule.target,
@@ -128,11 +128,21 @@ def _event_phase(event: EventRecord) -> TwinPhase:
         raise TwinProjectionError(f"event {event.id!r} has no recognized projection phase") from exc
 
 
+def _as_utc(moment: datetime) -> datetime:
+    """Normalize a durable timestamp to UTC.
+
+    Stores that cannot persist an offset return naive timestamps, so ordering and the
+    emitted cue timestamp share this rule. Cue ``occurredAt`` is published as an RFC 3339
+    ``date-time``, which requires an explicit offset.
+    """
+
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC)
+
+
 def _event_sort_key(event: EventRecord) -> tuple[datetime, str]:
-    occurred_at = event.occurred_at
-    if occurred_at.tzinfo is None:
-        occurred_at = occurred_at.replace(tzinfo=UTC)
-    return occurred_at.astimezone(UTC), event.id
+    return _as_utc(event.occurred_at), event.id
 
 
 def _validate_resolved_action(

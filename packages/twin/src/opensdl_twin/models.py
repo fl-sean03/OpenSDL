@@ -498,11 +498,16 @@ class TwinCue(FrozenTwinModel):
     run_id: str | None = Field(default=None, alias="runId")
     task_id: str = Field(alias="taskId")
     capability_id: str = Field(alias="capabilityId")
-    occurred_at: str = Field(alias="occurredAt")
+    occurred_at: str = Field(alias="occurredAt", json_schema_extra={"format": "date-time"})
     phase: TwinPhase
     action: TwinAction
     target: str
     parameters: Mapping[str, Any] = Field(default_factory=lambda: MappingProxyType({}))
+
+    @field_validator("id", "source_event_id", "task_id", "capability_id", "occurred_at", "target")
+    @classmethod
+    def identifiers_must_not_be_blank(cls, value: str, info: Any) -> str:
+        return _nonblank(value, info.field_name)
 
     @field_validator("parameters")
     @classmethod

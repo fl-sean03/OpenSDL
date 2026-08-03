@@ -12,10 +12,11 @@ from rich.table import Table
 
 from opensdl_controller import OpenSDLSystem
 from opensdl_provenance import PropagationGraph
-from opensdl_schemas import generate_json_schemas, validate_manifest_file, validate_workflow_file
+from opensdl_schemas import validate_manifest_file, validate_workflow_file
 from opensdl_twin import TwinProjectionError, load_twin_definition
 
 from .scaffold import create_adapter, create_capability, create_domain_pack, create_laboratory
+from .schemas import generate_all_json_schemas
 
 app = typer.Typer(
     no_args_is_help=True, help="Build, validate, run, and extend OpenSDL laboratories."
@@ -260,7 +261,7 @@ def scaffold_domain_pack(
 def generate_schemas(
     destination: Annotated[Path, typer.Option("--destination", "-d")] = Path("schemas"),
 ) -> None:
-    paths = generate_json_schemas(destination)
+    paths = generate_all_json_schemas(destination)
     console.print(f"Generated {len(paths)} schemas in {destination}")
 
 

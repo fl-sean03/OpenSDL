@@ -2,6 +2,21 @@
 
 Organization-owned laboratory implementation built on OpenSDL.
 
+Start a normal agent conversation in this repository and ask it to “start here,” describe the lab,
+or name the first workflow you want to build. The `start-here` skill records confirmed shared
+context and turns one useful outcome into a simulator-first implementation plan. It works with a
+fresh conversation or a continuing one.
+
+Shared planning context lives in `docs/lab/`:
+
+- `context.md` records the lab purpose, outcomes, constraints, assumptions, and open questions.
+- `inventory.md` separates reported equipment from integration and visual-twin readiness.
+- `setup-plan.md` is this lab’s running work list and first-workflow map.
+- `decisions.md` preserves confirmed choices and their reasons.
+
+Executable configuration remains in `opensdl.yaml`, workflows, adapters, policy, and tests. Runtime
+evidence stays in the configured OpenSDL store, and credentials stay outside Git.
+
 ## Start locally
 
 OpenSDL alpha packages must be available from a configured registry. For a local smoke test before
@@ -27,4 +42,6 @@ The initial profile is simulator-only. Replace or extend adapters, capabilities,
 policies, domain models, workflows, and deployments for this organization.
 
 Repository procedures live in `.agents/skills/`. Claude Code reads the same skills through
-`.claude/skills/` compatibility adapters.
+`.claude/skills/` compatibility adapters. If a custom 3D view is useful, a user or agent can build
+one tailored Blender scene in this laboratory repository when requested. OpenSDL does not supply a
+model catalog or scaffold 3D assets by default.

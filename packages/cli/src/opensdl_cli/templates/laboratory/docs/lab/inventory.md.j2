@@ -1,0 +1,20 @@
+# Laboratory inventory
+
+Record planned and existing equipment, compute, locations, manual stations, and supporting systems.
+An entry describes knowledge about an item. It does not authorize execution.
+
+| Item | Stable ID | Type | Location | Evidence | Evidence state | Integration state | Twin state | Notes |
+|---|---|---|---|---|---|---|---|---|
+
+## State vocabulary
+
+- Evidence: `planned`, `reported`, or `verified`.
+- Integration: `not-started`, `simulated`, `integrated`, or `commissioned`.
+- Visual twin: `none`, `planned`, `draft`, `registered`, or `validated`.
+
+Keep the three states separate. A verified or modeled instrument can still lack an adapter. A
+commissioned capability needs deployment-specific evidence outside this table.
+
+## Evidence gaps
+
+- No user-specific inventory has been recorded.

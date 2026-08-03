@@ -30,6 +30,7 @@ members = [
     "opensdl-sdk",
     "opensdl-simulation",
     "opensdl-storage",
+    "opensdl-twin",
     "opensdl-workflows",
     "opensdl-workspace",
 ]
@@ -982,6 +983,7 @@ dependencies = [
     { name = "opensdl-operators" },
     { name = "opensdl-provenance" },
     { name = "opensdl-sdk" },
+    { name = "opensdl-twin" },
     { name = "rich" },
     { name = "typer" },
     { name = "uvicorn" },
@@ -995,6 +997,7 @@ requires-dist = [
     { name = "opensdl-operators", editable = "packages/operators" },
     { name = "opensdl-provenance", editable = "packages/provenance" },
     { name = "opensdl-sdk", editable = "packages/sdk" },
+    { name = "opensdl-twin", editable = "packages/twin" },
     { name = "rich", specifier = ">=13,<15" },
     { name = "typer", specifier = ">=0.16,<1" },
     { name = "uvicorn", specifier = ">=0.32,<1" },
@@ -1013,6 +1016,7 @@ dependencies = [
     { name = "opensdl-runtime" },
     { name = "opensdl-schemas" },
     { name = "opensdl-storage" },
+    { name = "opensdl-twin" },
     { name = "opensdl-workflows" },
 ]
 
@@ -1026,6 +1030,7 @@ requires-dist = [
     { name = "opensdl-runtime", editable = "packages/runtime" },
     { name = "opensdl-schemas", editable = "packages/schemas" },
     { name = "opensdl-storage", editable = "packages/storage" },
+    { name = "opensdl-twin", editable = "packages/twin" },
     { name = "opensdl-workflows", editable = "packages/workflows" },
 ]
 
@@ -1221,6 +1226,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "opensdl-twin"
+version = "0.1.0a0"
+source = { editable = "packages/twin" }
+dependencies = [
+    { name = "opensdl-core" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "opensdl-core", editable = "packages/core" },
+    { name = "pydantic", specifier = ">=2.10,<3" },
+    { name = "pyyaml", specifier = ">=6,<7" },
+]
+
+[[package]]
 name = "opensdl-workflows"
 version = "0.1.0a0"
 source = { editable = "packages/workflows" }
@@ -1260,6 +1282,7 @@ dependencies = [
     { name = "opensdl-sdk" },
     { name = "opensdl-simulation" },
     { name = "opensdl-storage" },
+    { name = "opensdl-twin" },
     { name = "opensdl-workflows" },
 ]
 
@@ -1299,6 +1322,7 @@ requires-dist = [
     { name = "opensdl-sdk", editable = "packages/sdk" },
     { name = "opensdl-simulation", editable = "packages/simulation" },
     { name = "opensdl-storage", editable = "packages/storage" },
+    { name = "opensdl-twin", editable = "packages/twin" },
     { name = "opensdl-workflows", editable = "packages/workflows" },
 ]
 

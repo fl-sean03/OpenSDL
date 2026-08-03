@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from opensdl_core import validate_run_id
 from opensdl_storage import ArtifactStore, RepositoryStore
 
 
@@ -13,6 +14,7 @@ class RunBundleExporter:
         self.artifact_store = artifact_store
 
     def export(self, run_id: str, destination: str | Path) -> Path:
+        run_id = validate_run_id(run_id)
         run = self.repositories.get_run(run_id)
         if run is None:
             raise KeyError(run_id)
@@ -26,9 +28,7 @@ class RunBundleExporter:
             }
             for artifact in artifacts
         ]
-        artifact_files = {
-            f"artifacts/{artifact.sha256}": artifact for artifact in artifacts
-        }
+        artifact_files = {f"artifacts/{artifact.sha256}": artifact for artifact in artifacts}
         target = Path(destination)
         if target.suffix != ".zip":
             target = target / f"{run_id}.zip"
@@ -70,8 +70,13 @@ class RunBundleExporter:
         with ZipFile(target, "w", ZIP_DEFLATED) as archive:
             archive.writestr("ro-crate-metadata.json", json.dumps(crate, indent=2))
             archive.writestr("run.json", run.model_dump_json(indent=2))
-            archive.writestr("tasks.json", json.dumps([task.model_dump(mode="json") for task in tasks], indent=2, default=str))
-            archive.writestr("events.jsonl", "\n".join(event.model_dump_json() for event in events) + "\n")
+            archive.writestr(
+                "tasks.json",
+                json.dumps([task.model_dump(mode="json") for task in tasks], indent=2, default=str),
+            )
+            archive.writestr(
+                "events.jsonl", "\n".join(event.model_dump_json() for event in events) + "\n"
+            )
             archive.writestr("artifacts.json", json.dumps(artifact_metadata, indent=2))
             for path, artifact in artifact_files.items():
                 data = self.artifact_store.read_bytes(artifact)

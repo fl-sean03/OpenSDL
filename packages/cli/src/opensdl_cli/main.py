@@ -13,18 +13,23 @@ from rich.table import Table
 from opensdl_controller import OpenSDLSystem
 from opensdl_provenance import PropagationGraph
 from opensdl_schemas import generate_json_schemas, validate_manifest_file, validate_workflow_file
+from opensdl_twin import TwinProjectionError, load_twin_definition
 
 from .scaffold import create_adapter, create_capability, create_domain_pack, create_laboratory
 
-app = typer.Typer(no_args_is_help=True, help="Build, validate, run, and extend OpenSDL laboratories.")
+app = typer.Typer(
+    no_args_is_help=True, help="Build, validate, run, and extend OpenSDL laboratories."
+)
 adapter_app = typer.Typer(no_args_is_help=True, help="Create and inspect adapters.")
 capability_app = typer.Typer(no_args_is_help=True, help="Create and inspect capabilities.")
 schema_app = typer.Typer(no_args_is_help=True, help="Generate public schemas.")
 domain_app = typer.Typer(no_args_is_help=True, help="Create scientific domain packs.")
+twin_app = typer.Typer(no_args_is_help=True, help="Validate and project digital twins.")
 app.add_typer(adapter_app, name="adapter")
 app.add_typer(capability_app, name="capability")
 app.add_typer(domain_app, name="domain-pack")
 app.add_typer(schema_app, name="schema")
+app.add_typer(twin_app, name="twin")
 console = Console()
 
 
@@ -93,17 +98,38 @@ def run_workflow(
     manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
     inputs: Annotated[str, typer.Option(help="JSON object or @path/to/file.json")] = "{}",
     operator_id: Annotated[str, typer.Option()] = "operator/cli",
+    run_id: Annotated[str | None, typer.Option("--run-id")] = None,
 ) -> None:
     """Execute a workflow through the durable reference runtime."""
-    result = asyncio.run(_run(manifest, workflow, _json_input(inputs), operator_id))
+    result = asyncio.run(
+        _run(
+            manifest,
+            workflow,
+            _json_input(inputs),
+            operator_id,
+            run_id=run_id,
+        )
+    )
     console.print_json(data=result)
 
 
-async def _run(manifest: Path, workflow: Path, inputs: dict[str, Any], operator_id: str) -> dict[str, Any]:
+async def _run(
+    manifest: Path,
+    workflow: Path,
+    inputs: dict[str, Any],
+    operator_id: str,
+    *,
+    run_id: str | None = None,
+) -> dict[str, Any]:
     system = OpenSDLSystem.from_manifest(manifest)
     try:
         await system.start()
-        run = await system.run_workflow_file(workflow, inputs, operator_id=operator_id)
+        run = await system.run_workflow_file(
+            workflow,
+            inputs,
+            operator_id=operator_id,
+            run_id=run_id,
+        )
         return system.gateway.inspect_run(run.id)
     finally:
         await system.close()
@@ -131,7 +157,10 @@ def events(
     """Query execution events."""
     system = OpenSDLSystem.from_manifest(manifest)
     try:
-        payload = [event.model_dump(mode="json") for event in system.repositories.list_events(run_id=run_id, limit=limit)]
+        payload = [
+            event.model_dump(mode="json")
+            for event in system.repositories.list_events(run_id=run_id, limit=limit)
+        ]
         console.print_json(data=payload)
     finally:
         system.database.dispose()
@@ -182,9 +211,17 @@ def list_capabilities(
     system = OpenSDLSystem.from_manifest(manifest)
     try:
         table = Table("Capability", "Executor", "Risk", "Adapter")
-        adapters = {definition.id: adapter for definition, adapter in system.repositories.list_capabilities()}
+        adapters = {
+            definition.id: adapter
+            for definition, adapter in system.repositories.list_capabilities()
+        }
         for definition in system.registry.list_capabilities():
-            table.add_row(definition.id, definition.executor_type.value, definition.risk_class.value, adapters.get(definition.id, ""))
+            table.add_row(
+                definition.id,
+                definition.executor_type.value,
+                definition.risk_class.value,
+                adapters.get(definition.id, ""),
+            )
         console.print(table)
     finally:
         system.database.dispose()
@@ -225,6 +262,43 @@ def generate_schemas(
 ) -> None:
     paths = generate_json_schemas(destination)
     console.print(f"Generated {len(paths)} schemas in {destination}")
+
+
+@twin_app.command("validate")
+def validate_twin(
+    path: Annotated[Path, typer.Argument(help="Path to a twin definition")],
+) -> None:
+    """Validate a twin definition and its configured scene asset."""
+    try:
+        loaded = load_twin_definition(path)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"Twin validation failed: {exc}", err=True)
+        raise typer.Exit(1) from None
+    console.print(f"Twin valid: [bold]{loaded.definition_path}[/bold]")
+
+
+@twin_app.command("project")
+def project_twin_run(
+    run_id: Annotated[str, typer.Argument()],
+    manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
+) -> None:
+    """Project one persisted run into the configured twin cue timeline."""
+    system = OpenSDLSystem.from_manifest(manifest)
+    try:
+        if system.twin is None:
+            typer.echo("Digital twin is not configured.", err=True)
+            raise typer.Exit(1)
+        try:
+            projection = system.project_twin_run(run_id)
+        except KeyError:
+            typer.echo(f"Run not found: {run_id}", err=True)
+            raise typer.Exit(1) from None
+        except TwinProjectionError as exc:
+            typer.echo(f"Twin projection failed: {exc}", err=True)
+            raise typer.Exit(1) from None
+        console.print_json(data=projection)
+    finally:
+        system.database.dispose()
 
 
 if __name__ == "__main__":

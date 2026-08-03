@@ -65,6 +65,11 @@ class DomainPackConfig(OpenSDLModel):
     config: dict[str, Any] = Field(default_factory=dict)
 
 
+class TwinConfig(OpenSDLModel):
+    definition: str
+    viewer_root: str | None = None
+
+
 class LabSpec(OpenSDLModel):
     environment: str = "simulation"
     storage: StorageConfig = Field(default_factory=StorageConfig)
@@ -74,6 +79,7 @@ class LabSpec(OpenSDLModel):
     resources: list[Resource] = Field(default_factory=list)
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     domain_packs: list[DomainPackConfig] = Field(default_factory=list)
+    twin: TwinConfig | None = None
     extensions: dict[str, Any] = Field(default_factory=dict)
 
 

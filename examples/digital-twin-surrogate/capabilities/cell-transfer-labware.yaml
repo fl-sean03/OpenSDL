@@ -1,0 +1,41 @@
+id: cell.transfer_labware
+version: 0.1.0
+name: Transfer labware
+description: Transfer one labware item between declared cell locations.
+executor_type: robot
+input_schema:
+  type: object
+  required: [labware_id, source, destination]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    source:
+      type: string
+      enum: [input, dispenser, mixer, characterizer, output]
+    destination:
+      type: string
+      enum: [input, dispenser, mixer, characterizer, output]
+  additionalProperties: false
+output_schema:
+  type: object
+  required: [labware_id, source, destination]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    source:
+      type: string
+      enum: [input, dispenser, mixer, characterizer, output]
+    destination:
+      type: string
+      enum: [input, dispenser, mixer, characterizer, output]
+  additionalProperties: false
+risk_class: R1
+required_resources: [cell-transport]
+side_effects: [changes declared labware location]
+timeout_seconds: 30
+max_retries: 0
+supports_cancellation: false
+simulator_available: true
+tags: [cell, labware, transport]

@@ -1,0 +1,60 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: Laboratory
+metadata:
+  name: digital-twin-surrogate
+  owner: OpenSDL
+  description: Deterministic adapter-neutral laboratory-cell surrogate showcase
+  tags: [example, simulation, digital-twin]
+spec:
+  environment: physical
+  storage:
+    database:
+      url: sqlite:///./.opensdl/opensdl.db
+    artifacts:
+      root: .opensdl/artifacts
+  runtime:
+    max_concurrency: 1
+    default_timeout_seconds: 30
+    lease_ttl_seconds: 60
+  twin:
+    definition: twin.yaml
+    viewer_root: viewer/static
+  adapters:
+    - name: cell
+      plugin: qualified-physical-cell
+      config:
+        connection_profile: site-controlled
+  capabilities:
+    - capability: cell.transfer_labware
+      adapter: cell
+    - capability: cell.dispense
+      adapter: cell
+    - capability: cell.mix
+      adapter: cell
+    - capability: cell.characterize
+      adapter: cell
+  resources:
+    - id: cell-transport
+      name: Cell labware transport
+      type: robot
+    - id: cell-dispenser
+      name: Cell dispenser
+      type: instrument
+    - id: cell-mixer
+      name: Cell mixer
+      type: instrument
+    - id: cell-characterizer
+      name: Cell characterizer
+      type: instrument
+  policy:
+    default_effect: deny
+    version: digital-twin-surrogate/v1
+    rules:
+      - id: allow-showcase-cell-cycle
+        effect: allow
+        capability: cell.*
+        environments: [simulation, physical]
+        operators: [operator/showcase]
+        risk_classes: [R0, R1]
+        reason: Allow the declared showcase operator to exercise the bounded example cell contract
+        priority: 10

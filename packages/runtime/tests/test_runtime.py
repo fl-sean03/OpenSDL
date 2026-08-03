@@ -74,7 +74,7 @@ class ProbeAdapter(CapabilityAdapter):
         return ExecutionResult(request_id=request.request_id, output={"ok": True})
 
 
-def build_runtime(tmp_path):
+def build_runtime(tmp_path, *, default_run_context=None):
     database = Database("sqlite:///:memory:")
     database.initialize()
     repositories = Repositories(database)
@@ -85,6 +85,7 @@ def build_runtime(tmp_path):
         repositories,
         PolicyEngine(default_effect="allow"),
         LocalArtifactStore(tmp_path, repositories),
+        default_run_context=default_run_context,
     )
     return runtime, repositories
 
@@ -162,6 +163,33 @@ async def test_direct_capability_execution_returns_complete_output(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_default_run_context_is_copied_into_run_created_event(tmp_path) -> None:
+    binding = {
+        "definitionRevision": "reference-1",
+        "definitionSha256": "a" * 64,
+        "sceneSha256": "b" * 64,
+    }
+    context = {"twinBinding": binding}
+    runtime, repositories = build_runtime(
+        tmp_path,
+        default_run_context=context,
+    )
+    binding["definitionRevision"] = "mutated-after-construction"
+
+    run = await runtime.execute_capability(
+        "compute.quadratic",
+        {"x": 2, "a": 1, "b": 0, "c": -1},
+    )
+
+    created = next(
+        event
+        for event in repositories.list_events(run_id=run.id, limit=None)
+        if event.type == "RunCreated"
+    )
+    assert created.payload["context"]["twinBinding"]["definitionRevision"] == ("reference-1")
+
+
+@pytest.mark.asyncio
 async def test_cancelled_execution_is_not_retried_and_requires_intervention(
     tmp_path,
 ) -> None:
@@ -183,23 +211,14 @@ async def test_cancelled_execution_is_not_retried_and_requires_intervention(
     assert "physical outcome is unknown" in (task.error or "")
     assert task.attempt == 1
     events = repositories.list_events(run_id=run.id, limit=None)
-    task_event = next(
-        event for event in events if event.type == "TaskInterventionRequired"
-    )
-    run_event = next(
-        event for event in events if event.type == "RunInterventionRequired"
-    )
+    task_event = next(event for event in events if event.type == "TaskInterventionRequired")
+    run_event = next(event for event in events if event.type == "RunInterventionRequired")
     assert task_event.payload["error"] == task.error
     assert run_event.payload["error"] == run.error
     assert [event.type for event in events].count("TaskInterventionRequired") == 1
     assert [event.type for event in events].count("RunInterventionRequired") == 1
-    assert not any(
-        event.type in {"TaskRetrying", "TaskFailed", "RunFailed"}
-        for event in events
-    )
-    assert repositories.acquire_leases(
-        ["probe-resource"], "replacement-after-cancellation", 60
-    )
+    assert not any(event.type in {"TaskRetrying", "TaskFailed", "RunFailed"} for event in events)
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-cancellation", 60)
 
 
 @pytest.mark.asyncio
@@ -225,9 +244,7 @@ async def test_timeout_records_diagnostic_and_releases_lease(tmp_path) -> None:
     run_failed = next(event for event in events if event.type == "RunFailed")
     assert task_failed.payload["error"] == expected
     assert run_failed.payload["error"] == expected
-    assert repositories.acquire_leases(
-        ["probe-resource"], "replacement-after-timeout", 60
-    )
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-timeout", 60)
 
 
 @pytest.mark.asyncio
@@ -256,9 +273,7 @@ async def test_retry_then_success_records_attempts_events_and_releases_lease(
         "TaskSucceeded",
     ]
     assert [event.payload["attempt"] for event in task_events] == [1, 2, 2]
-    assert repositories.acquire_leases(
-        ["probe-resource"], "replacement-after-retry", 60
-    )
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-retry", 60)
 
 
 @pytest.mark.asyncio
@@ -285,16 +300,12 @@ async def test_policy_denial_prevents_adapter_execution_and_records_decision(
     policy_event = next(event for event in events if event.type == "PolicyEvaluated")
     assert policy_event.payload["allowed"] is False
     assert not any(event.type == "TaskStarted" for event in events)
-    assert repositories.acquire_leases(
-        ["probe-resource"], "replacement-after-denial", 60
-    )
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-denial", 60)
 
 
 def test_recovery_marks_ambiguous_tasks_and_releases_their_leases(tmp_path) -> None:
     runtime, repositories = build_runtime(tmp_path)
-    run = repositories.create_run(
-        RunRecord(workflow_id="recovery", state=RunState.RUNNING)
-    )
+    run = repositories.create_run(RunRecord(workflow_id="recovery", state=RunState.RUNNING))
     running = repositories.upsert_task(
         TaskRecord(
             run_id=run.id,
@@ -344,9 +355,7 @@ def test_recovery_marks_ambiguous_tasks_and_releases_their_leases(tmp_path) -> N
         ("resource-running", running.id),
         ("resource-retrying", retrying.id),
     ]:
-        repositories.upsert_resource(
-            Resource(id=resource_id, name=resource_id, type="instrument")
-        )
+        repositories.upsert_resource(Resource(id=resource_id, name=resource_id, type="instrument"))
         assert repositories.acquire_leases([resource_id], holder_id, 60)
 
     recovered = runtime.recover_incomplete_runs()
@@ -370,9 +379,7 @@ def test_recovery_marks_ambiguous_tasks_and_releases_their_leases(tmp_path) -> N
     assert tasks[terminal_tasks[1].id].error == "known failure"
     assert tasks[terminal_tasks[2].id].error == "operator cancelled"
 
-    assert repositories.acquire_leases(
-        ["resource-running", "resource-retrying"], "replacement", 60
-    )
+    assert repositories.acquire_leases(["resource-running", "resource-retrying"], "replacement", 60)
     events = repositories.list_events(run_id=run.id, limit=None)
     recovery_events = [event for event in events if event.type == "TaskRecoveryRequired"]
     assert {event.task_id for event in recovery_events} == {running.id, retrying.id}
@@ -381,7 +388,5 @@ def test_recovery_marks_ambiguous_tasks_and_releases_their_leases(tmp_path) -> N
         TaskState.RETRYING.value,
     }
     assert all("physical outcome is unknown" in event.payload["error"] for event in recovery_events)
-    run_recovery_event = next(
-        event for event in events if event.type == "RunRecoveryRequired"
-    )
+    run_recovery_event = next(event for event in events if event.type == "RunRecoveryRequired")
     assert "controller restarted" in run_recovery_event.payload["error"]

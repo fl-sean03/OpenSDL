@@ -3,6 +3,5 @@ set -euo pipefail
 uv run opensdl validate opensdl.yaml \
   --workflow workflows/first-run.yaml \
   --workflow workflows/manual-check.yaml
-uv run opensdl doctor --manifest opensdl.yaml
 uv run python scripts/validate-skills.py
 uv run pytest

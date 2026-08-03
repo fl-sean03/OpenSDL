@@ -25,6 +25,8 @@ jobs:
       - run: uv lock --check
       - run: uv sync --locked --all-packages --group dev
       - run: uv run --locked pytest
+      - run: uv run --locked --with-editable ./examples/digital-twin-surrogate/adapter pytest examples/digital-twin-surrogate/tests
+      - run: uv run --locked opensdl twin validate examples/digital-twin-surrogate/twin.yaml
       - run: uv run --locked python scripts/check-boundaries.py
       - run: uv run --locked python scripts/generate-schemas.py --check
 
@@ -44,3 +46,22 @@ jobs:
       - run: uv run --locked pyright
       - run: uv run --locked python scripts/validate-repository.py
       - run: uv run --locked python scripts/check-version.py
+
+  viewer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/digital-twin-surrogate/viewer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: examples/digital-twin-surrogate/viewer/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: git diff --exit-code -- static

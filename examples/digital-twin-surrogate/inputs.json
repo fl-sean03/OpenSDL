@@ -1,0 +1,15 @@
+{
+  "labware_id": "showcase-plate-001",
+  "additions": [
+    {
+      "material_id": "reagent-a",
+      "volume_per_well_ul": 40.0
+    },
+    {
+      "material_id": "reagent-b",
+      "volume_per_well_ul": 60.0
+    }
+  ],
+  "mix_speed_rpm": 800.0,
+  "mix_duration_seconds": 20.0
+}

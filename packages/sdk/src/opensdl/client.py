@@ -24,19 +24,63 @@ class OpenSDLClient:
     def runs(self) -> list[dict[str, Any]]:
         return self._request("GET", "/runs")
 
+    def events(
+        self,
+        run_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, str | int] = {"limit": limit}
+        if run_id is not None:
+            params["run_id"] = run_id
+        return self._request("GET", "/events", params=params)
+
     def inspect_run(self, run_id: str) -> dict[str, Any]:
         return self._request("GET", f"/runs/{run_id}")
 
-    def submit_workflow(self, workflow: dict[str, Any], inputs: dict[str, Any] | None = None, *, operator_id: str = "operator/sdk") -> dict[str, Any]:
-        return self._request("POST", "/runs", json={"workflow":workflow,"inputs":inputs or {},"operator_id":operator_id})
+    def submit_workflow(
+        self,
+        workflow: dict[str, Any],
+        inputs: dict[str, Any] | None = None,
+        *,
+        operator_id: str = "operator/sdk",
+        run_id: str | None = None,
+    ) -> dict[str, Any]:
+        request: dict[str, Any] = {
+            "workflow": workflow,
+            "inputs": inputs or {},
+            "operator_id": operator_id,
+        }
+        if run_id is not None:
+            request["run_id"] = run_id
+        return self._request("POST", "/runs", json=request)
 
-    def execute_capability(self, capability_id: str, inputs: dict[str, Any], *, operator_id: str = "operator/sdk") -> dict[str, Any]:
-        return self._request("POST", f"/capabilities/{capability_id}/execute", json={"inputs":inputs,"operator_id":operator_id})
+    def twin(self) -> dict[str, Any]:
+        return self._request("GET", "/twin")
+
+    def twin_scene(self) -> bytes:
+        return self._request_bytes("GET", "/twin/scene.glb")
+
+    def twin_run(self, run_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/twin/runs/{run_id}")
+
+    def execute_capability(
+        self, capability_id: str, inputs: dict[str, Any], *, operator_id: str = "operator/sdk"
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            f"/capabilities/{capability_id}/execute",
+            json={"inputs": inputs, "operator_id": operator_id},
+        )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         response = self._client.request(method, path, **kwargs)
         response.raise_for_status()
         return response.json()
+
+    def _request_bytes(self, method: str, path: str, **kwargs: Any) -> bytes:
+        response = self._client.request(method, path, **kwargs)
+        response.raise_for_status()
+        return response.content
 
     def __enter__(self) -> "OpenSDLClient":
         return self

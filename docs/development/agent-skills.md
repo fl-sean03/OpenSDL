@@ -21,10 +21,18 @@ under `.agents/skills/`. [Claude Code discovers project skills](https://code.cla
 under `.claude/skills/` and supports symlinked skill directories.
 
 OpenSDL keeps one canonical copy under `.agents/skills/`. Per-skill symlinks provide Claude Code
-compatibility without duplicate instructions. Symlinked skill directories require Claude Code
-2.1.203 or newer. The lab generator creates a validated mirror when the host cannot create a
-directory symlink. Generated development and validation scripts currently require Bash, including
-Git Bash or an equivalent environment on Windows.
+compatibility without duplicate instructions. The lab generator creates a validated mirror when
+the host cannot create a directory symlink. Generated development and validation scripts currently
+require Bash, including Git Bash or an equivalent environment on Windows.
+
+`AGENTS.md` is also the canonical source for shared repository instructions. The adjacent
+`CLAUDE.md` is a regular text file whose `@AGENTS.md` line imports that source when Claude Code loads
+the session. The import does not synchronize two editable documents. Change shared instructions in
+`AGENTS.md`. Add text to `CLAUDE.md` only when a rule genuinely applies to Claude Code alone.
+
+A `CLAUDE.md` symlink would make both paths refer to the same file, but OpenSDL uses imports. Imports
+work without Windows symlink privileges and leave room for a small harness-specific addition. Do
+not copy shared rules into both files.
 
 ## Keep always-loaded context small
 

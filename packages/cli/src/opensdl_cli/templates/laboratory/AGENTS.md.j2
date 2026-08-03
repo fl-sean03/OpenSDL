@@ -7,23 +7,29 @@
 - Organization code: `src/{{ package }}/`
 - Local adapters: `src/{{ package }}/adapters/`
 - Organization domain models: `src/{{ package }}/domain/`
+- Shared laboratory context: `docs/lab/`
 - Tests: `tests/`
 
-## Required checks
+## Checks
 
 - `uv run opensdl validate opensdl.yaml --workflow workflows/first-run.yaml`
-- `uv run opensdl doctor --manifest opensdl.yaml`
 - `uv run pytest`
+- `uv run opensdl doctor --manifest opensdl.yaml` only when operational evidence is required;
+  `doctor` initializes or updates the configured runtime store.
 
 ## Working state
 
-- Start fresh work with `git status --short`, the `orient-lab` skill, and the selected manifest.
-- Resume work by refreshing Git, tests, and the selected manifest. Query runtime evidence only when
-  the task requires it, account for query side effects, and preserve unrelated changes and setup.
-- Git records intended implementation. `.opensdl/` records local execution state and stays out of
-  Git. Conversation history is private context.
+- Use `start-here` to establish or update the laboratory context and first workflow. Use
+  `orient-lab` for current declared status.
+- Start fresh work with `git status --short`, the shared files under `docs/lab/`, and the selected
+  manifest. Resume work by refreshing Git, tests, shared context, and the manifest.
+- Query runtime evidence only when the task requires it, account for query side effects, and
+  preserve unrelated changes and setup.
+- Git records intended implementation and confirmed shared context. `.opensdl/` records local
+  execution state and stays out of Git. Conversation history is private context.
 - The active harness controls local permissions. The manifest, policy, and runtime control
   laboratory actions.
 
 Repository skills live in `.agents/skills/`. Keep credentials, live endpoints, sensitive facility
-details, and generated run state out of Git. Implement changes with tests and configuration.
+details, and generated run state out of Git. Keep inventory claims separate from executable
+configuration. Implement changes with tests and configuration.

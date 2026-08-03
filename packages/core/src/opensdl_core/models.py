@@ -14,7 +14,7 @@ from .enums import (
     RunState,
     TaskState,
 )
-from .ids import new_id
+from .ids import RunId, new_id
 
 
 def utc_now() -> datetime:
@@ -130,7 +130,7 @@ class ExecutionRequest(OpenSDLModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     operator_id: str = "operator/local"
     environment: str = "simulation"
-    run_id: str | None = None
+    run_id: RunId | None = None
     task_id: str | None = None
     authorization_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -146,7 +146,7 @@ class ExecutionResult(OpenSDLModel):
 
 
 class RunRecord(OpenSDLModel):
-    id: str = Field(default_factory=lambda: new_id("run"))
+    id: RunId = Field(default_factory=lambda: new_id("run"))
     workflow_id: str
     workflow_version: str = "0.1.0"
     state: RunState = RunState.PLANNED
@@ -161,7 +161,7 @@ class RunRecord(OpenSDLModel):
 
 class TaskRecord(OpenSDLModel):
     id: str = Field(default_factory=lambda: new_id("task"))
-    run_id: str
+    run_id: RunId
     step_id: str
     capability_id: str
     state: TaskState = TaskState.PENDING
@@ -178,7 +178,7 @@ class EventRecord(OpenSDLModel):
     type: str
     occurred_at: datetime = Field(default_factory=utc_now)
     actor_id: str = "system/runtime"
-    run_id: str | None = None
+    run_id: RunId | None = None
     task_id: str | None = None
     campaign_id: str | None = None
     causation_id: str | None = None
@@ -193,7 +193,7 @@ class ArtifactRecord(OpenSDLModel):
     size_bytes: int = Field(ge=0)
     kind: ArtifactKind = ArtifactKind.OTHER
     storage_path: str
-    run_id: str | None = None
+    run_id: RunId | None = None
     task_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
@@ -205,7 +205,7 @@ class Observation(OpenSDLModel):
     value: Any
     unit: str | None = None
     uncertainty: float | None = Field(default=None, ge=0)
-    run_id: str | None = None
+    run_id: RunId | None = None
     task_id: str | None = None
     artifact_ids: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -217,7 +217,7 @@ class Decision(OpenSDLModel):
     iteration: int = Field(ge=0)
     selected: dict[str, Any]
     rationale: str
-    evidence_run_ids: list[str] = Field(default_factory=list)
+    evidence_run_ids: list[RunId] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -239,7 +239,7 @@ class Incident(OpenSDLModel):
     title: str
     severity: str
     description: str
-    run_id: str | None = None
+    run_id: RunId | None = None
     task_id: str | None = None
     status: str = "open"
     evidence: list[str] = Field(default_factory=list)

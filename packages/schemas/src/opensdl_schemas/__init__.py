@@ -11,6 +11,7 @@ from .manifest import (
     PolicyRuleSpec,
     RuntimeConfig,
     StorageConfig,
+    TwinConfig,
     dump_manifest,
     load_manifest,
 )
@@ -21,9 +22,23 @@ from .validation import (
 )
 
 __all__ = [
-    "AdapterConfig", "ArtifactStoreConfig", "CapabilityBinding", "DatabaseConfig",
-    "DomainPackConfig", "LabManifest", "LabSpec", "PolicyConfig", "PolicyRuleSpec",
-    "RuntimeConfig", "SCHEMAS", "StorageConfig", "dump_manifest", "generate_json_schemas",
-    "load_manifest", "validate_against_json_schema", "validate_manifest_file",
+    "AdapterConfig",
+    "ArtifactStoreConfig",
+    "CapabilityBinding",
+    "DatabaseConfig",
+    "DomainPackConfig",
+    "LabManifest",
+    "LabSpec",
+    "PolicyConfig",
+    "PolicyRuleSpec",
+    "RuntimeConfig",
+    "SCHEMAS",
+    "StorageConfig",
+    "TwinConfig",
+    "dump_manifest",
+    "generate_json_schemas",
+    "load_manifest",
+    "validate_against_json_schema",
+    "validate_manifest_file",
     "validate_workflow_file",
 ]

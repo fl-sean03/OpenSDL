@@ -1,0 +1,594 @@
+{
+  "passed": true,
+  "frameRange": {
+    "start": 1,
+    "end": 960,
+    "fps": 24
+  },
+  "checks": [
+    {
+      "name": "deck horizontal pitch",
+      "passed": true,
+      "actual": 0.164,
+      "expected": 0.164
+    },
+    {
+      "name": "deck vertical pitch",
+      "passed": true,
+      "actual": 0.10700000000000001,
+      "expected": 0.107
+    },
+    {
+      "name": "attached tip count",
+      "passed": true,
+      "actual": 8,
+      "expected": 8
+    },
+    {
+      "name": "rack tip count",
+      "passed": true,
+      "actual": 96,
+      "expected": 96
+    },
+    {
+      "name": "liquid column count",
+      "passed": true,
+      "actual": 12,
+      "expected": 12
+    },
+    {
+      "name": "sample checkpoint frame 92",
+      "passed": true,
+      "actual": [
+        0.164,
+        0.1605,
+        1.16865
+      ],
+      "expected": [
+        0.164,
+        0.1605,
+        1.16865
+      ]
+    },
+    {
+      "name": "sample checkpoint frame 148",
+      "passed": true,
+      "actual": [
+        -0.164,
+        0.0535,
+        1.14965
+      ],
+      "expected": [
+        -0.164,
+        0.0535,
+        1.14965
+      ]
+    },
+    {
+      "name": "sample checkpoint frame 560",
+      "passed": true,
+      "actual": [
+        -0.164,
+        -0.0535,
+        1.22615
+      ],
+      "expected": [
+        -0.164,
+        -0.0535,
+        1.2261499999999999
+      ]
+    },
+    {
+      "name": "sample checkpoint frame 670",
+      "passed": true,
+      "actual": [
+        0.164,
+        -0.1605,
+        1.17065
+      ],
+      "expected": [
+        0.164,
+        -0.1605,
+        1.17065
+      ]
+    },
+    {
+      "name": "sample checkpoint frame 896",
+      "passed": true,
+      "actual": [
+        0.164,
+        0.0535,
+        1.16865
+      ],
+      "expected": [
+        0.164,
+        0.0535,
+        1.16865
+      ]
+    },
+    {
+      "name": "sample checkpoint frame 948",
+      "passed": true,
+      "actual": [
+        0.5355,
+        0.0535,
+        1.16865
+      ],
+      "expected": [
+        0.5355,
+        0.0535,
+        1.16865
+      ]
+    },
+    {
+      "name": "plate follows gripper frame 124",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 138",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 540",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 552",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 648",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 662",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 876",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate follows gripper frame 888",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 114",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 148",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 530",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 560",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 640",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 670",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 868",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "plate aligns with jaw center frame 896",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "reader lid checkpoint frame 1",
+      "passed": true,
+      "actual": [
+        0.164,
+        -0.1605,
+        1.178
+      ],
+      "expected": [
+        0.164,
+        -0.1605,
+        1.178
+      ]
+    },
+    {
+      "name": "reader lid checkpoint frame 68",
+      "passed": true,
+      "actual": [
+        0.328,
+        -0.1605,
+        1.1425
+      ],
+      "expected": [
+        0.328,
+        -0.1605,
+        1.1425
+      ]
+    },
+    {
+      "name": "reader lid checkpoint frame 736",
+      "passed": true,
+      "actual": [
+        0.164,
+        -0.1605,
+        1.178
+      ],
+      "expected": [
+        0.164,
+        -0.1605,
+        1.178
+      ]
+    },
+    {
+      "name": "reader lid checkpoint frame 834",
+      "passed": true,
+      "actual": [
+        0.328,
+        -0.1605,
+        1.1425
+      ],
+      "expected": [
+        0.328,
+        -0.1605,
+        1.1425
+      ]
+    },
+    {
+      "name": "lid follows gripper frame 46",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid follows gripper frame 58",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid follows gripper frame 716",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid follows gripper frame 728",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid follows gripper frame 810",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid follows gripper frame 822",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid aligns with jaw center frame 36",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid aligns with jaw center frame 68",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid aligns with jaw center frame 706",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid aligns with jaw center frame 736",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid aligns with jaw center frame 802",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "lid aligns with jaw center frame 834",
+      "passed": true,
+      "actual": 1.267,
+      "expected": 1.267
+    },
+    {
+      "name": "input shuttle extends to A3",
+      "passed": true,
+      "actual": [
+        -0.164,
+        0.0,
+        0.228
+      ],
+      "expected": [
+        -0.164,
+        0.0,
+        0.228
+      ]
+    },
+    {
+      "name": "input shuttle retracts after pickup",
+      "passed": true,
+      "actual": [
+        0.2075,
+        0.0,
+        0.228
+      ],
+      "expected": [
+        0.2075,
+        0.0,
+        0.228
+      ]
+    },
+    {
+      "name": "output shuttle retracts",
+      "passed": true,
+      "actual": [
+        0.2075,
+        0.0,
+        0.228
+      ],
+      "expected": [
+        0.2075,
+        0.0,
+        0.228
+      ]
+    },
+    {
+      "name": "direct-deck plate seats without gap",
+      "passed": true,
+      "actual": 0.0,
+      "expected": 0.0
+    },
+    {
+      "name": "Stacker plate seats without gap",
+      "passed": true,
+      "actual": 0.0,
+      "expected": 0.0
+    },
+    {
+      "name": "closed reader stays within published envelope",
+      "passed": true,
+      "actual": 0.057,
+      "expected": "0.057 to 0.060 m"
+    },
+    {
+      "name": "mixer latch 1 open frame 574",
+      "passed": true,
+      "actual": {
+        "x": -0.068,
+        "rotationY": 0.610865
+      },
+      "expected": {
+        "x": -0.068,
+        "rotationY": 0.610865
+      }
+    },
+    {
+      "name": "mixer latch 2 open frame 574",
+      "passed": true,
+      "actual": {
+        "x": 0.068,
+        "rotationY": -0.610865
+      },
+      "expected": {
+        "x": 0.068,
+        "rotationY": -0.610865
+      }
+    },
+    {
+      "name": "mixer latch 1 closed frame 580",
+      "passed": true,
+      "actual": {
+        "x": -0.058,
+        "rotationY": 0.0
+      },
+      "expected": {
+        "x": -0.058,
+        "rotationY": 0.0
+      }
+    },
+    {
+      "name": "mixer latch 2 closed frame 580",
+      "passed": true,
+      "actual": {
+        "x": 0.058,
+        "rotationY": 0.0
+      },
+      "expected": {
+        "x": 0.058,
+        "rotationY": 0.0
+      }
+    },
+    {
+      "name": "mixer latch 1 closed frame 628",
+      "passed": true,
+      "actual": {
+        "x": -0.058,
+        "rotationY": 0.0
+      },
+      "expected": {
+        "x": -0.058,
+        "rotationY": 0.0
+      }
+    },
+    {
+      "name": "mixer latch 2 closed frame 628",
+      "passed": true,
+      "actual": {
+        "x": 0.058,
+        "rotationY": 0.0
+      },
+      "expected": {
+        "x": 0.058,
+        "rotationY": 0.0
+      }
+    },
+    {
+      "name": "mixer latch 1 open frame 634",
+      "passed": true,
+      "actual": {
+        "x": -0.068,
+        "rotationY": 0.610865
+      },
+      "expected": {
+        "x": -0.068,
+        "rotationY": 0.610865
+      }
+    },
+    {
+      "name": "mixer latch 2 open frame 634",
+      "passed": true,
+      "actual": {
+        "x": 0.068,
+        "rotationY": -0.610865
+      },
+      "expected": {
+        "x": 0.068,
+        "rotationY": -0.610865
+      }
+    },
+    {
+      "name": "mixer latch 1 open frame 640",
+      "passed": true,
+      "actual": {
+        "x": -0.068,
+        "rotationY": 0.610865
+      },
+      "expected": {
+        "x": -0.068,
+        "rotationY": 0.610865
+      }
+    },
+    {
+      "name": "mixer latch 2 open frame 640",
+      "passed": true,
+      "actual": {
+        "x": 0.068,
+        "rotationY": -0.610865
+      },
+      "expected": {
+        "x": 0.068,
+        "rotationY": -0.610865
+      }
+    },
+    {
+      "name": "tip state frame 1",
+      "passed": true,
+      "actual": 0.02,
+      "expected": 0.02
+    },
+    {
+      "name": "tip state frame 178",
+      "passed": true,
+      "actual": 1.0,
+      "expected": 1.0
+    },
+    {
+      "name": "tip state frame 329",
+      "passed": true,
+      "actual": 0.02,
+      "expected": 0.02
+    },
+    {
+      "name": "tip state frame 354",
+      "passed": true,
+      "actual": 1.0,
+      "expected": 1.0
+    },
+    {
+      "name": "tip state frame 503",
+      "passed": true,
+      "actual": 0.02,
+      "expected": 0.02
+    },
+    {
+      "name": "column 1 fill frame 217",
+      "passed": true,
+      "actual": 0.03,
+      "expected": 0.03
+    },
+    {
+      "name": "column 1 fill frame 219",
+      "passed": true,
+      "actual": 0.46,
+      "expected": 0.46
+    },
+    {
+      "name": "column 1 fill frame 391",
+      "passed": true,
+      "actual": 0.46,
+      "expected": 0.46
+    },
+    {
+      "name": "column 1 fill frame 393",
+      "passed": true,
+      "actual": 1.0,
+      "expected": 1.0
+    },
+    {
+      "name": "shaker orbit radius",
+      "passed": true,
+      "actual": 0.0010000000474974513,
+      "expected": 0.001
+    },
+    {
+      "name": "plate does not yaw",
+      "passed": true,
+      "actual": 0.0,
+      "expected": 0.0
+    }
+  ]
+}

@@ -182,6 +182,17 @@
           "title": "Domain Packs",
           "type": "array"
         },
+        "twin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TwinConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "extensions": {
           "additionalProperties": true,
           "title": "Extensions",
@@ -402,6 +413,32 @@
         }
       },
       "title": "StorageConfig",
+      "type": "object"
+    },
+    "TwinConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "viewer_root": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewer Root"
+        }
+      },
+      "required": [
+        "definition"
+      ],
+      "title": "TwinConfig",
       "type": "object"
     }
   },

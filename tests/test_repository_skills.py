@@ -36,12 +36,7 @@ def write_skill(
     skill_root = skills_root / name
     skill_root.mkdir(parents=True)
     (skill_root / "SKILL.md").write_text(
-        "---\n"
-        f"name: {name}\n"
-        f"description: {description}\n"
-        f"{extra_frontmatter}"
-        "---\n\n"
-        f"{body}",
+        f"---\nname: {name}\ndescription: {description}\n{extra_frontmatter}---\n\n{body}",
         encoding="utf-8",
     )
     return skill_root
@@ -57,6 +52,14 @@ def test_current_repository_skills_and_adapters_are_valid() -> None:
         )
         == []
     )
+
+
+def test_start_here_and_orient_lab_have_distinct_boundaries() -> None:
+    start_here = (ROOT / ".agents/skills/start-here/SKILL.md").read_text(encoding="utf-8")
+    orient = (ROOT / ".agents/skills/orient-lab/SKILL.md").read_text(encoding="utf-8")
+    assert "Do not run `doctor`" in start_here
+    assert "no model catalog" in start_here
+    assert "use start-here for setup planning, inventory changes, or new equipment" in orient
 
 
 @pytest.mark.parametrize(
@@ -97,10 +100,7 @@ def test_skill_validation_rejects_malformed_content(
 def test_skill_validation_rejects_missing_entrypoint(tmp_path: Path) -> None:
     skills_root = tmp_path / ".agents" / "skills"
     (skills_root / "missing-entrypoint").mkdir(parents=True)
-    assert any(
-        "missing SKILL.md" in failure
-        for failure in VALIDATOR.skill_failures(skills_root)
-    )
+    assert any("missing SKILL.md" in failure for failure in VALIDATOR.skill_failures(skills_root))
 
 
 def test_skill_validation_checks_helpers(tmp_path: Path) -> None:
@@ -230,9 +230,7 @@ def test_develop_workflow_helper_blocks_unused_adapter_before_start(
     environment = os.environ.copy()
     python_path = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = (
-        str(tmp_path)
-        if not python_path
-        else f"{tmp_path}{os.pathsep}{python_path}"
+        str(tmp_path) if not python_path else f"{tmp_path}{os.pathsep}{python_path}"
     )
     inputs = (
         '{"sample_id":"probe-test","red_fraction":0.5,"blue_fraction":0.5,'
@@ -290,9 +288,7 @@ def test_release_helper_refreshes_lock_before_locked_validation() -> None:
 def test_orient_helper_does_not_create_runtime_state(tmp_path: Path) -> None:
     manifest = tmp_path / "opensdl.yaml"
     manifest.write_text(
-        (ROOT / "examples/simulated-color-mixing/opensdl.yaml").read_text(
-            encoding="utf-8"
-        ),
+        (ROOT / "examples/simulated-color-mixing/opensdl.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     result = subprocess.run(

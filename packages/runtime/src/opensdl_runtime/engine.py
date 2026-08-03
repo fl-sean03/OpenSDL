@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from typing import Any
 
 from opensdl_capabilities import CapabilityRegistry, validate_instance
@@ -37,6 +38,7 @@ class ReferenceRuntime:
         max_concurrency: int = 4,
         default_timeout_seconds: float = 60.0,
         lease_ttl_seconds: float = 300.0,
+        default_run_context: dict[str, Any] | None = None,
     ) -> None:
         self.registry = registry
         self.repositories = repositories
@@ -45,6 +47,7 @@ class ReferenceRuntime:
         self.max_concurrency = max_concurrency
         self.default_timeout_seconds = default_timeout_seconds
         self.lease_ttl_seconds = lease_ttl_seconds
+        self.default_run_context = deepcopy(default_run_context or {})
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
     async def run_workflow(
@@ -55,7 +58,11 @@ class ReferenceRuntime:
         operator_id: str = "operator/local",
         environment: str = "simulation",
         run_id: str | None = None,
+        run_context: dict[str, Any] | None = None,
     ) -> RunRecord:
+        effective_context = deepcopy(self.default_run_context)
+        if run_context:
+            effective_context.update(deepcopy(run_context))
         validate_workflow_graph(workflow)
         if workflow.input_schema:
             validate_instance(inputs, workflow.input_schema, label=f"{workflow.id} inputs")
@@ -71,12 +78,21 @@ class ReferenceRuntime:
                 environment=environment,
             )
             self.repositories.create_run(run)
-            self._emit("RunCreated", run=run, payload={"workflow": workflow.model_dump(mode="json")})
+            created_payload: dict[str, Any] = {"workflow": workflow.model_dump(mode="json")}
+            if effective_context:
+                created_payload["context"] = effective_context
+            self._emit("RunCreated", run=run, payload=created_payload)
         else:
             if existing.workflow_id != workflow.id:
                 raise ValueError(f"run {existing.id} belongs to workflow {existing.workflow_id}")
             run = existing
             inputs = run.inputs
+            existing_events = self.repositories.list_events(run_id=run.id, limit=None)
+            if not any(event.type == "RunCreated" for event in existing_events):
+                created_payload = {"workflow": workflow.model_dump(mode="json")}
+                if effective_context:
+                    created_payload["context"] = effective_context
+                self._emit("RunCreated", run=run, payload=created_payload)
 
         self.repositories.update_run(run.id, state=RunState.RUNNING, error=None)
         self._emit("RunStarted", run=run)
@@ -118,22 +134,24 @@ class ReferenceRuntime:
                     raise first_error
 
             outputs = resolve_mapping(workflow.outputs, inputs, step_outputs)
-            completed = self.repositories.update_run(run.id, state=RunState.COMPLETED, outputs=outputs)
+            completed = self.repositories.update_run(
+                run.id, state=RunState.COMPLETED, outputs=outputs
+            )
             self._emit("RunCompleted", run=completed, payload={"outputs": outputs})
             self.artifact_store.put_json(
                 {
                     "run": completed.model_dump(mode="json"),
-                    "tasks": [task.model_dump(mode="json") for task in self.repositories.list_tasks(run.id)],
+                    "tasks": [
+                        task.model_dump(mode="json")
+                        for task in self.repositories.list_tasks(run.id)
+                    ],
                 },
                 run_id=run.id,
                 metadata={"role": "run-record"},
             )
             return completed
         except asyncio.CancelledError:
-            run_error = (
-                "workflow execution was cancelled while active; "
-                "physical outcome is unknown"
-            )
+            run_error = "workflow execution was cancelled while active; physical outcome is unknown"
             interrupted = self.repositories.update_run(
                 run.id,
                 state=RunState.INTERVENTION_REQUIRED,
@@ -179,7 +197,9 @@ class ReferenceRuntime:
             steps=[WorkflowStep(id="execute", capability=capability_id, inputs=inputs)],
             outputs={"result": "${steps.execute.output}"},
         )
-        return await self.run_workflow(workflow, {}, operator_id=operator_id, environment=environment)
+        return await self.run_workflow(
+            workflow, {}, operator_id=operator_id, environment=environment
+        )
 
     async def _execute_step(
         self,
@@ -243,9 +263,7 @@ class ReferenceRuntime:
             adapter = self.registry.get_adapter(step.capability)
             max_retries = step.retries if step.retries is not None else definition.max_retries
             timeout = (
-                step.timeout_seconds
-                or definition.timeout_seconds
-                or self.default_timeout_seconds
+                step.timeout_seconds or definition.timeout_seconds or self.default_timeout_seconds
             )
             request = ExecutionRequest(
                 capability_id=step.capability,
@@ -353,8 +371,7 @@ class ReferenceRuntime:
                     continue
                 previous_state = task.state
                 task_error = (
-                    "controller restarted while task was active; "
-                    "physical outcome is unknown"
+                    "controller restarted while task was active; physical outcome is unknown"
                 )
                 task.state = TaskState.INTERVENTION_REQUIRED
                 task.error = task_error

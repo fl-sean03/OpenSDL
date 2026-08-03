@@ -1,7 +1,10 @@
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
+from unittest.mock import Mock
 from zipfile import ZipFile
+
+import pytest
 
 from opensdl_core import ArtifactKind, ArtifactRecord, EventRecord, RunRecord
 from opensdl_provenance import RunBundleExporter
@@ -75,3 +78,21 @@ def test_run_bundle_exports_complete_integrity_metadata_without_duplicate_files(
         assert artifact_file["sha256"] == digest
         assert artifact_file["contentSize"] == len(artifact_bytes)
     database.dispose()
+
+
+@pytest.mark.parametrize(
+    "unsafe_run_id",
+    ["../escape", r"..\escape", ".", "..", "run id", "r" + "a" * 80],
+)
+def test_run_bundle_rejects_unsafe_id_before_repository_or_path_access(
+    tmp_path,
+    unsafe_run_id: str,
+) -> None:
+    repositories = Mock()
+    destination = tmp_path / "exports"
+
+    with pytest.raises(ValueError, match="run ID"):
+        RunBundleExporter(repositories, Mock()).export(unsafe_run_id, destination)
+
+    repositories.get_run.assert_not_called()
+    assert not destination.exists()

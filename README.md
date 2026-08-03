@@ -26,6 +26,8 @@ The v0.1 alpha includes:
 - structured human-task attestations for assisted workflows;
 - a closed-loop campaign runner and reference grid optimizer;
 - CLI, Python SDK, HTTP API, and optional MCP transport hook;
+- versioned digital-twin bindings, verified GLB delivery, persisted-run projection, and a read-only
+  viewer;
 - JSON Schema generation and YAML validation;
 - run export as a portable RO-Crate-style ZIP;
 - a repository propagation graph for identifying affected contracts, code, tests, examples, and documentation;
@@ -72,15 +74,24 @@ uv run --locked opensdl serve-api \
 
 Then open `http://127.0.0.1:8000/docs`.
 
-## Create an organization laboratory repository
+The [digital-twin surrogate example](examples/digital-twin-surrogate/README.md) runs a complete
+simulated workflow against an original, real-scale Flex-class reference scene. Its authored motion
+spans 960 frames over 40 seconds.
 
-The public framework and an organization’s live laboratory implementation should be separate repositories.
+## Create an organization lab project
+
+The public framework and an organization’s laboratory implementation should be separate projects.
 
 ```bash
 uv run --locked opensdl init ../my-lab \
   --name my-lab \
   --owner my-organization
 ```
+
+This scaffolds an independent OpenSDL-based lab project, which should live in its own Git
+repository. It is not a GitHub fork of the framework source. The lab project consumes versioned
+OpenSDL packages and owns its equipment, workflows, integrations, context, and deployment. Fork
+OpenSDL itself only when you intend to change the framework.
 
 The generated lab needs a package source for the OpenSDL alpha distributions. If they are absent
 from your configured registry, build a local wheelhouse from this checkout for a smoke test:
@@ -105,6 +116,7 @@ my-lab/
 ├── .github/workflows/
 ├── capabilities/
 ├── deployments/
+├── docs/lab/             # Shared context, inventory, setup plan, and decisions
 ├── policies/
 ├── scripts/
 ├── src/my_lab/
@@ -119,6 +131,10 @@ my-lab/
 ```
 
 That repository can add private equipment definitions, domain models, workflows, compute backends, policies, deployments, and local adapters without modifying OpenSDL core.
+
+Start a normal agent conversation in the generated repository and ask it to “start here.” The
+`start-here` skill records confirmed lab context, maps the first workflow, and hands implementation
+to the relevant repository skills. See [lab onboarding](docs/architecture/lab-onboarding.md).
 
 ## Architecture
 
@@ -153,7 +169,9 @@ A capability is the central abstraction. It can be executed by a person, instrum
 OpenSDL does not require one device protocol or orchestration backend. Adapters can wrap SiLA 2, OPC UA, EPICS, ROS 2, SCPI/VISA, Bluesky, PyLabRobot, MADSci, Slurm, Kubernetes, vendor SDKs, human tasks, or internal services.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) and the
-[agent-native operation plan](docs/architecture/agent-native-operation.md).
+[agent-native operation plan](docs/architecture/agent-native-operation.md). The
+[digital-twin plan](docs/architecture/digital-twin.md) defines the on-demand Blender path for custom
+models in laboratory repositories. OpenSDL does not ship a shared equipment-model catalog.
 
 ## Repository layout
 
@@ -240,7 +258,8 @@ This is an executable alpha, not production-qualified laboratory control softwar
 
 The core loop, structured human-task path, simulated robotics path, and local compute path are implemented and tested. Current work is focused on production authentication, richer approval workflows, MADSci and SiLA 2 integrations, Slurm execution, expanded conformance, and the first low-risk hardware reference integration.
 
-See [ROADMAP.md](ROADMAP.md), [DEVELOPMENT.md](DEVELOPMENT.md), and the evidence-based [VALIDATION.md](VALIDATION.md).
+See [ROADMAP.md](ROADMAP.md), the [development backlog](docs/development/backlog.md),
+[DEVELOPMENT.md](DEVELOPMENT.md), and the evidence-based [VALIDATION.md](VALIDATION.md).
 
 The supplied alpha archive and its checksum-verified import are documented in
 [IMPORT_PROVENANCE.md](IMPORT_PROVENANCE.md).

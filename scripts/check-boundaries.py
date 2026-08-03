@@ -8,18 +8,51 @@ ROOT = Path(__file__).parents[1]
 ALLOWED: dict[str, set[str]] = {
     "opensdl_core": set(),
     "opensdl_schemas": {"opensdl_core"},
+    "opensdl_twin": {"opensdl_core"},
     "opensdl_capabilities": {"opensdl_core"},
     "opensdl_policy": {"opensdl_core"},
     "opensdl_workflows": {"opensdl_core"},
     "opensdl_storage": {"opensdl_core"},
     "opensdl_simulation": {"opensdl_core", "opensdl_capabilities"},
-    "opensdl_runtime": {"opensdl_core", "opensdl_capabilities", "opensdl_policy", "opensdl_storage", "opensdl_workflows"},
+    "opensdl_runtime": {
+        "opensdl_core",
+        "opensdl_capabilities",
+        "opensdl_policy",
+        "opensdl_storage",
+        "opensdl_workflows",
+    },
     "opensdl_provenance": {"opensdl_core", "opensdl_storage"},
-    "opensdl_operators": {"opensdl_core", "opensdl_capabilities", "opensdl_runtime", "opensdl_storage", "opensdl_schemas", "opensdl_provenance"},
+    "opensdl_operators": {
+        "opensdl_core",
+        "opensdl_capabilities",
+        "opensdl_runtime",
+        "opensdl_storage",
+        "opensdl_schemas",
+        "opensdl_provenance",
+    },
     "opensdl": {"opensdl_core", "opensdl_schemas"},
-    "opensdl_controller": {"opensdl_core", "opensdl_schemas", "opensdl_capabilities", "opensdl_policy", "opensdl_storage", "opensdl_workflows", "opensdl_runtime", "opensdl_provenance", "opensdl_operators"},
+    "opensdl_controller": {
+        "opensdl_core",
+        "opensdl_schemas",
+        "opensdl_capabilities",
+        "opensdl_policy",
+        "opensdl_storage",
+        "opensdl_workflows",
+        "opensdl_runtime",
+        "opensdl_provenance",
+        "opensdl_operators",
+        "opensdl_twin",
+    },
     "opensdl_api": {"opensdl_controller", "opensdl_core"},
-    "opensdl_cli": {"opensdl_controller", "opensdl_provenance", "opensdl_operators", "opensdl", "opensdl_schemas", "opensdl_api"},
+    "opensdl_cli": {
+        "opensdl_controller",
+        "opensdl_provenance",
+        "opensdl_operators",
+        "opensdl",
+        "opensdl_schemas",
+        "opensdl_api",
+        "opensdl_twin",
+    },
     "opensdl_adapter_simulated_lab": {"opensdl_core", "opensdl_capabilities", "opensdl_simulation"},
     "opensdl_adapter_local_compute": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_adapter_grid_optimizer": {"opensdl_runtime"},
@@ -52,7 +85,9 @@ def main() -> None:
             for path in package_dir.rglob("*.py"):
                 forbidden = (imports(path) & INTERNAL) - allowed
                 if forbidden:
-                    failures.append(f"{path.relative_to(ROOT)} imports forbidden internal packages: {sorted(forbidden)}")
+                    failures.append(
+                        f"{path.relative_to(ROOT)} imports forbidden internal packages: {sorted(forbidden)}"
+                    )
     if failures:
         raise SystemExit("\n".join(failures))
     print("package dependency boundaries are valid")

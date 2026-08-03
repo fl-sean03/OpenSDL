@@ -1,0 +1,60 @@
+id: cell.mix
+version: 0.1.0
+name: Mix formulation
+description: Mix the current contents of labware using declared speed and duration set points.
+executor_type: instrument
+input_schema:
+  type: object
+  required: [labware_id, speed_rpm, duration_seconds]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    speed_rpm:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 5000
+    duration_seconds:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 3600
+  additionalProperties: false
+output_schema:
+  type: object
+  required:
+    [labware_id, mixture_id, speed_rpm, duration_seconds, well_count, volume_per_well_ul, aggregate_volume_ul, mixed]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    mixture_id:
+      type: string
+      minLength: 1
+    speed_rpm:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 5000
+    duration_seconds:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 3600
+    well_count:
+      type: integer
+      const: 96
+    volume_per_well_ul:
+      type: number
+      exclusiveMinimum: 0
+    aggregate_volume_ul:
+      type: number
+      exclusiveMinimum: 0
+    mixed:
+      type: boolean
+  additionalProperties: false
+risk_class: R1
+required_resources: [cell-mixer]
+side_effects: [changes labware contents through mixing]
+timeout_seconds: 90
+max_retries: 0
+supports_cancellation: false
+simulator_available: true
+tags: [cell, mixing, formulation]

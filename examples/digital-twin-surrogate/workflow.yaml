@@ -1,0 +1,94 @@
+id: digital-twin-cell-cycle
+name: Transfer, formulate, mix, and characterize
+version: 0.1.0
+description: Adapter-neutral laboratory-cell workflow used by the digital-twin surrogate showcase.
+input_schema:
+  type: object
+  required: [labware_id, additions, mix_speed_rpm, mix_duration_seconds]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    additions:
+      type: array
+      minItems: 1
+      maxItems: 16
+      items:
+        type: object
+        required: [material_id, volume_per_well_ul]
+        properties:
+          material_id:
+            type: string
+            minLength: 1
+          volume_per_well_ul:
+            type: number
+            exclusiveMinimum: 0
+        additionalProperties: false
+    mix_speed_rpm:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 5000
+    mix_duration_seconds:
+      type: number
+      exclusiveMinimum: 0
+      maximum: 3600
+  additionalProperties: false
+steps:
+  - id: input_to_dispenser
+    capability: cell.transfer_labware
+    inputs:
+      labware_id: ${inputs.labware_id}
+      source: input
+      destination: dispenser
+  - id: dispense
+    capability: cell.dispense
+    depends_on: [input_to_dispenser]
+    inputs:
+      labware_id: ${steps.input_to_dispenser.output.labware_id}
+      additions: ${inputs.additions}
+  - id: dispenser_to_mixer
+    capability: cell.transfer_labware
+    depends_on: [dispense]
+    inputs:
+      labware_id: ${steps.dispense.output.labware_id}
+      source: dispenser
+      destination: mixer
+  - id: mix
+    capability: cell.mix
+    depends_on: [dispenser_to_mixer]
+    inputs:
+      labware_id: ${steps.dispenser_to_mixer.output.labware_id}
+      speed_rpm: ${inputs.mix_speed_rpm}
+      duration_seconds: ${inputs.mix_duration_seconds}
+  - id: mixer_to_characterizer
+    capability: cell.transfer_labware
+    depends_on: [mix]
+    inputs:
+      labware_id: ${steps.mix.output.labware_id}
+      source: mixer
+      destination: characterizer
+  - id: characterize
+    capability: cell.characterize
+    depends_on: [mixer_to_characterizer]
+    inputs:
+      labware_id: ${steps.mixer_to_characterizer.output.labware_id}
+      method: normalized-response
+  - id: characterizer_to_output
+    capability: cell.transfer_labware
+    depends_on: [characterize]
+    inputs:
+      labware_id: ${steps.characterize.output.labware_id}
+      source: characterizer
+      destination: output
+outputs:
+  labware_id: ${steps.characterizer_to_output.output.labware_id}
+  location: ${steps.characterizer_to_output.output.destination}
+  well_count: ${steps.dispense.output.well_count}
+  volume_per_well_ul: ${steps.dispense.output.volume_per_well_ul}
+  aggregate_volume_ul: ${steps.dispense.output.aggregate_volume_ul}
+  mixture_id: ${steps.mix.output.mixture_id}
+  characterization:
+    method: ${steps.characterize.output.method}
+    value: ${steps.characterize.output.value}
+    unit: ${steps.characterize.output.unit}
+    quality: ${steps.characterize.output.quality}

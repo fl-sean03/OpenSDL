@@ -1,0 +1,54 @@
+---
+name: start-here
+description: Establish or resume this OpenSDL laboratory through a normal agent conversation. Use when a user says start here, set up or configure this lab, plan a new cell, describe existing equipment, continue the lab build, or turn a laboratory idea into a simulator-first implementation plan.
+---
+
+# Start or resume this laboratory
+
+## Inputs
+
+- intended laboratory outcome or first useful workflow
+- existing, planned, or hybrid setup
+- known equipment, compute, manual work, samples, data, and locations
+- relevant constraints, hazards, and available evidence
+
+Begin with partial input. Ask for only the highest-value missing information.
+
+## Procedure
+
+1. Read `AGENTS.md`. Inspect the worktree, branch, and recent commits before changing files.
+2. Read `docs/lab/context.md`, `inventory.md`, `setup-plan.md`, and `decisions.md`. Then read
+   `opensdl.yaml` and only the workflows needed for the task.
+3. Classify the setup as existing, greenfield, or hybrid. Identify the first outcome before trying
+   to inventory the entire laboratory.
+4. Update the shared lab files with confirmed facts, evidence, assumptions, unknowns, constraints,
+   and decisions.
+5. Track inventory evidence, integration, and visual-twin state separately. An inventory entry is
+   not authority to execute equipment.
+6. Map the first workflow to resources, typed capabilities, simulators, manual steps, data, tests,
+   and gaps. Prefer one complete simulation path over a broad incomplete configuration.
+7. Update executable manifests or workflows only from confirmed information and supported
+   contracts. Run `uv run opensdl validate opensdl.yaml --workflow WORKFLOW` for each workflow
+   changed.
+8. Record any custom 3D request in `docs/lab/setup-plan.md` with its purpose, source evidence,
+   dimensions, and target workflow. An agent can build the tailored Blender scene directly in this
+   laboratory repository. The current framework has no dedicated digital-twin command and
+   intentionally has no model catalog.
+9. Hand the next task to `orient-lab`, `develop-workflow`, `debug-run`, or direct development of a
+   missing typed capability, adapter, domain model, or test.
+
+Do not run `doctor`, capability listing, inspection, or event queries merely for onboarding. Those
+commands currently open or update the configured runtime store. Use them only when the user asks
+for operational evidence and accepts that behavior.
+
+## Completion
+
+The repository contains enough confirmed shared context for a fresh agent to continue. The first
+workflow has a capability and gap map. Any executable changes validate, and the next skill or
+future dependency is explicit.
+
+## Stop conditions
+
+Stop when sources conflict, secrets or unintended facility details would enter Git, or a required
+typed operation is missing. Do not commission equipment or perform physical work through this
+skill.

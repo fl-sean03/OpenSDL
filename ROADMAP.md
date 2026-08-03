@@ -2,7 +2,8 @@
 
 The [agent-native operation plan](docs/architecture/agent-native-operation.md) defines the
 repository, simulator, collaboration, live-equipment, and optional external-harness sequence. This
-roadmap tracks product releases.
+roadmap tracks product releases. The [development backlog](docs/development/backlog.md) is the
+running implementation list.
 
 ## Implemented in v0.1 alpha
 

@@ -29,15 +29,25 @@ def test_laboratory_scaffold_is_complete_and_valid(tmp_path: Path) -> None:
     assert "if: vars.OPENSDL_PACKAGES_AVAILABLE == 'true'" in workflow
     assert (root / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
     assert (root / ".agents/CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
+    instructions = (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert "only when operational evidence is required" in instructions
     assert (root / "scripts/check.sh").stat().st_mode & 0o111
-    skill_names = {
-        path.name for path in (root / ".agents/skills").iterdir() if path.is_dir()
-    }
+    assert "`my-lab`" in (root / "docs/lab/context.md").read_text(encoding="utf-8")
+    assert "`example`" in (root / "docs/lab/context.md").read_text(encoding="utf-8")
+    assert (root / "docs/lab/inventory.md").exists()
+    assert (root / "docs/lab/setup-plan.md").exists()
+    assert (root / "docs/lab/decisions.md").exists()
+    start_here = (root / ".agents/skills/start-here/SKILL.md").read_text(encoding="utf-8")
+    assert "Do not run `doctor`" in start_here
+    assert "no model catalog" in start_here
+    assert "opensdl doctor" not in (root / "scripts/check.sh").read_text(encoding="utf-8")
+    skill_names = {path.name for path in (root / ".agents/skills").iterdir() if path.is_dir()}
     assert skill_names == {
         "author-skill",
         "debug-run",
         "develop-workflow",
         "orient-lab",
+        "start-here",
     }
     for name in skill_names:
         adapter = root / ".claude/skills" / name
@@ -95,7 +105,7 @@ def test_generated_adapter_is_simulator_first(tmp_path: Path) -> None:
     )
     source = (root / "src/opensdl_adapter_networked_balance/adapter.py").read_text()
     assert "conformance_cases" in source
-    assert 'simulator_available=True' in source
+    assert "simulator_available=True" in source
     assert (root / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
     assert (root / "tests/test_adapter.py").exists()
 
@@ -104,10 +114,7 @@ def test_generated_domain_pack_is_installable_shape(tmp_path: Path) -> None:
     root = create_domain_pack(tmp_path / "electrochemistry", name="electrochemistry")
     assert (root / "pyproject.toml").exists()
     assert (root / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
-    assert (
-        root
-        / "src/opensdl_domain_electrochemistry/pack.py"
-    ).exists()
+    assert (root / "src/opensdl_domain_electrochemistry/pack.py").exists()
     assert (root / "tests/test_pack.py").exists()
 
 
@@ -207,6 +214,10 @@ def test_cli_wheel_contains_and_renders_hidden_skill_templates(tmp_path: Path) -
         name.endswith("templates/laboratory/.agents/skills/orient-lab/SKILL.md.j2")
         for name in names
     )
+    assert any(
+        name.endswith("templates/laboratory/.agents/skills/start-here/SKILL.md.j2")
+        for name in names
+    )
 
     destination = tmp_path / "wheel-lab"
     script = (
@@ -216,7 +227,10 @@ def test_cli_wheel_contains_and_renders_hidden_skill_templates(tmp_path: Path) -
         "assert '.whl/' in str(opensdl_cli.__file__); "
         f"root = create_laboratory(Path({str(destination)!r}), owner='wheel-test'); "
         "assert (root / '.agents/skills/orient-lab/SKILL.md').is_file(); "
-        "assert (root / '.claude/skills/orient-lab').is_dir()"
+        "assert (root / '.claude/skills/orient-lab').is_dir(); "
+        "assert (root / '.agents/skills/start-here/SKILL.md').is_file(); "
+        "assert (root / '.claude/skills/start-here').is_dir(); "
+        "assert (root / 'docs/lab/context.md').is_file()"
     )
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(wheel)

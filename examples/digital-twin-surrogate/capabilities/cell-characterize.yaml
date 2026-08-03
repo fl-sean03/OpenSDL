@@ -1,0 +1,48 @@
+id: cell.characterize
+version: 0.1.0
+name: Characterize formulation
+description: Measure the normalized response of a mixed formulation.
+executor_type: instrument
+input_schema:
+  type: object
+  required: [labware_id, method]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    method:
+      type: string
+      enum: [normalized-response]
+  additionalProperties: false
+output_schema:
+  type: object
+  required: [labware_id, mixture_id, method, value, unit, quality]
+  properties:
+    labware_id:
+      type: string
+      minLength: 1
+    mixture_id:
+      type: string
+      minLength: 1
+    method:
+      type: string
+      enum: [normalized-response]
+    value:
+      type: number
+      minimum: 0
+      maximum: 1
+    unit:
+      type: string
+      enum: ["1"]
+    quality:
+      type: string
+      enum: [ok]
+  additionalProperties: false
+risk_class: R0
+required_resources: [cell-characterizer]
+side_effects: [records a characterization result]
+timeout_seconds: 60
+max_retries: 0
+supports_cancellation: false
+simulator_available: true
+tags: [cell, characterization, measurement]

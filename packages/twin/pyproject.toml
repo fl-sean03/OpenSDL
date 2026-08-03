@@ -1,0 +1,19 @@
+[project]
+name = "opensdl-twin"
+version = "0.1.0a0"
+description = "Engine-neutral digital-twin definitions and deterministic event projection."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core",
+  "pydantic>=2.10,<3",
+  "PyYAML>=6,<7",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

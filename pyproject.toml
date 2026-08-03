@@ -7,6 +7,7 @@ license = "Apache-2.0"
 dependencies = [
   "opensdl-core",
   "opensdl-schemas",
+  "opensdl-twin",
   "opensdl-capabilities",
   "opensdl-policy",
   "opensdl-workflows",
@@ -46,11 +47,12 @@ docs = [
 package = false
 
 [tool.uv.workspace]
-members = ['packages/core', 'packages/schemas', 'packages/capabilities', 'packages/policy', 'packages/workflows', 'packages/storage', 'packages/simulation', 'packages/runtime', 'packages/provenance', 'packages/operators', 'packages/sdk', 'packages/cli', 'apps/controller', 'apps/api', 'adapters/simulated-lab', 'adapters/local-compute', 'adapters/grid-optimizer', 'adapters/human-task', 'domain-packs/materials', 'domain-packs/chemistry', 'domain-packs/physics']
+members = ['packages/core', 'packages/schemas', 'packages/twin', 'packages/capabilities', 'packages/policy', 'packages/workflows', 'packages/storage', 'packages/simulation', 'packages/runtime', 'packages/provenance', 'packages/operators', 'packages/sdk', 'packages/cli', 'apps/controller', 'apps/api', 'adapters/simulated-lab', 'adapters/local-compute', 'adapters/grid-optimizer', 'adapters/human-task', 'domain-packs/materials', 'domain-packs/chemistry', 'domain-packs/physics']
 
 [tool.uv.sources]
 opensdl-core = { workspace = true }
 opensdl-schemas = { workspace = true }
+opensdl-twin = { workspace = true }
 opensdl-capabilities = { workspace = true }
 opensdl-policy = { workspace = true }
 opensdl-workflows = { workspace = true }
@@ -92,5 +94,5 @@ select = ["E4", "E7", "E9", "F"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
-include = ["packages", "apps", "adapters", "domain-packs"]
+include = ["packages", "apps", "adapters", "domain-packs", "examples/digital-twin-surrogate/adapter/src"]
 exclude = ["**/__pycache__", ".venv"]

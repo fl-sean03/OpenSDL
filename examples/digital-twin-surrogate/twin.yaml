@@ -1,0 +1,327 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: DigitalTwin
+version: 0.1.0
+revision: flex-class-surrogate-cell-2026-08-03
+coordinateFrame:
+  unit: m
+  handedness: right
+  upAxis: Z
+  origin: [0.0, 0.0, 0.0]
+scene:
+  path: scene/assets/surrogate-cell.glb
+  sha256: 4e633af41f9801002f530496541f2922ee38e9ed3bc35da974f0e335478143dc
+entities:
+  - id: cell
+    node: CellRoot
+  - id: sample
+    node: SampleCarrier
+  - id: robot
+    node: RobotCarriage
+    resources: [cell-transport]
+  - id: dispenser-head
+    node: DispenserHead
+    resources: [cell-dispenser]
+  - id: mixer-rotor
+    node: MixerRotor
+    resources: [cell-mixer]
+  - id: plate-reader
+    node: ColorimeterHousing
+    resources: [cell-characterizer]
+  - id: characterizer-door
+    node: ColorimeterDoor
+    resources: [cell-characterizer]
+anchors:
+  - id: input
+    node: Anchor_Input
+    position: [0.164, 0.1605, 1.16865]
+  - id: dispenser
+    node: Anchor_Dispenser
+    position: [-0.164, 0.0535, 1.14965]
+  - id: mixer
+    node: Anchor_Mixer
+    position: [-0.164, -0.0535, 1.22615]
+  - id: characterizer
+    node: Anchor_Colorimeter
+    position: [0.164, -0.1605, 1.17065]
+  - id: output
+    node: Anchor_Output
+    position: [0.164, 0.0535, 1.16865]
+animationTimeline:
+  frameRate: 24
+  frameStart: 1
+  frameEnd: 960
+  bindings:
+    - id: input-to-dispenser
+      action: transfer
+      parameterMatch: {source: input, destination: dispenser}
+      frameStart: 1
+      frameEnd: 160
+    - id: dispense-cycle
+      action: play_clip
+      parameterMatch: {clip: dispense_cycle}
+      frameStart: 164
+      frameEnd: 508
+    - id: dispenser-to-mixer
+      action: transfer
+      parameterMatch: {source: dispenser, destination: mixer}
+      frameStart: 516
+      frameEnd: 574
+    - id: mix-cycle
+      action: play_clip
+      parameterMatch: {clip: mix_cycle}
+      frameStart: 574
+      frameEnd: 634
+    - id: mixer-to-characterizer
+      action: transfer
+      parameterMatch: {source: mixer, destination: characterizer}
+      frameStart: 634
+      frameEnd: 684
+    - id: characterize-cycle
+      action: play_clip
+      parameterMatch: {clip: characterize_cycle}
+      frameStart: 692
+      frameEnd: 848
+    - id: characterizer-to-output
+      action: transfer
+      parameterMatch: {source: characterizer, destination: output}
+      frameStart: 854
+      frameEnd: 960
+projectionRules:
+  - id: transfer-started
+    match:
+      eventType: TaskStarted
+      capability: cell.transfer_labware
+      phase: started
+    action: highlight
+    target: robot
+    parameters:
+      active: true
+      tone: cyan
+  - id: transfer-confirmed
+    match:
+      eventType: TaskSucceeded
+      capability: cell.transfer_labware
+      phase: succeeded
+    action: transfer
+    target: sample
+    parameterPointers:
+      source: /event/payload/output/source
+      destination: /event/payload/output/destination
+      labware: /event/payload/output/labware_id
+  - id: transfer-finished
+    match:
+      eventType: TaskSucceeded
+      capability: cell.transfer_labware
+      phase: succeeded
+    action: highlight
+    target: robot
+    parameters:
+      active: false
+      tone: cyan
+  - id: dispense-started
+    match:
+      eventType: TaskStarted
+      capability: cell.dispense
+      phase: started
+    action: highlight
+    target: dispenser-head
+    parameters:
+      active: true
+      tone: violet
+  - id: dispense-motion
+    match:
+      eventType: TaskSucceeded
+      capability: cell.dispense
+      phase: succeeded
+    action: play_clip
+    target: dispenser-head
+    parameters:
+      clip: dispense_cycle
+  - id: dispense-confirmed
+    match:
+      eventType: TaskSucceeded
+      capability: cell.dispense
+      phase: succeeded
+    action: set_property
+    target: sample
+    parameters:
+      property: volume_per_well_ul
+    parameterPointers:
+      value: /event/payload/output/volume_per_well_ul
+  - id: dispense-finished
+    match:
+      eventType: TaskSucceeded
+      capability: cell.dispense
+      phase: succeeded
+    action: highlight
+    target: dispenser-head
+    parameters:
+      active: false
+      tone: violet
+  - id: mix-motion
+    match:
+      eventType: TaskSucceeded
+      capability: cell.mix
+      phase: succeeded
+    action: play_clip
+    target: mixer-rotor
+    parameters:
+      clip: mix_cycle
+  - id: mix-confirmed
+    match:
+      eventType: TaskSucceeded
+      capability: cell.mix
+      phase: succeeded
+    action: set_property
+    target: sample
+    parameters:
+      property: mixed
+      value: true
+  - id: characterize-motion
+    match:
+      eventType: TaskSucceeded
+      capability: cell.characterize
+      phase: succeeded
+    action: play_clip
+    target: characterizer-door
+    parameters:
+      clip: characterize_cycle
+  - id: response-confirmed
+    match:
+      eventType: TaskSucceeded
+      capability: cell.characterize
+      phase: succeeded
+    action: set_property
+    target: sample
+    parameters:
+      property: normalized_response
+    parameterPointers:
+      value: /event/payload/output/value
+  - id: transfer-failed
+    match:
+      eventType: TaskFailed
+      capability: cell.transfer_labware
+      phase: failed
+    action: highlight
+    target: robot
+    parameters: {active: true, tone: red, status: failed}
+  - id: dispense-failed
+    match:
+      eventType: TaskFailed
+      capability: cell.dispense
+      phase: failed
+    action: highlight
+    target: dispenser-head
+    parameters: {active: true, tone: red, status: failed}
+  - id: mix-failed
+    match:
+      eventType: TaskFailed
+      capability: cell.mix
+      phase: failed
+    action: highlight
+    target: mixer-rotor
+    parameters: {active: true, tone: red, status: failed}
+  - id: characterize-failed
+    match:
+      eventType: TaskFailed
+      capability: cell.characterize
+      phase: failed
+    action: highlight
+    target: characterizer-door
+    parameters: {active: true, tone: red, status: failed}
+  - id: transfer-cancelled
+    match:
+      eventType: TaskCancelled
+      capability: cell.transfer_labware
+      phase: cancelled
+    action: highlight
+    target: robot
+    parameters: {active: true, tone: amber, status: cancelled}
+  - id: dispense-cancelled
+    match:
+      eventType: TaskCancelled
+      capability: cell.dispense
+      phase: cancelled
+    action: highlight
+    target: dispenser-head
+    parameters: {active: true, tone: amber, status: cancelled}
+  - id: mix-cancelled
+    match:
+      eventType: TaskCancelled
+      capability: cell.mix
+      phase: cancelled
+    action: highlight
+    target: mixer-rotor
+    parameters: {active: true, tone: amber, status: cancelled}
+  - id: characterize-cancelled
+    match:
+      eventType: TaskCancelled
+      capability: cell.characterize
+      phase: cancelled
+    action: highlight
+    target: characterizer-door
+    parameters: {active: true, tone: amber, status: cancelled}
+  - id: transfer-intervention
+    match:
+      eventType: TaskInterventionRequired
+      capability: cell.transfer_labware
+      phase: intervention_required
+    action: highlight
+    target: robot
+    parameters: {active: true, tone: amber, status: intervention_required}
+  - id: dispense-intervention
+    match:
+      eventType: TaskInterventionRequired
+      capability: cell.dispense
+      phase: intervention_required
+    action: highlight
+    target: dispenser-head
+    parameters: {active: true, tone: amber, status: intervention_required}
+  - id: mix-intervention
+    match:
+      eventType: TaskInterventionRequired
+      capability: cell.mix
+      phase: intervention_required
+    action: highlight
+    target: mixer-rotor
+    parameters: {active: true, tone: amber, status: intervention_required}
+  - id: characterize-intervention
+    match:
+      eventType: TaskInterventionRequired
+      capability: cell.characterize
+      phase: intervention_required
+    action: highlight
+    target: characterizer-door
+    parameters: {active: true, tone: amber, status: intervention_required}
+  - id: transfer-recovery
+    match:
+      eventType: TaskRecoveryRequired
+      capability: cell.transfer_labware
+      phase: intervention_required
+    action: highlight
+    target: robot
+    parameters: {active: true, tone: amber, status: recovery_required}
+  - id: dispense-recovery
+    match:
+      eventType: TaskRecoveryRequired
+      capability: cell.dispense
+      phase: intervention_required
+    action: highlight
+    target: dispenser-head
+    parameters: {active: true, tone: amber, status: recovery_required}
+  - id: mix-recovery
+    match:
+      eventType: TaskRecoveryRequired
+      capability: cell.mix
+      phase: intervention_required
+    action: highlight
+    target: mixer-rotor
+    parameters: {active: true, tone: amber, status: recovery_required}
+  - id: characterize-recovery
+    match:
+      eventType: TaskRecoveryRequired
+      capability: cell.characterize
+      phase: intervention_required
+    action: highlight
+    target: characterizer-door
+    parameters: {active: true, tone: amber, status: recovery_required}

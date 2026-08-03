@@ -1,0 +1,2 @@
+# Vite vendors Three.js shader source inside this generated bundle.
+static/assets/*.js -diff linguist-generated=true

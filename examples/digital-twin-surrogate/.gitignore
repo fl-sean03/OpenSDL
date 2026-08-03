@@ -1,0 +1,8 @@
+.opensdl/
+adapter/build/
+adapter/src/*.egg-info/
+__pycache__/
+*.pyc
+scene/assets/*.blend1
+scene/assets/preview-*.png
+scene/renders/

@@ -24,6 +24,7 @@ IGNORED_DIRECTORIES = {
     "build",
     "dist",
     "htmlcov",
+    "node_modules",
     "site",
 }
 
@@ -84,7 +85,9 @@ def skill_failures(skills_root: Path) -> list[str]:
             if name != skill_directory.name:
                 failures.append(f"{relative}: name must match directory {skill_directory.name!r}")
             if len(name) > 64 or SKILL_NAME.fullmatch(name) is None:
-                failures.append(f"{relative}: name must use lowercase letters, digits, and single hyphens")
+                failures.append(
+                    f"{relative}: name must use lowercase letters, digits, and single hyphens"
+                )
         description = metadata.get("description")
         if not isinstance(description, str) or not 1 <= len(description.strip()) <= 1024:
             failures.append(f"{relative}: description must contain 1 to 1024 characters")
@@ -146,9 +149,7 @@ def validate_instruction_adapters() -> None:
 def validate_skills() -> None:
     skills_root = ROOT / ".agents" / "skills"
     failures = skill_failures(skills_root)
-    failures.extend(
-        claude_skill_adapter_failures(skills_root, ROOT / ".claude" / "skills")
-    )
+    failures.extend(claude_skill_adapter_failures(skills_root, ROOT / ".claude" / "skills"))
     if failures:
         raise SystemExit("invalid repository skills:\n" + "\n".join(failures))
 

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101313" />
+    <meta
+      name="description"
+      content="Read-only OpenSDL digital-twin run viewer for the surrogate laboratory cell."
+    />
+    <title>OpenSDL Digital Twin</title>
+    <script type="module" crossorigin src="/viewer/assets/index-4sVhaL9c.js"></script>
+    <link rel="stylesheet" crossorigin href="/viewer/assets/index-CY-ws1F2.css">
+  </head>
+  <body>
+    <main class="app" id="app" data-state="loading">
+      <section
+        class="viewport"
+        id="viewport"
+        aria-label="Interactive three-dimensional laboratory cell"
+      ></section>
+
+      <header class="identity">
+        <p class="identity__brand">OPENSDL</p>
+        <div class="identity__rule" aria-hidden="true"></div>
+        <div>
+          <h1>Digital twin</h1>
+          <p id="revision">Loading scene definition</p>
+        </div>
+      </header>
+
+      <section class="source" aria-live="polite">
+        <span class="source__signal" aria-hidden="true"></span>
+        <div>
+          <p id="source-label">CONNECTING</p>
+          <samp id="source-detail">OpenSDL API</samp>
+        </div>
+      </section>
+
+      <section class="cue" id="cue-panel" aria-live="polite">
+        <p class="cue__label">CURRENT CUE</p>
+        <p class="cue__capability" id="cue-capability">Scene loading</p>
+        <div class="cue__meta">
+          <samp id="cue-action">WAIT</samp>
+          <samp id="cue-sequence">0 / 0</samp>
+        </div>
+        <dl class="cue__properties" id="cue-properties" hidden></dl>
+      </section>
+
+      <section class="loader" id="loader" aria-live="polite">
+        <p id="loader-label">Loading twin definition</p>
+        <div class="loader__track" aria-hidden="true">
+          <span id="loader-progress"></span>
+        </div>
+      </section>
+
+      <section class="failure" id="failure" hidden role="alert">
+        <p class="failure__label">VIEWER UNAVAILABLE</p>
+        <h2 id="failure-title">The scene could not be loaded.</h2>
+        <p id="failure-detail">Check the viewer setup and try again.</p>
+        <button id="retry" type="button">Retry</button>
+      </section>
+
+      <footer class="transport" aria-label="Twin playback controls">
+        <div class="transport__buttons">
+          <button id="play" type="button" disabled>Play</button>
+          <button id="reset" type="button" disabled>Reset</button>
+        </div>
+        <label class="scrubber">
+          <span class="sr-only">Playback position</span>
+          <input id="timeline" type="range" min="0" max="1" step="1" value="0" disabled />
+        </label>
+        <output id="time" for="timeline">00:00 / 00:00</output>
+      </footer>
+
+      <p class="read-only">READ-ONLY PROJECTION</p>
+    </main>
+  </body>
+</html>

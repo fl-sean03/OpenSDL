@@ -29,7 +29,7 @@ Harness-specific files exist only to expose the same project instructions and sk
 The default experience stays conversational:
 
 1. Start or resume a normal agent in the repository.
-2. Ask for the current lab state or a concrete outcome.
+2. Ask it to start here, report the current lab state, or pursue a concrete outcome.
 3. Let the agent select the relevant repository skill and typed interfaces.
 4. Review native harness prompts when the requested action crosses a configured permission boundary.
 5. Receive the result with repository changes, run identifiers, tests, and evidence as applicable.
@@ -42,7 +42,7 @@ taxonomy.
 
 | State | Authority | Shared through |
 |---|---|---|
-| Code, manifests, workflows, policy, tests, and reviewed decisions | Git revision | Branches, commits, pull requests, and releases |
+| Code, manifests, workflows, policy, tests, shared lab context, and reviewed decisions | Git revision | Branches, commits, pull requests, and releases |
 | Runs, tasks, events, resources, leases, interventions, and artifacts | Configured OpenSDL store | One deployed controller and its typed interfaces |
 | User intent, preferences, and conversation history | User and active harness | Private local or provider conversation storage |
 | Credentials | User, harness, or deployment secret store | Approved secret channels |
@@ -52,10 +52,11 @@ share operational state when they target the same deployed controller.
 
 ### Fresh conversation
 
-A fresh agent reads the nearest `AGENTS.md`, Git state, the selected manifest, and the relevant
-skill. It validates declared configuration before changing the lab. Runtime health queries remain
-explicit because current controller-backed reads can initialize or update the store. The agent can
-reconstruct shared state without a previous transcript or a hand-written status file.
+A fresh agent reads the nearest `AGENTS.md`, Git state, shared files under `docs/lab/`, the selected
+manifest, and the relevant skill. `start-here` establishes missing context; `orient-lab` summarizes
+declared status. The agent validates declared configuration before changing the lab. Runtime health
+queries remain explicit because current controller-backed reads can initialize or update the store.
+The agent can reconstruct shared state without a previous transcript.
 
 ### Continuing conversation
 
@@ -105,6 +106,7 @@ The skill catalog should grow only after the required typed behavior exists.
 
 | Lifecycle area | Current procedure | Next typed dependency |
 |---|---|---|
+| Onboard | Record confirmed context and map one useful workflow with `start-here` | Typed inventory and first-workflow planning results after lab pilots |
 | Orient | Read Git and the manifest; validate declared configuration; disclose state-touching runtime queries | One genuinely read-only CLI context command and run listing |
 | Develop workflows | Edit, validate, test, and run through a simulation manifest | Structured validation and submission parity across interfaces |
 | Diagnose runs | Inspect persisted tasks and events; reproduce in simulation; export evidence | Typed intervention, resume, and reconciliation contracts |
@@ -203,3 +205,6 @@ list, hold, cancel, abort, resume, reconcile, deploy, or commission command.
 
 Skills for those tasks remain deferred until typed contracts, tests, and evidence exist. This keeps
 the conversational surface broad without turning procedure text into an unsupported control plane.
+
+See [lab onboarding](lab-onboarding.md), [lab-specific digital twins](digital-twin.md), and the
+[development backlog](../development/backlog.md) for the current framework-wide work list.

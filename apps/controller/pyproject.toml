@@ -14,7 +14,8 @@ dependencies = [
   "opensdl-workflows",
   "opensdl-runtime",
   "opensdl-provenance",
-  "opensdl-operators"
+  "opensdl-operators",
+  "opensdl-twin"
 ]
 
 [project.scripts]

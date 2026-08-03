@@ -320,7 +320,7 @@ export class SceneController {
       return;
     }
     if (clip === "characterize_cycle") {
-      // Carry the illumination lid D4 -> D3 -> D4. These values are in the
+      // Carry the illumination lid D2 -> D3 -> D2. These values are in the
       // GLB's Y-up frame (the authored source scene is Z-up).
       const offset = readerLidOffset(progress);
       object.position.copy(baseline.position);

@@ -16,9 +16,9 @@ describe("equipment-faithful semantic motion", () => {
     expect(Math.hypot(mixerOffset(1).x, mixerOffset(1).z)).toBeLessThan(1e-12);
   });
 
-  it("carries the reader lid from D4 to D3 and back", () => {
-    expect(readerLidOffset(0)).toEqual({ x: -0, y: 0, z: 0 });
-    expect(readerLidOffset(0.5)).toEqual({ x: -0.164, y: 0.052, z: 0 });
+  it("carries the reader lid from D2 to D3 and back", () => {
+    expect(readerLidOffset(0)).toEqual({ x: 0, y: 0, z: 0 });
+    expect(readerLidOffset(0.5)).toEqual({ x: 0.164, y: 0.052, z: 0 });
     expect(Math.hypot(readerLidOffset(1).x, readerLidOffset(1).y)).toBeLessThan(1e-12);
   });
 });

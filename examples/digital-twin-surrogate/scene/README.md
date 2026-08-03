@@ -1,8 +1,9 @@
 # Surrogate-cell scene
 
 `build_scene.py` creates the complete reference cell in Blender background mode. The script builds
-the geometry from scratch, animates one workflow, checks motion checkpoints, saves the editable
-source, and exports the viewer asset.
+the geometry from scratch, animates one workflow, checks motion checkpoints, runs the spatial
+invariants in `check_scene.py`, saves the editable source, and exports the viewer asset. A failed
+check stops the build before the export.
 
 The scene uses real scale and published equipment behavior. It remains a visualization surrogate;
 read [SOURCES.md](SOURCES.md) for provenance and reuse boundaries.
@@ -48,9 +49,11 @@ The default build uses Eevee render settings, saves frame 548 in the Blender fil
 GLB. A failed motion check stops the build before any of that. Both reports are written after the
 export, so each one records the digest of the GLB it describes.
 
-The current validation covers 70 conditions. These include deck pitch, required labware counts,
-plate and reader-lid checkpoints, gripper coupling, tip attachment, liquid fill state, Stacker
-shuttles, access-door motion, a 1 mm Heater-Shaker orbit radius, and zero plate yaw.
+The current validation covers 81 conditions. Seventy-one of them are scalar checks in
+`build_scene.py`: deck pitch, required labware counts, plate and reader-lid checkpoints, gripper
+coupling, tip attachment, liquid fill state, Stacker shuttles, clamp clearance, a 1 mm
+Heater-Shaker orbit radius, and zero plate yaw. The remaining ten come from `check_scene.py` and
+compare bodies to each other rather than to a number.
 
 ## Render a still
 
@@ -140,5 +143,24 @@ The authored animation includes:
 The GLB keeps this authored 960-frame motion. `twin.yaml` maps each projected transfer or operation
 cue to its matching frame range through `animationTimeline`.
 
-These checks confirm authored transforms and timing. They do not test collisions, forces,
-reachability, liquid physics, or equipment safety.
+`validate_motion` confirms authored transforms and timing. `check_scene.py` adds the relationships
+between bodies:
+
+- **carry rigidity** — whenever the plate or the reader lid moves, it moves with the body carrying
+  it: the gripper carriage, the shaker platform, or a Stacker shuttle. Carried keyframes are derived
+  from the carrier pose in `build_scene.py`, so the two cannot drift apart;
+- **grip contact** — while the jaws hold a closed width, both jaw assemblies bracket that payload
+  within 2 mm on every axis, and no payload rides the carriage with the jaws open;
+- **interpenetration** — moving assemblies are tested against the enclosure glazing, the rear panel,
+  the modules, and the labware with a 0.25 mm per-body contact margin. Legitimate contact is
+  declared per pair, per frame window, and where useful per body, in `ALLOWED_CONTACTS`.
+
+Run the invariants against a built file without rebuilding it:
+
+```bash
+blender -b examples/digital-twin-surrogate/scene/assets/surrogate-cell.blend \
+  --factory-startup -noaudio \
+  -P examples/digital-twin-surrogate/scene/check_scene.py -- --step 2
+```
+
+They still do not test forces, liquid physics, or equipment safety.

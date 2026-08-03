@@ -30,15 +30,15 @@ The adapter-neutral workflow uses four semantic capabilities:
 The 40-second scene animation expands those tasks into visible equipment actions. The input Stacker
 presents the plate, the gripper transfers it, and the 8-channel head illustrates two pipetting
 passes. The Heater-Shaker uses a 2 mm-diameter orbital translation with no plate yaw. The gripper
-moves the reader lid between the reader and its staging slot, then sends the plate to the output
+moves the reader lid between the reader and its caddy in D2, then sends the plate to the output
 Stacker.
 
 The animation timing illustrates the sequence. It does not reproduce device cycle times.
 
 ## Deck layout
 
-Rows run from A at the rear to D at the front. Columns 1–3 form the working deck. Column 4 is the
-gripper-only staging area.
+Rows run from A at the rear to D at the front. Columns 1–3 form the working deck. Column 4 sits
+outside the gantry crossbeam and the side glazing, so only the Stacker shuttles reach it.
 
 | Slot | Reference-scene use |
 |---|---|
@@ -51,8 +51,8 @@ gripper-only staging area.
 | B4 | Output Stacker and shuttle |
 | C1 | Heater-Shaker GEN1 with flat-plate adapter |
 | D1 | Movable trash bin |
+| D2 | Plate-reader lid caddy |
 | D3 | Absorbance plate reader |
-| D4 | Plate-reader lid staging position |
 
 The scene uses 164 mm horizontal slot pitch, 107 mm vertical pitch, and ANSI/SLAS labware scale.
 

@@ -22,7 +22,7 @@ export function mixerOffset(progress: number): MotionOffset {
 export function readerLidOffset(progress: number): MotionOffset {
   const travel = Math.sin(bounded(progress) * Math.PI);
   return {
-    x: -0.164 * travel,
+    x: 0.164 * travel,
     y: 0.052 * travel,
     z: 0,
   };

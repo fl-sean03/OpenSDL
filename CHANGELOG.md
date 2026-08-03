@@ -44,6 +44,15 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Fixed
 
+- the reference scene was not physically plausible. The gripper carriage passed through the
+  enclosure glazing because the reader-lid dock stood in a deck column the carriage cannot reach;
+  the jaw paddles hung below the payload and intersected the deck, the shaker, the reader and the
+  Stacker shuttles on every pick; the friction pads protruded through the plate skirt; the pipette
+  was commanded from the carriage origin while its nozzles hang forward of it, so tips were picked
+  off-column and dispensed between well rows; and the carriage descended through the plate while it
+  was shaking. Carried motion is now derived from the carrier pose rather than authored alongside
+  it, and `scene/check_scene.py` verifies carry rigidity, grip contact, and mesh interpenetration
+  before the export;
 - `opensdl schema generate` emitted only the pre-twin schema set while the repository script emitted
   the full set;
 - the reference viewer presented stylized playback pacing and a synthetic demonstration timestamp

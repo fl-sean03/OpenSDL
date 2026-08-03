@@ -9,7 +9,7 @@ coordinateFrame:
   origin: [0.0, 0.0, 0.0]
 scene:
   path: scene/assets/surrogate-cell.glb
-  sha256: 4e633af41f9801002f530496541f2922ee38e9ed3bc35da974f0e335478143dc
+  sha256: 5b8dfe8eda6c8e41fc9c9d16bf3fb8327ba86ca3206deb270327eb69da4429ac
 entities:
   - id: cell
     node: CellRoot

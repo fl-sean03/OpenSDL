@@ -52,8 +52,17 @@ focused checks on the source workspace:
   and received no issues from the Khronos validator;
 - viewer tests covered browser-side scene-digest verification, missing-binding failure, authored-motion
   synchronization, and exact-reference demo selection; and
-- the generated motion report marked all **70** deck, labware, gripper, tip, liquid, lid, door,
-  Stacker, and Heater-Shaker checks as passed.
+- the generated motion report marked all **81** checks as passed. Seventy-one are scalar checks on
+  deck, labware, gripper, tip, liquid, lid, door, Stacker, and Heater-Shaker values; the remaining
+  ten compare bodies to each other — carry rigidity, grip contact, and mesh interpenetration against
+  the enclosure, modules, and labware — and run before the export.
+
+Those relational checks are new. The previous seventy validated scalars only, which is why a scene
+with the carriage passing through the enclosure glazing, jaw paddles intersecting seating surfaces,
+and the pipette dispensing between well rows passed every check and shipped. Interpenetration
+measured against the same independent harness fell from 134 records across 20 object pairs to 60
+across 5, and every remaining pair is either a declared allowlist entry or resting contact within
+the 0.25 mm margin.
 
 The GLB digest in `twin.yaml` matched both the generated node inventory and the scene file. This is
 contract and visualization evidence. It does not add physical, kinematic, collision, performance,
@@ -64,12 +73,12 @@ or safety claims.
 The workspace lock was generated and checked with uv 0.11.32. It records 106 packages for the 22
 workspace members. All normal project and CI commands consume the committed lock with `--locked`.
 
-The current complete source suite passed **237 tests** on CPython 3.12.3, with **13** additional
+The current complete source suite passed **237 tests** on CPython 3.12.3, with **15** additional
 tests in the reference example's editable adapter overlay. The complete suite also passed on the
 other supported Python versions, each in an isolated environment built from the committed lock:
 
-- CPython 3.13.14: **237 passed**, plus the **13** overlay tests; and
-- CPython 3.14.6: **237 passed**, plus the **13** overlay tests.
+- CPython 3.13.14: **237 passed**, plus the overlay tests; and
+- CPython 3.14.6: **237 passed**, plus the overlay tests.
 
 Boundary checks, generated-schema freshness, and `opensdl twin validate` also passed on all three
 interpreters.

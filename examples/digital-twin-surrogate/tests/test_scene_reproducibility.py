@@ -14,6 +14,8 @@ EXAMPLE_ROOT = Path(__file__).resolve().parents[1]
 SCENE_ROOT = EXAMPLE_ROOT / "scene"
 ASSET_ROOT = SCENE_ROOT / "assets"
 BUILD_SCRIPT = SCENE_ROOT / "build_scene.py"
+# The build imports the spatial invariants from the same directory, so the rebuild needs both.
+SCENE_SCRIPTS = (BUILD_SCRIPT, SCENE_ROOT / "check_scene.py")
 
 # The build takes roughly ten seconds; the ceiling only guards against a hung headless Blender.
 BUILD_TIMEOUT_SECONDS = 900
@@ -60,7 +62,8 @@ def _blender_matching_the_recorded_generator() -> tuple[str, str]:
 
 def test_the_reference_scene_rebuilds_to_the_committed_bytes(tmp_path: Path) -> None:
     executable, _ = _blender_matching_the_recorded_generator()
-    shutil.copy(BUILD_SCRIPT, tmp_path / BUILD_SCRIPT.name)
+    for script in SCENE_SCRIPTS:
+        shutil.copy(script, tmp_path / script.name)
 
     result = subprocess.run(
         [executable, "-b", "--factory-startup", "-noaudio", "-P", BUILD_SCRIPT.name],

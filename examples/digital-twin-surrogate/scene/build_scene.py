@@ -51,10 +51,16 @@ BENCH_Z = 0.92
 DECK_Z = 1.135
 DECK_X = {1: -0.164, 2: 0.0, 3: 0.164, 4: 0.328}
 DECK_Y = {"A": 0.1605, "B": 0.0535, "C": -0.0535, "D": -0.1605}
+# Column 4 sits outside the gantry crossbeam and the enclosure side glazing.
+# Only the Stacker shuttles reach it; the reader lid is staged on the working
+# deck next to the reader so the carriage never leaves the work envelope.
+LID_DOCK_SLOT = "D2"
 
 # Physical seating planes.  The plate root is at the vertical center of its
 # 14.3 mm envelope, so every station defines the actual supporting surface
 # rather than using one visually convenient Z value for the whole deck.
+PLATE_LENGTH = 0.12776
+PLATE_DEPTH = 0.08548
 PLATE_HEIGHT = 0.0143
 PLATE_HALF_HEIGHT = PLATE_HEIGHT / 2.0
 DECK_SLOT_TOP_Z = DECK_Z + 0.0075
@@ -64,6 +70,17 @@ STACKER_PLATE_Z = STACKER_NEST_TOP_Z + PLATE_HALF_HEIGHT
 MIXER_PLATFORM_TOP_Z = DECK_Z + 0.008 + 0.069 + 0.007
 MIXER_PLATE_Z = MIXER_PLATFORM_TOP_Z + PLATE_HALF_HEIGHT
 
+# The Heater-Shaker clamp closes on the two short ends of the plate, clear of
+# the long sides the gripper paddles occupy.  It holds the plate edge at plate
+# height, so the plate still lifts straight out and opening only has to break
+# contact.  Deck rows are 107 mm apart, so the open bar also has to stay out of
+# the next row's work envelope.
+MIXER_LATCH_THICKNESS = 0.006
+MIXER_LATCH_CLEARANCE = 0.0008
+MIXER_LATCH_CLOSED_Y = PLATE_DEPTH / 2.0 + MIXER_LATCH_CLEARANCE + MIXER_LATCH_THICKNESS / 2.0
+MIXER_LATCH_OPEN_Y = MIXER_LATCH_CLOSED_Y + 0.004
+MIXER_LATCH_OPEN_ANGLE = math.radians(12.0)
+
 # Published reader dimensions describe an assembled envelope of roughly
 # 57-60 mm.  The detector body is 18.5 mm high; the plate and removable lid
 # occupy the remainder without stacking two full-height housings.
@@ -71,9 +88,58 @@ READER_ROOT_Z = DECK_Z + 0.008
 READER_DECK_TOP_Z = READER_ROOT_Z + 0.0205
 READER_PLATE_Z = READER_DECK_TOP_Z + PLATE_HALF_HEIGHT
 READER_LID_CLOSED_Z = READER_ROOT_Z + 0.0350
-READER_LID_DOCK_Z = DECK_SLOT_TOP_Z
+# The lid parks on a caddy rather than flat on the deck: the caddy lifts the
+# grip line above the neighbouring module tops, so the paddles never descend
+# past them when docking the lid.
+READER_LID_CADDY_HEIGHT = 0.030
+READER_LID_DOCK_Z = DECK_SLOT_TOP_Z + READER_LID_CADDY_HEIGHT
 READER_LID_HEIGHT = 0.0220
 READER_LID_GRIP_Z = 0.0140
+READER_LID_GRIP_DEPTH = 0.008
+READER_LID_GRIP_OUTER_X = 0.0775
+
+# Pipette tips.  The rack presents full-length tips standing proud of its
+# insert, so a mounted tip occupies exactly the volume the rack tip vacated
+# instead of reaching down through the rack body.
+TIP_LENGTH = 0.046
+TIP_RADIUS = 0.00155
+TIP_RACK_ROOT_Z = DECK_Z + 0.008
+TIP_RACK_INSERT_TOP_Z = TIP_RACK_ROOT_Z + 0.020
+TIP_RACK_STANDOFF = 0.0015
+TIP_TOP_Z = TIP_RACK_INSERT_TOP_Z + TIP_RACK_STANDOFF + TIP_LENGTH
+# The mounted tip hangs from the nozzle column, whose top sits at this height
+# in DispenserHead space; the nozzle enters the tip by 3 mm when mounting.
+NOZZLE_TIP_TOP_LOCAL_Z = 1.286
+# The nozzle column hangs 6 mm in front of the carriage origin.  Commanded
+# positions are tool-point positions, so the gantry compensates for the offset
+# and the tips land on the target rather than 6 mm in front of it.
+NOZZLE_COLUMN_Y = -0.006
+TIP_PICK_Z = TIP_TOP_Z - NOZZLE_TIP_TOP_LOCAL_Z
+
+# Reagent reservoir.  Lanes are open at the top: the white polymer strips are
+# the dividers between lanes, not lids over them.
+RESERVOIR_ROOT_Z = DECK_Z + 0.008
+RESERVOIR_SKIRT_TOP_Z = RESERVOIR_ROOT_Z + 0.021
+RESERVOIR_LANE_PITCH = 0.009
+RESERVOIR_LANE_WIDTH = 0.0073
+RESERVOIR_ASPIRATE_Z = (RESERVOIR_SKIRT_TOP_Z + 0.002) - (NOZZLE_TIP_TOP_LOCAL_Z - TIP_LENGTH)
+
+# The gripper.  PLATE_GRIP_LOCAL_Z is the height of the grip line in the
+# carriage's own space: a payload held by the jaws sits at
+# (carriage x, gantry y, carriage z + PLATE_GRIP_LOCAL_Z).  Every carried
+# keyframe is derived from that relation instead of being authored twice.
+PLATE_GRIP_LOCAL_Z = 1.267
+# The paddles hang from the grip line and stop level with the plate skirt, so
+# they never reach below the surface the plate is picked from.
+JAW_HEIGHT = 0.085
+JAW_DROP_BELOW_GRIP = 0.0065
+JAW_BODY_LOCAL_Z = PLATE_GRIP_LOCAL_Z - JAW_DROP_BELOW_GRIP + JAW_HEIGHT / 2.0
+JAW_THICKNESS = 0.016
+JAW_PAD_THICKNESS = 0.006
+JAW_PAD_HEIGHT = 0.030
+# The reader lid is gripped by its side features, which sit
+# READER_LID_GRIP_Z above the lid root.
+LID_GRIP_LOCAL_Z = PLATE_GRIP_LOCAL_Z - READER_LID_GRIP_Z
 
 MATERIALS: dict[str, bpy.types.Material] = {}
 COLLECTIONS: dict[str, bpy.types.Collection] = {}
@@ -1167,12 +1233,15 @@ def build_gantry(
     # Eight real nozzle positions at ANSI/SLAS 9 mm row pitch.  The detachable
     # tips live under their own transform so pickup/drop can be synchronized.
     tip_group = empty(
-        "AttachedTipColumn", target=target, location=(0.0, 0.0, 1.286), parent=dispenser
+        "AttachedTipColumn",
+        target=target,
+        location=(0.0, 0.0, NOZZLE_TIP_TOP_LOCAL_Z),
+        parent=dispenser,
     )
     nozzle_mesh: bpy.types.Mesh | None = None
     tip_mesh: bpy.types.Mesh | None = None
     for row in range(8):
-        y = (row - 3.5) * 0.009 - 0.006
+        y = (row - 3.5) * 0.009 + NOZZLE_COLUMN_Y
         if nozzle_mesh is None:
             nozzle = cylinder(
                 "PipetteNozzle_00",
@@ -1188,9 +1257,9 @@ def build_gantry(
             nozzle_mesh = nozzle.data
             tip = cylinder(
                 "AttachedTip_00",
-                0.00155,
-                0.046,
-                (0.0, y, -0.023),
+                TIP_RADIUS,
+                TIP_LENGTH,
+                (0.0, y, -TIP_LENGTH / 2.0),
                 "ClearLabware",
                 target=target,
                 parent=tip_group,
@@ -1206,7 +1275,7 @@ def build_gantry(
             mark_export(nozzle)
             tip = bpy.data.objects.new(f"AttachedTip_{row:02d}", tip_mesh)
             target.objects.link(tip)
-            tip.location = (0.0, y, -0.023)
+            tip.location = (0.0, y, -TIP_LENGTH / 2.0)
             tip.parent = tip_group
             mark_export(tip)
     tip_group.scale = (1.0, 1.0, 0.02)
@@ -1261,10 +1330,17 @@ def build_gantry(
         target=target,
         parent=gripper,
     )
+    # The paddles are drawn around the grip line, not centered on it: their
+    # lower edge stops JAW_DROP_BELOW_GRIP under the payload so the gripper can
+    # reach a plate resting on a module without entering the module.  The
+    # friction pads are inlaid flush with the paddle faces, which are the
+    # surfaces the closed jaw widths are measured against.
+    pad_offset = JAW_THICKNESS / 2.0 - JAW_PAD_THICKNESS / 2.0
+    pad_z = JAW_HEIGHT / 2.0 - JAW_PAD_HEIGHT / 2.0
     jaw_left = rounded_box(
         "GripperJawLeft",
-        (0.016, 0.070, 0.085),
-        (-0.076, -0.012, 1.267),
+        (JAW_THICKNESS, 0.070, JAW_HEIGHT),
+        (-0.076, -0.012, JAW_BODY_LOCAL_Z),
         "PowderCoatBlack",
         target=target,
         parent=gripper,
@@ -1272,8 +1348,8 @@ def build_gantry(
     )
     jaw_right = rounded_box(
         "GripperJawRight",
-        (0.016, 0.070, 0.085),
-        (0.076, -0.012, 1.267),
+        (JAW_THICKNESS, 0.070, JAW_HEIGHT),
+        (0.076, -0.012, JAW_BODY_LOCAL_Z),
         "PowderCoatBlack",
         target=target,
         parent=gripper,
@@ -1281,8 +1357,8 @@ def build_gantry(
     )
     rounded_box(
         "GripperPadLeft",
-        (0.006, 0.052, 0.035),
-        (0.011, 0.0, -0.022),
+        (JAW_PAD_THICKNESS, 0.052, JAW_PAD_HEIGHT),
+        (pad_offset, 0.0, -pad_z),
         "Rubber",
         target=target,
         parent=jaw_left,
@@ -1290,8 +1366,8 @@ def build_gantry(
     )
     rounded_box(
         "GripperPadRight",
-        (0.006, 0.052, 0.035),
-        (-0.011, 0.0, -0.022),
+        (JAW_PAD_THICKNESS, 0.052, JAW_PAD_HEIGHT),
+        (-pad_offset, 0.0, -pad_z),
         "Rubber",
         target=target,
         parent=jaw_right,
@@ -1396,7 +1472,7 @@ def build_plate(
     root["movable"] = True
     rounded_box(
         f"{name}_Skirt",
-        (0.12776, 0.08548, 0.0143),
+        (PLATE_LENGTH, PLATE_DEPTH, PLATE_HEIGHT),
         (0.0, 0.0, 0.0),
         "ClearLabware",
         target=target,
@@ -1513,15 +1589,18 @@ def build_tip_rack(
         )
         for col in range(12)
     ]
+    # Tips stand on the insert rather than sinking into the rack body, so the
+    # mounted tip and the racked tip describe the same volume.
+    tip_center_z = (TIP_TOP_Z - TIP_LENGTH / 2.0) - (TIP_RACK_ROOT_Z + 0.018)
     for row in range(8):
         for col in range(12):
             y = (row - 3.5) * 0.009
             if tip_mesh is None:
                 tip = cylinder(
                     "RackTip_00_00",
-                    0.00155,
-                    0.027,
-                    (0.0, y, 0.0135),
+                    TIP_RADIUS,
+                    TIP_LENGTH,
+                    (0.0, y, tip_center_z),
                     "ClearLabware",
                     target=target,
                     parent=tip_columns[col],
@@ -1532,7 +1611,7 @@ def build_tip_rack(
             else:
                 tip = bpy.data.objects.new(f"RackTip_{row:02d}_{col:02d}", tip_mesh)
                 target.objects.link(tip)
-                tip.location = (0.0, y, 0.0135)
+                tip.location = (0.0, y, tip_center_z)
                 tip.parent = tip_columns[col]
                 mark_export(tip)
     return tip_columns
@@ -1551,24 +1630,27 @@ def build_reservoir(location: Sequence[float], cell_root: bpy.types.Object) -> N
         bevel=0.003,
     )
     for index in range(12):
-        x = (index - 5.5) * 0.009
+        x = (index - 5.5) * RESERVOIR_LANE_PITCH
         rounded_box(
             f"ReservoirChannel_{index + 1:02d}",
-            (0.0073, 0.068, 0.014),
+            (RESERVOIR_LANE_WIDTH, 0.068, 0.014),
             (x, 0.0, 0.022),
             "SampleViolet" if index == 1 else "SampleBlue",
             target=target,
             parent=root,
             bevel=0.0026,
         )
+    # Thirteen dividers bound the twelve lanes and leave each lane open from
+    # above, which is how an eight-channel head reaches the reagent.
+    for index in range(13):
         rounded_box(
-            f"ReservoirRim_{index + 1:02d}",
-            (0.0084, 0.070, 0.003),
-            (x, 0.0, 0.031),
+            f"ReservoirDivider_{index + 1:02d}",
+            (RESERVOIR_LANE_PITCH - RESERVOIR_LANE_WIDTH, 0.070, 0.010),
+            ((index - 6) * RESERVOIR_LANE_PITCH, 0.0, 0.026),
             "WhitePolymer",
             target=target,
             parent=root,
-            bevel=0.0015,
+            bevel=0.0006,
         )
 
 
@@ -1630,25 +1712,29 @@ def build_heater_shaker(
         parent=mixer,
         bevel=0.007,
     )
+    # The clamp holds the plate by its short ends.  The gripper paddles come
+    # down on the long sides, so the two mechanisms never contend for the same
+    # space, and the closed bar stops MIXER_LATCH_CLEARANCE outside the plate
+    # footprint instead of closing through it.
     latches: list[bpy.types.Object] = []
-    for x in (-0.058, 0.058):
-        side = "Left" if x < 0 else "Right"
-        latch = empty(f"MixerLatch{side}", target=target, location=(x, 0.0, 0.014), parent=mixer)
+    for y in (-MIXER_LATCH_CLOSED_Y, MIXER_LATCH_CLOSED_Y):
+        side = "Front" if y < 0 else "Rear"
+        latch = empty(f"MixerLatch{side}", target=target, location=(0.0, y, 0.014), parent=mixer)
         latch["movable"] = True
         rounded_box(
             f"MixerLatch{side}Bar",
-            (0.012, 0.080, 0.018),
+            (0.080, MIXER_LATCH_THICKNESS, 0.018),
             (0.0, 0.0, 0.0),
             "BlackPolymer",
             target=target,
             parent=latch,
-            bevel=0.004,
+            bevel=0.003,
         )
         screw(
-            f"MixerLatchScrew_{x:+.3f}",
-            (x, -0.032, 0.025),
+            f"MixerLatchScrew_{y:+.3f}",
+            (0.030, math.copysign(MIXER_LATCH_THICKNESS / 2.0, y), 0.0),
             target=target,
-            parent=mixer,
+            parent=latch,
             axis="Y",
             radius=0.0025,
         )
@@ -1700,14 +1786,16 @@ def build_plate_reader(
         parent=reader,
         bevel=0.003,
     )
+    # The read window and its detectors are inlaid into the black deck.  The
+    # plate seats on that deck, so nothing may stand above it.
     rounded_box(
         "ReaderReadWindow",
         (0.124, 0.076, 0.0012),
-        (0.0, 0.0, 0.0208),
+        (0.0, 0.0, 0.0199),
         "ReaderIndicator",
         target=target,
         parent=reader,
-        bevel=0.002,
+        bevel=0.0005,
     )
     for row in range(8):
         for col in range(12):
@@ -1717,7 +1805,7 @@ def build_plate_reader(
                 f"ReaderDetector_{row:02d}_{col:02d}",
                 0.0018,
                 0.0010,
-                (x, y, 0.0216),
+                (x, y, 0.0196),
                 "ScreenGlass",
                 target=target,
                 parent=reader,
@@ -1744,6 +1832,16 @@ def build_plate_reader(
         extrude=0.00015,
     )
 
+    rounded_box(
+        "ReaderLidCaddy",
+        (0.128, 0.086, READER_LID_CADDY_HEIGHT),
+        (lid_dock[0], lid_dock[1], lid_dock[2] - READER_LID_CADDY_HEIGHT / 2.0),
+        "PowderCoatGraphite",
+        target=target,
+        parent=cell_root,
+        bevel=0.005,
+    )
+
     lid = empty("ColorimeterDoor", target=target, location=lid_dock, parent=cell_root)
     lid["opensdlEntityId"] = "characterizer-door"
     lid["movable"] = True
@@ -1765,10 +1863,11 @@ def build_plate_reader(
         parent=lid,
         bevel=0.006,
     )
-    for side, x in (("Left", -0.0735), ("Right", 0.0735)):
+    grip_x = READER_LID_GRIP_OUTER_X - READER_LID_GRIP_DEPTH / 2.0
+    for side, x in (("Left", -grip_x), ("Right", grip_x)):
         rounded_box(
             f"ReaderLidGrip{side}",
-            (0.008, 0.032, 0.012),
+            (READER_LID_GRIP_DEPTH, 0.032, 0.012),
             (x, 0.0, READER_LID_GRIP_Z),
             "BlackPolymer",
             target=target,
@@ -2160,51 +2259,86 @@ def animate_scene(
         "mixer": (slots["C1"][0], slots["C1"][1], MIXER_PLATE_Z),
         "reader": (slots["D3"][0], slots["D3"][1], READER_PLATE_Z),
         "lid_closed": (slots["D3"][0], slots["D3"][1], READER_LID_CLOSED_Z),
-        "lid_dock": (slots["D4"][0], slots["D4"][1], READER_LID_DOCK_Z),
+        "lid_dock": (slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z),
         "output": (slots["B3"][0], slots["B3"][1], STACKER_PLATE_Z),
     }
-    # The jaw center is authored at local z=1.267 m.  Station-specific tool Z
-    # values therefore derive from the actual plate seating planes above.
-    safe_plate_z = 1.267
-    safe_lid_z = 1.267 - READER_LID_GRIP_Z
+    # Tool heights derive from the grip line and the real seating plane of each
+    # station, so a station height can only be changed in one place.
     gripper_safe_z = 0.0
-    gripper_input_z = positions["input"][2] - 1.267
-    gripper_dispenser_z = positions["dispenser"][2] - 1.267
-    gripper_mixer_z = positions["mixer"][2] - 1.267
-    gripper_reader_z = positions["reader"][2] - 1.267
-    gripper_output_z = positions["output"][2] - 1.267
-    gripper_lid_closed_z = positions["lid_closed"][2] + READER_LID_GRIP_Z - 1.267
-    gripper_lid_dock_z = positions["lid_dock"][2] + READER_LID_GRIP_Z - 1.267
+    gripper_input_z = positions["input"][2] - PLATE_GRIP_LOCAL_Z
+    gripper_dispenser_z = positions["dispenser"][2] - PLATE_GRIP_LOCAL_Z
+    gripper_mixer_z = positions["mixer"][2] - PLATE_GRIP_LOCAL_Z
+    gripper_reader_z = positions["reader"][2] - PLATE_GRIP_LOCAL_Z
+    gripper_output_z = positions["output"][2] - PLATE_GRIP_LOCAL_Z
+    gripper_lid_closed_z = positions["lid_closed"][2] - LID_GRIP_LOCAL_Z
+    gripper_lid_dock_z = positions["lid_dock"][2] - LID_GRIP_LOCAL_Z
     jaw_open = 0.092
-    jaw_plate_closed = 0.0719
-    jaw_lid_closed = 0.0855
+    # The closed widths are the payload half-width plus half the paddle, so the
+    # paddle faces meet the plate skirt and the lid grips exactly.
+    jaw_plate_closed = PLATE_LENGTH / 2.0 + JAW_THICKNESS / 2.0 + 0.00002
+    jaw_lid_closed = READER_LID_GRIP_OUTER_X + JAW_THICKNESS / 2.0
     stacker_stored_x = 0.2075
     stacker_extended_x = slots["A3"][0] - slots["A4"][0]
+    # A payload held by the jaws hangs below the grip line by its own grip
+    # offset.  Every carried keyframe is computed from this table.
+    carry_offset = {sample: PLATE_GRIP_LOCAL_Z, reader_lid: LID_GRIP_LOCAL_Z}
 
-    def key_gantry(frame: int, x: float, y: float, z: float = gripper_safe_z) -> None:
+    def key_gantry(
+        frame: int,
+        x: float,
+        y: float,
+        z: float = gripper_safe_z,
+        *,
+        carrying: bpy.types.Object | None = None,
+    ) -> None:
+        """Key the carriage, and any payload it holds, from one pose."""
         key_location(gantry, frame, (0.0, y, 0.0))
         key_location(gripper, frame, (x, 0.0, z))
+        if carrying is not None:
+            key_location(carrying, frame, (x, y, z + carry_offset[carrying]))
 
     def key_dispenser(frame: int, x: float, y: float, z: float = 0.0) -> None:
-        key_location(gantry, frame, (0.0, y, 0.0))
+        """Place the nozzle column, not the carriage origin, over (x, y)."""
+        key_location(gantry, frame, (0.0, y - NOZZLE_COLUMN_Y, 0.0))
         key_location(dispenser, frame, (x, 0.0, z))
 
     def key_jaws(frame: int, width: float) -> None:
-        key_location(jaw_left, frame, (-width, -0.012, 1.267))
-        key_location(jaw_right, frame, (width, -0.012, 1.267))
+        key_location(jaw_left, frame, (-width, -0.012, JAW_BODY_LOCAL_Z))
+        key_location(jaw_right, frame, (width, -0.012, JAW_BODY_LOCAL_Z))
 
     def key_plate(frame: int, position: Sequence[float]) -> None:
         key_location(sample, frame, position)
 
+    def key_mixer(frame: int, dx: float, dy: float, *, carrying: bool) -> None:
+        """Key the shaker platform, and the plate clamped to it, together."""
+        key_location(mixer, frame, (dx, dy, 0.069))
+        if carrying:
+            key_plate(
+                frame, (positions["mixer"][0] + dx, positions["mixer"][1] + dy, MIXER_PLATE_Z)
+            )
+
+    def key_shuttle(
+        shuttle: bpy.types.Object,
+        slot: Sequence[float],
+        frame: int,
+        x: float,
+        *,
+        carrying: bool,
+    ) -> None:
+        """Key a Stacker shuttle, and the plate resting in its nest, together."""
+        key_location(shuttle, frame, (x, 0.0, 0.228))
+        if carrying:
+            key_plate(frame, (slot[0] + x, slot[1], STACKER_PLATE_Z))
+
     def key_latches(frame: int, *, opened: bool) -> None:
         for latch, sign in zip(mixer_latches, (-1.0, 1.0), strict=True):
-            x = sign * (0.068 if opened else 0.058)
-            angle = -sign * math.radians(35.0) if opened else 0.0
-            key_location(latch, frame, (x, 0.0, 0.014))
-            key_rotation(latch, frame, (0.0, angle, 0.0))
+            y = sign * (MIXER_LATCH_OPEN_Y if opened else MIXER_LATCH_CLOSED_Y)
+            angle = -sign * MIXER_LATCH_OPEN_ANGLE if opened else 0.0
+            key_location(latch, frame, (0.0, y, 0.014))
+            key_rotation(latch, frame, (angle, 0.0, 0.0))
 
     # The real reader begins empty and closed. Initialize it, then move the
-    # illumination lid from D3 to its dedicated D4 dock.
+    # illumination lid from D3 to its dock beside the reader.
     key_gantry(1, positions["reader"][0], positions["reader"][1])
     key_jaws(1, jaw_open)
     key_location(reader_lid, 1, positions["lid_closed"])
@@ -2230,48 +2364,54 @@ def animate_scene(
     key_gantry(30, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
     key_jaws(30, jaw_open)
     key_jaws(36, jaw_lid_closed)
-    key_gantry(36, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
-    key_location(reader_lid, 36, positions["lid_closed"])
-    key_gantry(46, positions["reader"][0], positions["reader"][1])
-    key_location(
-        reader_lid, 46, (positions["lid_closed"][0], positions["lid_closed"][1], safe_lid_z)
+    key_gantry(
+        36,
+        positions["reader"][0],
+        positions["reader"][1],
+        gripper_lid_closed_z,
+        carrying=reader_lid,
     )
-    key_gantry(58, positions["lid_dock"][0], positions["lid_dock"][1])
-    key_location(reader_lid, 58, (positions["lid_dock"][0], positions["lid_dock"][1], safe_lid_z))
-    key_gantry(68, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
-    key_location(reader_lid, 68, positions["lid_dock"])
+    key_gantry(46, positions["reader"][0], positions["reader"][1], carrying=reader_lid)
+    key_gantry(58, positions["lid_dock"][0], positions["lid_dock"][1], carrying=reader_lid)
+    key_gantry(
+        68,
+        positions["lid_dock"][0],
+        positions["lid_dock"][1],
+        gripper_lid_dock_z,
+        carrying=reader_lid,
+    )
     key_jaws(68, jaw_lid_closed)
     key_jaws(74, jaw_open)
     key_gantry(74, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
     key_gantry(82, positions["lid_dock"][0], positions["lid_dock"][1])
 
     # Retrieve the input plate: the Stacker shuttle extends into A3 before the
-    # gripper approaches. The plate and shuttle share the same physical path.
-    stored_input = (slots["A4"][0] + stacker_stored_x, slots["A4"][1], positions["input"][2])
-    key_location(input_shuttle, 1, (stacker_stored_x, 0.0, 0.228))
-    key_location(input_shuttle, 70, (stacker_stored_x, 0.0, 0.228))
-    key_location(input_shuttle, 92, (stacker_extended_x, 0.0, 0.228))
-    key_plate(1, stored_input)
-    key_plate(70, stored_input)
-    key_plate(92, positions["input"])
+    # gripper approaches. The plate rides the shuttle, so its keys derive from
+    # the shuttle pose rather than repeating the same travel by hand.
+    input_slot = slots["A4"]
+    key_shuttle(input_shuttle, input_slot, 1, stacker_stored_x, carrying=True)
+    key_shuttle(input_shuttle, input_slot, 70, stacker_stored_x, carrying=True)
+    key_shuttle(input_shuttle, input_slot, 92, stacker_extended_x, carrying=True)
 
     # Input A3 -> pipetting stage B1.
     key_gantry(100, positions["input"][0], positions["input"][1])
     key_gantry(108, positions["input"][0], positions["input"][1], gripper_input_z)
     key_jaws(108, jaw_open)
     key_jaws(114, jaw_plate_closed)
-    key_gantry(114, positions["input"][0], positions["input"][1], gripper_input_z)
-    key_plate(114, positions["input"])
-    key_gantry(124, positions["input"][0], positions["input"][1])
-    key_plate(124, (positions["input"][0], positions["input"][1], safe_plate_z))
+    key_gantry(114, positions["input"][0], positions["input"][1], gripper_input_z, carrying=sample)
+    key_gantry(124, positions["input"][0], positions["input"][1], carrying=sample)
     # Once the plate has cleared the shuttle, retract the empty presentation
     # tray into the input tower instead of leaving it across slot A3.
-    key_location(input_shuttle, 124, (stacker_extended_x, 0.0, 0.228))
-    key_location(input_shuttle, 144, (stacker_stored_x, 0.0, 0.228))
-    key_gantry(138, positions["dispenser"][0], positions["dispenser"][1])
-    key_plate(138, (positions["dispenser"][0], positions["dispenser"][1], safe_plate_z))
-    key_gantry(148, positions["dispenser"][0], positions["dispenser"][1], gripper_dispenser_z)
-    key_plate(148, positions["dispenser"])
+    key_shuttle(input_shuttle, input_slot, 124, stacker_extended_x, carrying=False)
+    key_shuttle(input_shuttle, input_slot, 144, stacker_stored_x, carrying=False)
+    key_gantry(138, positions["dispenser"][0], positions["dispenser"][1], carrying=sample)
+    key_gantry(
+        148,
+        positions["dispenser"][0],
+        positions["dispenser"][1],
+        gripper_dispenser_z,
+        carrying=sample,
+    )
     key_jaws(148, jaw_plate_closed)
     key_jaws(154, jaw_open)
     key_gantry(154, positions["dispenser"][0], positions["dispenser"][1], gripper_dispenser_z)
@@ -2285,17 +2425,17 @@ def animate_scene(
     key_scale(attached_tips, 1, (1.0, 1.0, 0.02))
     key_scale(rack_tip_columns[0], 1, (1.0, 1.0, 1.0))
     key_dispenser(164, tip_pick_x, slots["A2"][1])
-    key_dispenser(172, tip_pick_x, slots["A2"][1], -0.095)
+    key_dispenser(172, tip_pick_x, slots["A2"][1], TIP_PICK_Z)
     key_scale(rack_tip_columns[0], 175, (1.0, 1.0, 1.0))
     key_scale(rack_tip_columns[0], 178, (1.0, 1.0, 0.02))
     key_scale(attached_tips, 175, (1.0, 1.0, 0.02))
     key_scale(attached_tips, 178, (1.0, 1.0, 1.0))
-    key_dispenser(178, tip_pick_x, slots["A2"][1], -0.095)
+    key_dispenser(178, tip_pick_x, slots["A2"][1], TIP_PICK_Z)
     key_dispenser(184, tip_pick_x, slots["A2"][1])
     reservoir_a_x = slots["A1"][0] + plate_offsets[0]
     key_dispenser(192, reservoir_a_x, slots["A1"][1])
-    key_dispenser(200, reservoir_a_x, slots["A1"][1], -0.083)
-    key_dispenser(203, reservoir_a_x, slots["A1"][1], -0.083)
+    key_dispenser(200, reservoir_a_x, slots["A1"][1], RESERVOIR_ASPIRATE_Z)
+    key_dispenser(203, reservoir_a_x, slots["A1"][1], RESERVOIR_ASPIRATE_Z)
     key_dispenser(206, reservoir_a_x, slots["A1"][1])
     for column, offset in enumerate(plate_offsets):
         frame = 214 + column * 8
@@ -2318,17 +2458,17 @@ def animate_scene(
     second_tip_x = slots["A2"][0] + plate_offsets[1]
     key_scale(rack_tip_columns[1], 1, (1.0, 1.0, 1.0))
     key_dispenser(342, second_tip_x, slots["A2"][1])
-    key_dispenser(350, second_tip_x, slots["A2"][1], -0.095)
+    key_dispenser(350, second_tip_x, slots["A2"][1], TIP_PICK_Z)
     key_scale(rack_tip_columns[1], 351, (1.0, 1.0, 1.0))
     key_scale(rack_tip_columns[1], 354, (1.0, 1.0, 0.02))
     key_scale(attached_tips, 351, (1.0, 1.0, 0.02))
     key_scale(attached_tips, 354, (1.0, 1.0, 1.0))
-    key_dispenser(354, second_tip_x, slots["A2"][1], -0.095)
+    key_dispenser(354, second_tip_x, slots["A2"][1], TIP_PICK_Z)
     key_dispenser(358, second_tip_x, slots["A2"][1])
     reservoir_b_x = slots["A1"][0] + plate_offsets[1]
     key_dispenser(366, reservoir_b_x, slots["A1"][1])
-    key_dispenser(374, reservoir_b_x, slots["A1"][1], -0.083)
-    key_dispenser(377, reservoir_b_x, slots["A1"][1], -0.083)
+    key_dispenser(374, reservoir_b_x, slots["A1"][1], RESERVOIR_ASPIRATE_Z)
+    key_dispenser(377, reservoir_b_x, slots["A1"][1], RESERVOIR_ASPIRATE_Z)
     key_dispenser(380, reservoir_b_x, slots["A1"][1])
     for column, offset in enumerate(plate_offsets):
         frame = 388 + column * 8
@@ -2356,19 +2496,24 @@ def animate_scene(
     key_gantry(524, positions["dispenser"][0], positions["dispenser"][1], gripper_dispenser_z)
     key_jaws(524, jaw_open)
     key_jaws(530, jaw_plate_closed)
-    key_gantry(530, positions["dispenser"][0], positions["dispenser"][1], gripper_dispenser_z)
-    key_plate(530, positions["dispenser"])
-    key_gantry(540, positions["dispenser"][0], positions["dispenser"][1])
-    key_plate(540, (positions["dispenser"][0], positions["dispenser"][1], safe_plate_z))
-    key_gantry(552, positions["mixer"][0], positions["mixer"][1])
-    key_plate(552, (positions["mixer"][0], positions["mixer"][1], safe_plate_z))
-    key_gantry(560, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z)
-    key_plate(560, positions["mixer"])
+    key_gantry(
+        530,
+        positions["dispenser"][0],
+        positions["dispenser"][1],
+        gripper_dispenser_z,
+        carrying=sample,
+    )
+    key_gantry(540, positions["dispenser"][0], positions["dispenser"][1], carrying=sample)
+    key_gantry(552, positions["mixer"][0], positions["mixer"][1], carrying=sample)
+    key_gantry(560, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z, carrying=sample)
     key_jaws(560, jaw_plate_closed)
     key_jaws(566, jaw_open)
     key_gantry(566, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z)
     key_gantry(574, positions["mixer"][0], positions["mixer"][1])
-    key_plate(574, positions["mixer"])
+    # The plate is now the shaker platform's payload: it is keyed from the
+    # platform pose for as long as the clamp holds it.
+    key_mixer(1, 0.0, 0.0, carrying=False)
+    key_mixer(574, 0.0, 0.0, carrying=True)
     key_latches(574, opened=True)
     key_latches(580, opened=False)
 
@@ -2381,90 +2526,104 @@ def animate_scene(
         radians = -2.0 * math.pi * revolutions
         dx = orbit_radius * math.cos(radians)
         dy = orbit_radius * math.sin(radians)
-        key_location(mixer, frame, (dx, dy, 0.069))
-        key_plate(
-            frame, (positions["mixer"][0] + dx, positions["mixer"][1] + dy, positions["mixer"][2])
-        )
-    key_location(mixer, 630, (0.0, 0.0, 0.069))
-    key_plate(630, positions["mixer"])
+        key_mixer(frame, dx, dy, carrying=True)
+    key_mixer(630, 0.0, 0.0, carrying=True)
     key_latches(630, opened=False)
     key_latches(634, opened=True)
 
-    # Heater-Shaker C1 -> open reader detection bed D3.
+    # Heater-Shaker C1 -> open reader detection bed D3.  The carriage waits
+    # clear of the module until the platform has stopped.
+    key_gantry(628, positions["mixer"][0], positions["mixer"][1])
     key_gantry(634, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z)
     key_jaws(634, jaw_open)
     key_jaws(640, jaw_plate_closed)
-    key_gantry(640, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z)
-    key_plate(640, positions["mixer"])
+    key_gantry(640, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z, carrying=sample)
     key_latches(640, opened=True)
-    key_gantry(648, positions["mixer"][0], positions["mixer"][1])
-    key_plate(648, (positions["mixer"][0], positions["mixer"][1], safe_plate_z))
-    key_gantry(662, positions["reader"][0], positions["reader"][1])
-    key_plate(662, (positions["reader"][0], positions["reader"][1], safe_plate_z))
-    key_gantry(670, positions["reader"][0], positions["reader"][1], gripper_reader_z)
-    key_plate(670, positions["reader"])
+    key_gantry(648, positions["mixer"][0], positions["mixer"][1], carrying=sample)
+    key_gantry(662, positions["reader"][0], positions["reader"][1], carrying=sample)
+    key_gantry(
+        670, positions["reader"][0], positions["reader"][1], gripper_reader_z, carrying=sample
+    )
     key_jaws(670, jaw_plate_closed)
     key_jaws(676, jaw_open)
     key_gantry(676, positions["reader"][0], positions["reader"][1], gripper_reader_z)
     key_gantry(684, positions["reader"][0], positions["reader"][1])
 
-    # Close the reader with the physical illumination lid from D4, read all 96
-    # wells, then return the lid to the reserved dock.
+    # Close the reader with the physical illumination lid from its dock, read
+    # all 96 wells, then return the lid to the reserved slot.
     key_gantry(692, positions["lid_dock"][0], positions["lid_dock"][1])
     key_gantry(700, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
     key_jaws(700, jaw_open)
     key_jaws(706, jaw_lid_closed)
-    key_gantry(706, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
-    key_location(reader_lid, 706, positions["lid_dock"])
-    key_gantry(716, positions["lid_dock"][0], positions["lid_dock"][1])
-    key_location(reader_lid, 716, (positions["lid_dock"][0], positions["lid_dock"][1], safe_lid_z))
-    key_gantry(728, positions["reader"][0], positions["reader"][1])
-    key_location(reader_lid, 728, (positions["reader"][0], positions["reader"][1], safe_lid_z))
-    key_gantry(736, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
-    key_location(reader_lid, 736, positions["lid_closed"])
+    key_gantry(
+        706,
+        positions["lid_dock"][0],
+        positions["lid_dock"][1],
+        gripper_lid_dock_z,
+        carrying=reader_lid,
+    )
+    key_gantry(716, positions["lid_dock"][0], positions["lid_dock"][1], carrying=reader_lid)
+    key_gantry(728, positions["reader"][0], positions["reader"][1], carrying=reader_lid)
+    key_gantry(
+        736,
+        positions["reader"][0],
+        positions["reader"][1],
+        gripper_lid_closed_z,
+        carrying=reader_lid,
+    )
     key_jaws(736, jaw_lid_closed)
     key_jaws(742, jaw_open)
     key_gantry(742, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
     key_gantry(750, positions["reader"][0], positions["reader"][1])
+    # Stay clear of the closed reader for the read, then descend.
+    key_gantry(790, positions["reader"][0], positions["reader"][1])
     key_gantry(796, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
     key_jaws(796, jaw_open)
     key_jaws(802, jaw_lid_closed)
-    key_gantry(802, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
-    key_location(reader_lid, 802, positions["lid_closed"])
-    key_gantry(810, positions["reader"][0], positions["reader"][1])
-    key_location(reader_lid, 810, (positions["reader"][0], positions["reader"][1], safe_lid_z))
-    key_gantry(822, positions["lid_dock"][0], positions["lid_dock"][1])
-    key_location(reader_lid, 822, (positions["lid_dock"][0], positions["lid_dock"][1], safe_lid_z))
-    key_gantry(834, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
-    key_location(reader_lid, 834, positions["lid_dock"])
+    key_gantry(
+        802,
+        positions["reader"][0],
+        positions["reader"][1],
+        gripper_lid_closed_z,
+        carrying=reader_lid,
+    )
+    key_gantry(810, positions["reader"][0], positions["reader"][1], carrying=reader_lid)
+    key_gantry(822, positions["lid_dock"][0], positions["lid_dock"][1], carrying=reader_lid)
+    key_gantry(
+        834,
+        positions["lid_dock"][0],
+        positions["lid_dock"][1],
+        gripper_lid_dock_z,
+        carrying=reader_lid,
+    )
     key_jaws(834, jaw_lid_closed)
     key_jaws(840, jaw_open)
     key_gantry(840, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
     key_gantry(848, positions["lid_dock"][0], positions["lid_dock"][1])
 
     # Reader D3 -> output presentation B3, followed by the Stacker store cycle.
-    key_location(output_shuttle, 1, (stacker_extended_x, 0.0, 0.228))
-    key_location(output_shuttle, 918, (stacker_extended_x, 0.0, 0.228))
+    output_slot = slots["B4"]
+    key_shuttle(output_shuttle, output_slot, 1, stacker_extended_x, carrying=False)
     key_gantry(854, positions["reader"][0], positions["reader"][1])
     key_gantry(862, positions["reader"][0], positions["reader"][1], gripper_reader_z)
     key_jaws(862, jaw_open)
     key_jaws(868, jaw_plate_closed)
-    key_gantry(868, positions["reader"][0], positions["reader"][1], gripper_reader_z)
-    key_plate(868, positions["reader"])
-    key_gantry(876, positions["reader"][0], positions["reader"][1])
-    key_plate(876, (positions["reader"][0], positions["reader"][1], safe_plate_z))
-    key_gantry(888, positions["output"][0], positions["output"][1])
-    key_plate(888, (positions["output"][0], positions["output"][1], safe_plate_z))
-    key_gantry(896, positions["output"][0], positions["output"][1], gripper_output_z)
-    key_plate(896, positions["output"])
+    key_gantry(
+        868, positions["reader"][0], positions["reader"][1], gripper_reader_z, carrying=sample
+    )
+    key_gantry(876, positions["reader"][0], positions["reader"][1], carrying=sample)
+    key_gantry(888, positions["output"][0], positions["output"][1], carrying=sample)
+    key_gantry(
+        896, positions["output"][0], positions["output"][1], gripper_output_z, carrying=sample
+    )
     key_jaws(896, jaw_plate_closed)
     key_jaws(902, jaw_open)
     key_gantry(902, positions["output"][0], positions["output"][1], gripper_output_z)
     key_gantry(910, positions["output"][0], positions["output"][1])
-    stored_output = (slots["B4"][0] + stacker_stored_x, slots["B4"][1], positions["output"][2])
-    key_location(output_shuttle, 948, (stacker_stored_x, 0.0, 0.228))
-    key_plate(918, positions["output"])
-    key_plate(948, stored_output)
+    # The plate now belongs to the output shuttle, which withdraws it into the
+    # tower; both are keyed from the same shuttle pose.
+    key_shuttle(output_shuttle, output_slot, 918, stacker_extended_x, carrying=True)
+    key_shuttle(output_shuttle, output_slot, 948, stacker_stored_x, carrying=True)
     key_gantry(960, 0.0, DECK_Y["C"])
     key_latches(960, opened=True)
 
@@ -2693,25 +2852,25 @@ def validate_motion(
         relative_z = round(float(sample.location.z - gripper.location.z), 6)
         record(
             f"plate follows gripper frame {frame}",
-            abs(relative_z - 1.267) <= 1e-5,
+            abs(relative_z - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             relative_z,
-            1.267,
+            PLATE_GRIP_LOCAL_Z,
         )
     for frame in (114, 148, 530, 560, 640, 670, 868, 896):
         scene.frame_set(frame)
         grip_center_z = round(float(sample.location.z - gripper.location.z), 6)
         record(
             f"plate aligns with jaw center frame {frame}",
-            abs(grip_center_z - 1.267) <= 1e-5,
+            abs(grip_center_z - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             grip_center_z,
-            1.267,
+            PLATE_GRIP_LOCAL_Z,
         )
 
     expected_lid_positions = {
         1: [slots["D3"][0], slots["D3"][1], READER_LID_CLOSED_Z],
-        68: [slots["D4"][0], slots["D4"][1], READER_LID_DOCK_Z],
+        68: [slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z],
         736: [slots["D3"][0], slots["D3"][1], READER_LID_CLOSED_Z],
-        834: [slots["D4"][0], slots["D4"][1], READER_LID_DOCK_Z],
+        834: [slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z],
     }
     for frame, expected in expected_lid_positions.items():
         actual = vector_at(reader_lid, frame)
@@ -2723,9 +2882,9 @@ def validate_motion(
         )
         record(
             f"lid follows gripper frame {frame}",
-            abs(grip_alignment - 1.267) <= 1e-5,
+            abs(grip_alignment - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             grip_alignment,
-            1.267,
+            PLATE_GRIP_LOCAL_Z,
         )
     for frame in (36, 68, 706, 736, 802, 834):
         scene.frame_set(frame)
@@ -2734,9 +2893,9 @@ def validate_motion(
         )
         record(
             f"lid aligns with jaw center frame {frame}",
-            abs(grip_alignment - 1.267) <= 1e-5,
+            abs(grip_alignment - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             grip_alignment,
-            1.267,
+            PLATE_GRIP_LOCAL_Z,
         )
 
     input_extended = vector_at(input_shuttle, 92)
@@ -2775,19 +2934,26 @@ def validate_motion(
         "0.057 to 0.060 m",
     )
 
-    latch_angle = math.radians(35.0)
     for frame, opened in ((574, True), (580, False), (628, False), (634, True), (640, True)):
         for index, latch in enumerate(mixer_latches):
             location = vector_at(latch, frame)
             rotation = vector_at(latch, frame, attribute="rotation_euler")
-            expected_x = (-1.0 if index == 0 else 1.0) * (0.068 if opened else 0.058)
-            expected_angle = (1.0 if index == 0 else -1.0) * latch_angle if opened else 0.0
+            sign = -1.0 if index == 0 else 1.0
+            expected_y = sign * (MIXER_LATCH_OPEN_Y if opened else MIXER_LATCH_CLOSED_Y)
+            expected_angle = -sign * MIXER_LATCH_OPEN_ANGLE if opened else 0.0
             record(
                 f"mixer latch {index + 1} {'open' if opened else 'closed'} frame {frame}",
-                abs(location[0] - expected_x) <= 1e-5 and abs(rotation[1] - expected_angle) <= 1e-5,
-                {"x": location[0], "rotationY": rotation[1]},
-                {"x": round(expected_x, 6), "rotationY": round(expected_angle, 6)},
+                abs(location[1] - expected_y) <= 1e-5 and abs(rotation[0] - expected_angle) <= 1e-5,
+                {"y": location[1], "rotationX": rotation[0]},
+                {"y": round(expected_y, 6), "rotationX": round(expected_angle, 6)},
             )
+    clamp_gap = round(MIXER_LATCH_CLOSED_Y - MIXER_LATCH_THICKNESS / 2.0 - PLATE_DEPTH / 2.0, 6)
+    record(
+        "closed shaker clamp stops outside the plate",
+        0.0 < clamp_gap <= 0.002,
+        clamp_gap,
+        f"0 to 0.002 m outside the {PLATE_DEPTH} m plate",
+    )
 
     for frame, expected_scale in ((1, 0.02), (178, 1.0), (329, 0.02), (354, 1.0), (503, 0.02)):
         actual = vector_at(attached_tips, frame, attribute="scale")
@@ -2824,6 +2990,21 @@ def validate_motion(
     if failures:
         raise RuntimeError("Digital-twin motion validation failed:\n- " + "\n- ".join(failures))
     return checks
+
+
+def validate_spatial_invariants(step: int = 2) -> list[dict[str, object]]:
+    """Check carry rigidity, grip contact, and interpenetration.
+
+    ``validate_motion`` above proves scalar facts about single objects.  These
+    checks live in ``check_scene.py`` because they compare bodies to each other,
+    which is the only way to see a payload leaving the gripper or a mover
+    entering a fixed assembly.  A failure raises before anything is exported.
+    """
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    import check_scene
+
+    return check_scene.validate_spatial(step=step)
 
 
 def write_validation(checks: Sequence[dict[str, object]]) -> None:
@@ -2943,7 +3124,7 @@ def build_scene(options: argparse.Namespace) -> None:
     )
     _reader, reader_lid, reader_status = build_plate_reader(
         (slots["D3"][0], slots["D3"][1], READER_ROOT_Z),
-        (slots["D4"][0], slots["D4"][1], READER_LID_DOCK_Z),
+        (slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z),
         cell_root,
     )
     build_waste((slots["D1"][0], slots["D1"][1], DECK_Z + 0.008), cell_root)
@@ -2997,6 +3178,7 @@ def build_scene(options: argparse.Namespace) -> None:
         input_shuttle=input_shuttle,
         output_shuttle=output_shuttle,
     )
+    motion_checks.extend(validate_spatial_invariants())
     bpy.context.scene.frame_set(max(1, min(FRAME_END, options.frame)))
     bpy.ops.wm.save_as_mainfile(filepath=str(BLEND_PATH))
     if not options.no_export:

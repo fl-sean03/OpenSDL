@@ -1,5 +1,5 @@
 {
-  "sha256": "4e633af41f9801002f530496541f2922ee38e9ed3bc35da974f0e335478143dc",
+  "sha256": "5b8dfe8eda6c8e41fc9c9d16bf3fb8327ba86ca3206deb270327eb69da4429ac",
   "passed": true,
   "frameRange": {
     "start": 1,
@@ -235,14 +235,14 @@
       "name": "reader lid checkpoint frame 68",
       "passed": true,
       "actual": [
-        0.328,
+        0.0,
         -0.1605,
-        1.1425
+        1.1725
       ],
       "expected": [
-        0.328,
+        0.0,
         -0.1605,
-        1.1425
+        1.1725
       ]
     },
     {
@@ -263,14 +263,14 @@
       "name": "reader lid checkpoint frame 834",
       "passed": true,
       "actual": [
-        0.328,
+        0.0,
         -0.1605,
-        1.1425
+        1.1725
       ],
       "expected": [
-        0.328,
+        0.0,
         -0.1605,
-        1.1425
+        1.1725
       ]
     },
     {
@@ -409,121 +409,127 @@
       "name": "mixer latch 1 open frame 574",
       "passed": true,
       "actual": {
-        "x": -0.068,
-        "rotationY": 0.610865
+        "y": -0.05054,
+        "rotationX": 0.20944
       },
       "expected": {
-        "x": -0.068,
-        "rotationY": 0.610865
+        "y": -0.05054,
+        "rotationX": 0.20944
       }
     },
     {
       "name": "mixer latch 2 open frame 574",
       "passed": true,
       "actual": {
-        "x": 0.068,
-        "rotationY": -0.610865
+        "y": 0.05054,
+        "rotationX": -0.20944
       },
       "expected": {
-        "x": 0.068,
-        "rotationY": -0.610865
+        "y": 0.05054,
+        "rotationX": -0.20944
       }
     },
     {
       "name": "mixer latch 1 closed frame 580",
       "passed": true,
       "actual": {
-        "x": -0.058,
-        "rotationY": 0.0
+        "y": -0.04654,
+        "rotationX": 0.0
       },
       "expected": {
-        "x": -0.058,
-        "rotationY": 0.0
+        "y": -0.04654,
+        "rotationX": 0.0
       }
     },
     {
       "name": "mixer latch 2 closed frame 580",
       "passed": true,
       "actual": {
-        "x": 0.058,
-        "rotationY": 0.0
+        "y": 0.04654,
+        "rotationX": 0.0
       },
       "expected": {
-        "x": 0.058,
-        "rotationY": 0.0
+        "y": 0.04654,
+        "rotationX": 0.0
       }
     },
     {
       "name": "mixer latch 1 closed frame 628",
       "passed": true,
       "actual": {
-        "x": -0.058,
-        "rotationY": 0.0
+        "y": -0.04654,
+        "rotationX": 0.0
       },
       "expected": {
-        "x": -0.058,
-        "rotationY": 0.0
+        "y": -0.04654,
+        "rotationX": 0.0
       }
     },
     {
       "name": "mixer latch 2 closed frame 628",
       "passed": true,
       "actual": {
-        "x": 0.058,
-        "rotationY": 0.0
+        "y": 0.04654,
+        "rotationX": 0.0
       },
       "expected": {
-        "x": 0.058,
-        "rotationY": 0.0
+        "y": 0.04654,
+        "rotationX": 0.0
       }
     },
     {
       "name": "mixer latch 1 open frame 634",
       "passed": true,
       "actual": {
-        "x": -0.068,
-        "rotationY": 0.610865
+        "y": -0.05054,
+        "rotationX": 0.20944
       },
       "expected": {
-        "x": -0.068,
-        "rotationY": 0.610865
+        "y": -0.05054,
+        "rotationX": 0.20944
       }
     },
     {
       "name": "mixer latch 2 open frame 634",
       "passed": true,
       "actual": {
-        "x": 0.068,
-        "rotationY": -0.610865
+        "y": 0.05054,
+        "rotationX": -0.20944
       },
       "expected": {
-        "x": 0.068,
-        "rotationY": -0.610865
+        "y": 0.05054,
+        "rotationX": -0.20944
       }
     },
     {
       "name": "mixer latch 1 open frame 640",
       "passed": true,
       "actual": {
-        "x": -0.068,
-        "rotationY": 0.610865
+        "y": -0.05054,
+        "rotationX": 0.20944
       },
       "expected": {
-        "x": -0.068,
-        "rotationY": 0.610865
+        "y": -0.05054,
+        "rotationX": 0.20944
       }
     },
     {
       "name": "mixer latch 2 open frame 640",
       "passed": true,
       "actual": {
-        "x": 0.068,
-        "rotationY": -0.610865
+        "y": 0.05054,
+        "rotationX": -0.20944
       },
       "expected": {
-        "x": 0.068,
-        "rotationY": -0.610865
+        "y": 0.05054,
+        "rotationX": -0.20944
       }
+    },
+    {
+      "name": "closed shaker clamp stops outside the plate",
+      "passed": true,
+      "actual": 0.0008,
+      "expected": "0 to 0.002 m outside the 0.08548 m plate"
     },
     {
       "name": "tip state frame 1",
@@ -590,6 +596,177 @@
       "passed": true,
       "actual": 0.0,
       "expected": 0.0
+    },
+    {
+      "name": "SampleCarrier moves rigidly with a support",
+      "passed": true,
+      "actual": {
+        "movingFrames": 230,
+        "unsupportedFrames": 0,
+        "unsupportedSample": [],
+        "worstSlipMm": 0.0,
+        "worstFrame": 0,
+        "carriageOnlySlipFrames": 106,
+        "carriageOnlyWorstSlipMm": 36.0727,
+        "carriageOnlyWorstFrame": 88,
+        "carriageOnlyTotalSlipMm": 1173.4
+      },
+      "expected": {
+        "unsupportedFrames": 0,
+        "worstSlipMm": 0.0
+      }
+    },
+    {
+      "name": "SampleCarrier rides the carriage without slip",
+      "passed": true,
+      "actual": {
+        "carriedFrames": 122,
+        "worstSlipMm": 0.0002,
+        "worstFrame": 559
+      },
+      "expected": {
+        "carriedFrames": "> 0",
+        "worstSlipMm": "<= 0.1"
+      }
+    },
+    {
+      "name": "ColorimeterDoor moves rigidly with a support",
+      "passed": true,
+      "actual": {
+        "movingFrames": 94,
+        "unsupportedFrames": 0,
+        "unsupportedSample": [],
+        "worstSlipMm": 0.0,
+        "worstFrame": 0,
+        "carriageOnlySlipFrames": 0,
+        "carriageOnlyWorstSlipMm": 0.0,
+        "carriageOnlyWorstFrame": 0,
+        "carriageOnlyTotalSlipMm": 0.0
+      },
+      "expected": {
+        "unsupportedFrames": 0,
+        "worstSlipMm": 0.0
+      }
+    },
+    {
+      "name": "ColorimeterDoor rides the carriage without slip",
+      "passed": true,
+      "actual": {
+        "carriedFrames": 94,
+        "worstSlipMm": 0.0002,
+        "worstFrame": 41
+      },
+      "expected": {
+        "carriedFrames": "> 0",
+        "worstSlipMm": "<= 0.1"
+      }
+    },
+    {
+      "name": "jaws close on SampleCarrier",
+      "passed": true,
+      "actual": {
+        "grippedFrames": 126,
+        "worstSeparationMm": 0.02,
+        "worstFrame": 114,
+        "jawOnWrongSideFrames": 0
+      },
+      "expected": {
+        "grippedFrames": "> 0",
+        "worstSeparationMm": "<= 2.0"
+      }
+    },
+    {
+      "name": "jaws close on ColorimeterDoor",
+      "passed": true,
+      "actual": {
+        "grippedFrames": 97,
+        "worstSeparationMm": 0.0,
+        "worstFrame": 47,
+        "jawOnWrongSideFrames": 0
+      },
+      "expected": {
+        "grippedFrames": "> 0",
+        "worstSeparationMm": "<= 2.0"
+      }
+    },
+    {
+      "name": "SampleCarrier only rides the carriage in a closed grip",
+      "passed": true,
+      "actual": {
+        "carriedFrames": 122,
+        "openGripFrames": 0,
+        "firstOpenGripFrame": 0
+      },
+      "expected": {
+        "openGripFrames": 0
+      }
+    },
+    {
+      "name": "ColorimeterDoor only rides the carriage in a closed grip",
+      "passed": true,
+      "actual": {
+        "carriedFrames": 94,
+        "openGripFrames": 0,
+        "firstOpenGripFrame": 0
+      },
+      "expected": {
+        "openGripFrames": 0
+      }
+    },
+    {
+      "name": "movers stay clear of fixed bodies",
+      "passed": true,
+      "actual": {
+        "sampledFrames": 481,
+        "violatingPairs": 0,
+        "detail": []
+      },
+      "expected": {
+        "violatingPairs": 0
+      }
+    },
+    {
+      "name": "documented contact allowlist stays exercised",
+      "passed": true,
+      "actual": [
+        {
+          "pair": "DispenserHead x TipRack_A2",
+          "frames": [
+            164,
+            186
+          ],
+          "sampledHits": 3,
+          "reason": "Mounting a disposable tip puts the nozzle inside the tip bore, and the racked tip and the mounted tip are the same physical body during the handover.  Contact with the rack frame itself is not allowed."
+        },
+        {
+          "pair": "DispenserHead x TipRack_A2",
+          "frames": [
+            342,
+            360
+          ],
+          "sampledHits": 3,
+          "reason": "Second tip pickup; same nozzle-in-tip contact as the first."
+        },
+        {
+          "pair": "SampleCarrier x InputStacker",
+          "frames": [
+            1,
+            110
+          ],
+          "sampledHits": 5,
+          "reason": "The input plate starts inside the storage tower and rides the shuttle out through it.  The tower is modelled as a closed shell standing in for a magazine, so the stored and hand-off positions are inside that shell by construction."
+        },
+        {
+          "pair": "SampleCarrier x OutputStacker",
+          "frames": [
+            900,
+            960
+          ],
+          "sampledHits": 6,
+          "reason": "The finished plate rides the output shuttle back into the storage tower. Same closed-shell simplification as the input tower."
+        }
+      ],
+      "expected": "every allowed contact occurs and no other pair touches"
     }
   ]
 }

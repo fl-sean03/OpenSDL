@@ -31,7 +31,7 @@ saved file, so it is not byte-stable across runs.
 | `assets/preview.png` | Still image at the requested frame and resolution |
 | `assets/node-inventory.json` | Exported node names, coordinate frame, required bindings, source basis, generating Blender version, and GLB digest |
 | `assets/motion-validation.json` | Machine-readable motion and placement check results, and GLB digest |
-| `renders/opensdl-surrogate-cell.mp4` | Optional H.264 animation |
+| `renders/opensdl-surrogate-cell.mp4` | Committed H.264 animation of the authored 40-second sequence |
 
 The animation spans frames 1–960 at 24 frames per second. Its duration is 40 seconds.
 

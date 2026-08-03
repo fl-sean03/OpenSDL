@@ -5,4 +5,4 @@ __pycache__/
 *.pyc
 scene/assets/*.blend1
 scene/assets/preview-*.png
-scene/renders/
+scene/renders/frames/

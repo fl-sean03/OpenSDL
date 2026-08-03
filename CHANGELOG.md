@@ -14,7 +14,7 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   stable run identifiers;
 - one complete, real-scale Flex-class surrogate-cell reference with original procedural geometry,
   published equipment dimensions, Blender source, GLB output, provenance, 70 scene checks, and a
-  40-second, 960-frame H.264 animation path;
+  committed 40-second, 960-frame H.264 animation of the authored sequence;
 - a read-only Three.js viewer with local demonstration data, stored-run replay, timeline controls,
   semantic highlights, transfers, authored-motion synchronization, browser-side scene-digest
   checks, required-binding failures, and projected sample properties; and

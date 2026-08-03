@@ -37,7 +37,10 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   no longer yields an ambiguous timestamp and ordering no longer disagrees with the emitted value;
 - `TwinCue` rejects blank identifiers, matching every other model in the twin contract; and
 - the scene motion report carries the scene digest, so its checks are bound to the geometry they
-  describe.
+  describe; and
+- the node inventory records the Blender version that produced the scene, and a test rebuilds the
+  reference scene headlessly and compares the exported bytes, so the committed digests are a
+  reproducibility claim rather than a self-assertion.
 
 ### Fixed
 

@@ -2859,6 +2859,9 @@ def write_inventory() -> None:
     inventory = {
         "scene": GLB_PATH.name,
         "sha256": digest,
+        # The export is byte-reproducible for a given Blender version, so the digest above is only
+        # a reproducibility claim when paired with the generator that produced it.
+        "generator": {"blender": ".".join(str(part) for part in bpy.app.version)},
         "coordinateFrame": {"unit": "m", "handedness": "right", "upAxis": "Z"},
         "frameRange": {"start": 1, "end": FRAME_END, "fps": FPS},
         "requiredNodes": list(required),

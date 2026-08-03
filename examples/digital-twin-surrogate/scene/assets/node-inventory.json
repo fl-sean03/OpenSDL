@@ -1,6 +1,9 @@
 {
   "scene": "surrogate-cell.glb",
   "sha256": "4e633af41f9801002f530496541f2922ee38e9ed3bc35da974f0e335478143dc",
+  "generator": {
+    "blender": "5.2.0"
+  },
   "coordinateFrame": {
     "unit": "m",
     "handedness": "right",

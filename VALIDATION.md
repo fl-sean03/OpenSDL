@@ -37,13 +37,16 @@ cross-version evidence source. The upstream Starlette `TestClient` warning descr
 On 2026-08-03, the digital-twin contract, projection path, reference scene, and viewer passed these
 focused checks on the source workspace:
 
-- the current CPython 3.12 source suite passed **190 tests**, and the example adapter overlay passed
-  **13 tests**;
+- the current CPython 3.12 source suite passed **237 tests**, and the example adapter overlay passed
+  **15 tests**;
+- a headless Blender 5.2.0 rebuild in a temporary directory reproduced `surrogate-cell.glb`, the
+  node inventory, and the motion report byte for byte, and a 0.1 mm change to a source constant was
+  confirmed to break that comparison;
 - `opensdl twin validate` loaded the example definition and matched its declared scene digest;
 - targeted package, CLI, and API tests covered model validation, safe scene loading, deterministic
   projection, run-to-twin binding pins, stable run identifiers, twin routes, and viewer-path
   containment;
-- the viewer's **30-test** Vitest suite, Biome check, TypeScript typecheck, deterministic static
+- the viewer's **67-test** Vitest suite, Biome check, TypeScript typecheck, deterministic static
   build, and dependency audit passed;
 - the reference GLB contract check found every required node, covered its authored 960-frame range,
   and received no issues from the Khronos validator;

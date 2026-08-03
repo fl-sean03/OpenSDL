@@ -16,14 +16,20 @@ OpenSDL is a modular framework for computational and autonomous laboratories.
 ## Commands
 
 - install: `uv sync --locked --all-packages --group dev`
-- test: `uv run --locked pytest`
-- lint: `uv run --locked ruff check .`
-- format: `uv run --locked ruff format .`
-- typecheck: `uv run --locked pyright`
-- boundaries: `uv run --locked python scripts/check-boundaries.py`
+- test: `make test` — workspace suite and the digital-twin surrogate overlay
+- lint: `make lint` — lockfile, Ruff lint and format, Pyright, boundaries, schema drift, repository,
+  and versions
+- viewer: `make viewer` — surrogate viewer lint, typecheck, tests, build, and committed asset drift
+- docs: `make docs` — `mkdocs build --strict`
+- example: `make example` — the complete simulated campaign
+- format: `make format` — applies Ruff formatting and safe fixes; `make lint` enforces it
 - schemas: `uv run --locked python scripts/generate-schemas.py`
-- versions: `uv run --locked python scripts/check-version.py`
-- example: `uv run --locked python examples/simulated-color-mixing/run_campaign.py`
+
+`make test`, `make lint`, `make viewer`, `make docs`, and `make example` together cover every check
+CI enforces. A bare `uv run --locked pytest` is not the full suite: `testpaths` excludes `examples/`,
+so the surrogate tests are reachable only through `make test` or `make surrogate`. Narrower targets
+(`unit`, `integration`, `e2e`, `conformance`, `typecheck`, `boundaries`, `validate`, `surrogate`)
+and the raw command behind each target are in the `Makefile`.
 
 ## Architecture rules
 

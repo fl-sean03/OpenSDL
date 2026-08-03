@@ -61,12 +61,15 @@ or safety claims.
 The workspace lock was generated and checked with uv 0.11.32. It records 106 packages for the 22
 workspace members. All normal project and CI commands consume the committed lock with `--locked`.
 
-The current complete source suite passed **190 tests** on CPython 3.12.3, with **13** additional
-tests in the reference example's editable adapter overlay. Before the twin addition, the complete
-suite also passed on the other supported Python versions:
+The current complete source suite passed **237 tests** on CPython 3.12.3, with **13** additional
+tests in the reference example's editable adapter overlay. The complete suite also passed on the
+other supported Python versions, each in an isolated environment built from the committed lock:
 
-- CPython 3.13.14 in an isolated environment: **49 passed**; and
-- CPython 3.14.6 in an isolated environment: **49 passed**.
+- CPython 3.13.14: **237 passed**, plus the **13** overlay tests; and
+- CPython 3.14.6: **237 passed**, plus the **13** overlay tests.
+
+Boundary checks, generated-schema freshness, and `opensdl twin validate` also passed on all three
+interpreters.
 
 That suite covers package units, migrations, API and controller integration, adapter conformance, and
 the complete simulated color campaign. Focused runtime cases cover policy denial, retries, timeout
@@ -78,7 +81,8 @@ The following checks also passed:
 
 - Ruff and Pyright with zero errors or warnings;
 - internal package-dependency boundaries;
-- freshness of 11 public JSON Schemas;
+- freshness of 13 public JSON Schemas, including the twin definition and cue contracts;
+- Ruff formatting, now enforced by `make lint` and CI rather than advisory;
 - TOML, YAML, JSON, repository-skill metadata, and relative Markdown links;
 - strict MkDocs build;
 - Python bytecode compilation;
@@ -116,7 +120,7 @@ package-license-file review remain release work.
 
 | Profile | Status | Evidence |
 |---|---|---|
-| Python 3.12, 3.13, and 3.14 | Pre-twin evidence | Locked full suite before the twin addition; current matrix rerun pending |
+| Python 3.12, 3.13, and 3.14 | Verified | Locked full suite and the reference-example overlay passed on all three interpreters, with boundary, schema-freshness, and twin-validation checks |
 | Simulator-only local laboratory | Verified | Unit, integration, E2E, conformance, example, and clean wheel-installed run |
 | Structured human attestation | Verified as a synchronous reference path | Adapter and generated-workflow tests |
 | SQLite metadata and local artifacts | Verified | Storage, migration, controller, API, campaign, and clean-install checks |

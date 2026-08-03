@@ -1,9 +1,9 @@
-.PHONY: sync test unit integration e2e conformance lint format typecheck boundaries schemas validate example surrogate api clean
+.PHONY: sync test unit integration e2e conformance lint format typecheck boundaries schemas validate example surrogate viewer docs api clean
 
 sync:
 	uv sync --locked --all-packages --group dev
 
-test:
+test: surrogate
 	uv run --locked pytest
 
 unit:
@@ -19,7 +19,9 @@ conformance:
 	uv run --locked pytest -m conformance
 
 lint:
+	uv lock --check
 	uv run --locked ruff check .
+	uv run --locked ruff format --check .
 	uv run --locked pyright
 	uv run --locked python scripts/check-boundaries.py
 	uv run --locked python scripts/generate-schemas.py --check
@@ -50,6 +52,17 @@ example:
 surrogate:
 	uv run --locked --with-editable ./examples/digital-twin-surrogate/adapter pytest examples/digital-twin-surrogate/tests
 	uv run --locked opensdl twin validate examples/digital-twin-surrogate/twin.yaml
+
+viewer:
+	npm --prefix examples/digital-twin-surrogate/viewer ci
+	npm --prefix examples/digital-twin-surrogate/viewer run lint
+	npm --prefix examples/digital-twin-surrogate/viewer run typecheck
+	npm --prefix examples/digital-twin-surrogate/viewer test
+	npm --prefix examples/digital-twin-surrogate/viewer run build
+	git diff --exit-code -- examples/digital-twin-surrogate/viewer/static
+
+docs:
+	uv run --locked --all-packages --group dev --group docs mkdocs build --strict
 
 api:
 	uv run --locked opensdl serve-api --manifest examples/simulated-color-mixing/opensdl.yaml

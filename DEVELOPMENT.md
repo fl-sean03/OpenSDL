@@ -25,15 +25,34 @@ matrix. Every member has its own `pyproject.toml`, source tree, and tests.
 
 ```bash
 make sync          # install all workspace packages and dev tools
-make test          # unit, integration, E2E, and conformance tests
-make lint          # Ruff, Pyright, boundaries, schemas, repository, and version checks
-make schemas       # regenerate checked-in JSON Schemas
+make test          # unit, integration, E2E, and conformance tests, plus the surrogate overlay
+make lint          # lockfile, Ruff lint and format, Pyright, boundaries, schemas, repository, versions
+make format        # apply Ruff formatting and safe fixes
+make viewer        # surrogate viewer: npm lint, typecheck, tests, build, and static/ drift
+make docs          # strict MkDocs build
 make example       # run the complete simulated campaign
+make schemas       # regenerate checked-in JSON Schemas
 make api           # serve the reference API
 make clean         # remove local generated state
 ```
 
-Equivalent scripts are in `scripts/` for environments without Make.
+Together `make test`, `make lint`, `make viewer`, `make docs`, and `make example` cover every check
+CI enforces. Details worth knowing:
+
+- `make test` depends on `make surrogate`, which installs the example adapter with `--with-editable`,
+  runs `examples/digital-twin-surrogate/tests`, and runs `opensdl twin validate` against the twin
+  manifest. `testpaths` in `pyproject.toml` excludes `examples/`, so a bare `uv run --locked pytest`
+  skips those tests.
+- `make lint` begins with `uv lock --check` and ends with `scripts/validate-repository.py` and
+  `scripts/check-version.py`. It also runs `ruff format --check`, so formatting is enforced rather
+  than advisory; run `make format` before committing.
+- `make viewer` needs Node 22.12 or later and runs `npm ci`, so it replaces
+  `examples/digital-twin-surrogate/viewer/node_modules`.
+- `make docs` installs the `docs` dependency group alongside `dev` so the workspace keeps its test
+  and lint tooling. CI installs the `docs` group on its own.
+
+`scripts/bootstrap.sh`, `scripts/test.sh`, and `scripts/lint.sh` cover the common subset for
+environments without Make.
 
 ## Run the local stack
 
@@ -126,6 +145,7 @@ Dependencies must be explicit. The runtime executes independent steps in the sam
 - integration tests: composition across packages or API boundaries;
 - end-to-end tests: complete scientific loop;
 - conformance tests: extension compatibility;
+- example tests: complete examples that ship their own adapter, run through `make surrogate`;
 - future hardware tests: separate, deployment-controlled suites.
 
 Every behavior change should be tested at the lowest useful layer and at one representative composed layer.

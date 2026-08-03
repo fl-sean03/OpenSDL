@@ -19,7 +19,10 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   semantic highlights, transfers, authored-motion synchronization, browser-side scene-digest
   checks, required-binding failures, and projected sample properties; and
 - lab onboarding guidance and a `start-here` skill for durable shared context and simulator-first
-  setup planning.
+  setup planning;
+- generated JSON Schemas for the twin definition and cue contracts, produced by a single composed
+  generator that both `scripts/generate-schemas.py` and `opensdl schema generate` consume; and
+- an enforced Ruff formatting gate in `make lint` and CI.
 
 ### Changed
 
@@ -29,7 +32,22 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   each laboratory owns its tailored scene;
 - configured runs record the twin revision, definition digest, and scene digest used for projection;
   projection refuses a run when that binding differs from the current twin; and
-- the included viewer demonstration applies only to the exact bundled revision and scene digest.
+- the included viewer demonstration applies only to the exact bundled revision and scene digest;
+- cue `occurredAt` is normalized to UTC before publication, so a store that cannot persist an offset
+  no longer yields an ambiguous timestamp and ordering no longer disagrees with the emitted value;
+- `TwinCue` rejects blank identifiers, matching every other model in the twin contract; and
+- the scene motion report carries the scene digest, so its checks are bound to the geometry they
+  describe.
+
+### Fixed
+
+- `opensdl schema generate` emitted only the pre-twin schema set while the repository script emitted
+  the full set;
+- the reference viewer presented stylized playback pacing and a synthetic demonstration timestamp
+  as if they were elapsed and recorded time, and labelled a one-shot read of a persisted run as
+  live; and
+- the reference viewer's cue validator rejected an absent `runId` that the published contract
+  declares optional, and accepted unknown keys the contract forbids.
 
 ## 0.1.0a0 — 2026-08-02
 

@@ -27,7 +27,9 @@ def _write(path: Path, content: str, *, executable: bool = False) -> None:
         path.chmod(path.stat().st_mode | 0o111)
 
 
-def _walk(root: Traversable, prefix: PurePosixPath = PurePosixPath()) -> list[tuple[PurePosixPath, Traversable]]:
+def _walk(
+    root: Traversable, prefix: PurePosixPath = PurePosixPath()
+) -> list[tuple[PurePosixPath, Traversable]]:
     found: list[tuple[PurePosixPath, Traversable]] = []
     for item in sorted(root.iterdir(), key=lambda value: value.name):
         relative = prefix / item.name
@@ -106,9 +108,7 @@ def create_adapter(destination: str | Path, *, name: str, capability_id: str) ->
         {
             "name": slug,
             "module": module,
-            "class_name": (
-                "".join(part.title() for part in re.split(r"[-_]", slug)) + "Adapter"
-            ),
+            "class_name": ("".join(part.title() for part in re.split(r"[-_]", slug)) + "Adapter"),
             "capability_id": capability_id,
         },
     )

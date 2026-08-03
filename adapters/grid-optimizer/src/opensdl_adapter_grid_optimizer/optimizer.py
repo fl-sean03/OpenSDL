@@ -16,7 +16,10 @@ class GridOptimizer:
         else:
             parameters = config.get("parameters", {})
             names = list(parameters)
-            self.candidates = [dict(zip(names, values, strict=True)) for values in product(*(parameters[name] for name in names))]
+            self.candidates = [
+                dict(zip(names, values, strict=True))
+                for values in product(*(parameters[name] for name in names))
+            ]
 
     def suggest(self, history: list[CampaignObservation]) -> dict[str, Any] | None:
         tried = [item.candidate for item in history]

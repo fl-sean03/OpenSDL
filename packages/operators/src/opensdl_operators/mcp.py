@@ -21,9 +21,7 @@ def build_mcp_server(gateway: OperatorGateway) -> Any:
     try:
         FastMCP = import_module("mcp.server.fastmcp").FastMCP
     except ImportError as exc:
-        raise RuntimeError(
-            "install the optional MCP dependency to serve this interface"
-        ) from exc
+        raise RuntimeError("install the optional MCP dependency to serve this interface") from exc
 
     server = FastMCP("OpenSDL")
 

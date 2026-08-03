@@ -39,9 +39,7 @@ class ContextPackBuilder:
     def build(self, *, event_limit: int = 50) -> ContextPack:
         terminal_states = {"completed", "failed", "aborted"}
         active = [
-            run
-            for run in self.repositories.list_runs()
-            if run.state.value not in terminal_states
+            run for run in self.repositories.list_runs() if run.state.value not in terminal_states
         ]
         recent_events = self.repositories.list_events(
             limit=event_limit,
@@ -52,18 +50,11 @@ class ContextPackBuilder:
             laboratory=self.manifest.metadata.model_dump(mode="json"),
             environment=self.manifest.spec.environment,
             capabilities=[
-                item.model_dump(mode="json")
-                for item in self.registry.list_capabilities()
+                item.model_dump(mode="json") for item in self.registry.list_capabilities()
             ],
-            resources=[
-                item.model_dump(mode="json")
-                for item in self.repositories.list_resources()
-            ],
+            resources=[item.model_dump(mode="json") for item in self.repositories.list_resources()],
             domain_packs=self.domain_packs,
             active_runs=[item.model_dump(mode="json") for item in active],
-            recent_events=[
-                item.model_dump(mode="json")
-                for item in reversed(recent_events)
-            ],
+            recent_events=[item.model_dump(mode="json") for item in reversed(recent_events)],
             policy_version=self.policy_version,
         )

@@ -23,7 +23,10 @@ class PolicyRule(OpenSDLModel):
             fnmatch(capability.id, self.capability)
             and any(fnmatch(environment, pattern) for pattern in self.environments)
             and any(fnmatch(operator_id, pattern) for pattern in self.operators)
-            and any(pattern == "*" or pattern == capability.risk_class.value for pattern in self.risk_classes)
+            and any(
+                pattern == "*" or pattern == capability.risk_class.value
+                for pattern in self.risk_classes
+            )
         )
 
 

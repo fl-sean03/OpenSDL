@@ -3,7 +3,14 @@ from opensdl_policy import PolicyEngine, PolicyRule
 
 
 def test_specific_allow_rule() -> None:
-    capability = CapabilityDefinition(id="sim.mix", name="Mix", executor_type=ExecutorType.SIMULATOR, input_schema={}, output_schema={}, risk_class=RiskClass.R1)
+    capability = CapabilityDefinition(
+        id="sim.mix",
+        name="Mix",
+        executor_type=ExecutorType.SIMULATOR,
+        input_schema={},
+        output_schema={},
+        risk_class=RiskClass.R1,
+    )
     engine = PolicyEngine(
         rules=[
             PolicyRule(

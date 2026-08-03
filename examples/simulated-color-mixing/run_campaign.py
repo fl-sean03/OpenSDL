@@ -19,12 +19,7 @@ async def main() -> None:
         workflow = load_workflow(ROOT / "workflow.yaml")
         fractions = [0.0, 0.25, 0.5, 0.75, 1.0]
         optimizer = GridOptimizer(
-            {
-                "candidates": [
-                    {"red_fraction": red, "blue_fraction": 1.0 - red}
-                    for red in fractions
-                ]
-            }
+            {"candidates": [{"red_fraction": red, "blue_fraction": 1.0 - red} for red in fractions]}
         )
         result = await CampaignRunner(system.runtime, system.repositories).run(
             workflow,
@@ -40,7 +35,9 @@ async def main() -> None:
                 "candidate": result.best.candidate,
                 "score": result.best.score,
                 "run_id": result.best.run_id,
-            } if result.best else None,
+            }
+            if result.best
+            else None,
         }
         print(json.dumps(payload, indent=2))
     finally:

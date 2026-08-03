@@ -9,7 +9,14 @@ from .propagation import (
 )
 
 __all__ = [
-    "GraphEdge", "GraphNode", "PropagationDefinition", "PropagationEdge",
-    "PropagationGraph", "PropagationImpact", "PropagationNode", "ResearchGraph",
-    "RunBundleExporter", "build_run_graph",
+    "GraphEdge",
+    "GraphNode",
+    "PropagationDefinition",
+    "PropagationEdge",
+    "PropagationGraph",
+    "PropagationImpact",
+    "PropagationNode",
+    "ResearchGraph",
+    "RunBundleExporter",
+    "build_run_graph",
 ]

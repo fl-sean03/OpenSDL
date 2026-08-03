@@ -35,9 +35,22 @@ class OperatorGateway:
         return [
             ToolSpec(name="lab.describe", description="Return current laboratory context."),
             ToolSpec(name="capability.list", description="List executable capabilities."),
-            ToolSpec(name="run.inspect", description="Inspect a durable run.", input_schema={"type":"object","required":["run_id"]}),
-            ToolSpec(name="event.query", description="Query execution events.", input_schema={"type":"object","properties":{"run_id":{"type":"string"}}}),
-            ToolSpec(name="capability.execute", description="Execute one declared capability through policy and provenance.", input_schema={"type":"object","required":["capability_id","inputs"]}, side_effects=["may execute configured laboratory capability"]),
+            ToolSpec(
+                name="run.inspect",
+                description="Inspect a durable run.",
+                input_schema={"type": "object", "required": ["run_id"]},
+            ),
+            ToolSpec(
+                name="event.query",
+                description="Query execution events.",
+                input_schema={"type": "object", "properties": {"run_id": {"type": "string"}}},
+            ),
+            ToolSpec(
+                name="capability.execute",
+                description="Execute one declared capability through policy and provenance.",
+                input_schema={"type": "object", "required": ["capability_id", "inputs"]},
+                side_effects=["may execute configured laboratory capability"],
+            ),
         ]
 
     def describe_lab(self) -> dict[str, Any]:
@@ -49,10 +62,19 @@ class OperatorGateway:
             raise KeyError(run_id)
         return {
             "run": run.model_dump(mode="json"),
-            "tasks": [task.model_dump(mode="json") for task in self.repositories.list_tasks(run_id)],
-            "events": [event.model_dump(mode="json") for event in self.repositories.list_events(run_id=run_id)],
+            "tasks": [
+                task.model_dump(mode="json") for task in self.repositories.list_tasks(run_id)
+            ],
+            "events": [
+                event.model_dump(mode="json")
+                for event in self.repositories.list_events(run_id=run_id)
+            ],
         }
 
-    async def execute_capability(self, capability_id: str, inputs: dict[str, Any], *, operator_id: str, environment: str) -> dict[str, Any]:
-        run = await self.runtime.execute_capability(capability_id, inputs, operator_id=operator_id, environment=environment)
+    async def execute_capability(
+        self, capability_id: str, inputs: dict[str, Any], *, operator_id: str, environment: str
+    ) -> dict[str, Any]:
+        run = await self.runtime.execute_capability(
+            capability_id, inputs, operator_id=operator_id, environment=environment
+        )
         return self.inspect_run(run.id)

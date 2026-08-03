@@ -32,7 +32,7 @@ class Database:
         prefix = "sqlite:///"
         if not url.startswith(prefix):
             return
-        raw = url[len(prefix):]
+        raw = url[len(prefix) :]
         if raw in {":memory:", ""}:
             return
         Path(raw).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
@@ -40,7 +40,9 @@ class Database:
     def initialize(self) -> None:
         Base.metadata.create_all(self.engine)
         with self.session() as session:
-            exists = session.scalar(select(SchemaVersionRow).where(SchemaVersionRow.version == "0001"))
+            exists = session.scalar(
+                select(SchemaVersionRow).where(SchemaVersionRow.version == "0001")
+            )
             if exists is None:
                 session.add(SchemaVersionRow(version="0001"))
 

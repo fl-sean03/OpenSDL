@@ -50,7 +50,14 @@ class CampaignRunner:
     ) -> CampaignResult:
         campaign_id = campaign_id or new_id("campaign")
         history: list[CampaignObservation] = []
-        self.repositories.append_event(EventRecord(type="CampaignStarted", actor_id=operator_id, campaign_id=campaign_id, payload={"workflowId":workflow.id,"maxIterations":max_iterations}))
+        self.repositories.append_event(
+            EventRecord(
+                type="CampaignStarted",
+                actor_id=operator_id,
+                campaign_id=campaign_id,
+                payload={"workflowId": workflow.id, "maxIterations": max_iterations},
+            )
+        )
         for iteration in range(max_iterations):
             candidate = optimizer.suggest(history)
             if candidate is None:
@@ -58,17 +65,50 @@ class CampaignRunner:
             inputs = dict(base_inputs or {})
             inputs.update(candidate)
             inputs.setdefault("sample_id", f"{campaign_id}-{iteration:03d}")
-            run = await self.runtime.run_workflow(workflow, inputs, operator_id=operator_id, environment=environment)
+            run = await self.runtime.run_workflow(
+                workflow, inputs, operator_id=operator_id, environment=environment
+            )
             score = float(_get_path(run.outputs, score_output))
-            observation = CampaignObservation(iteration=iteration, candidate=candidate, score=score, run_id=run.id, outputs=run.outputs)
+            observation = CampaignObservation(
+                iteration=iteration,
+                candidate=candidate,
+                score=score,
+                run_id=run.id,
+                outputs=run.outputs,
+            )
             history.append(observation)
             optimizer.observe(observation)
-            decision = Decision(campaign_id=campaign_id, iteration=iteration, selected=candidate, rationale=f"optimizer selected candidate for iteration {iteration}", evidence_run_ids=[run.id])
-            self.repositories.append_event(EventRecord(type="DecisionRecorded", actor_id=operator_id, run_id=run.id, campaign_id=campaign_id, payload={"decision":decision.model_dump(mode="json"),"score":score}))
+            decision = Decision(
+                campaign_id=campaign_id,
+                iteration=iteration,
+                selected=candidate,
+                rationale=f"optimizer selected candidate for iteration {iteration}",
+                evidence_run_ids=[run.id],
+            )
+            self.repositories.append_event(
+                EventRecord(
+                    type="DecisionRecorded",
+                    actor_id=operator_id,
+                    run_id=run.id,
+                    campaign_id=campaign_id,
+                    payload={"decision": decision.model_dump(mode="json"), "score": score},
+                )
+            )
         best = None
         if history:
-            best = min(history, key=lambda item: item.score) if minimize else max(history, key=lambda item: item.score)
-        self.repositories.append_event(EventRecord(type="CampaignCompleted", actor_id=operator_id, campaign_id=campaign_id, payload={"iterations":len(history),"best":_observation_json(best)}))
+            best = (
+                min(history, key=lambda item: item.score)
+                if minimize
+                else max(history, key=lambda item: item.score)
+            )
+        self.repositories.append_event(
+            EventRecord(
+                type="CampaignCompleted",
+                actor_id=operator_id,
+                campaign_id=campaign_id,
+                payload={"iterations": len(history), "best": _observation_json(best)},
+            )
+        )
         return CampaignResult(campaign_id=campaign_id, history=history, best=best)
 
 
@@ -84,4 +124,10 @@ def _get_path(value: dict[str, Any], path: str) -> Any:
 def _observation_json(value: CampaignObservation | None) -> dict[str, Any] | None:
     if value is None:
         return None
-    return {"iteration":value.iteration,"candidate":value.candidate,"score":value.score,"runId":value.run_id,"outputs":value.outputs}
+    return {
+        "iteration": value.iteration,
+        "candidate": value.candidate,
+        "score": value.score,
+        "runId": value.run_id,
+        "outputs": value.outputs,
+    }

@@ -36,6 +36,10 @@ def build_run_graph(repositories: RepositoryStore, run_id: str) -> ResearchGraph
         nodes.append(GraphNode(id=task.id, type="Task", properties=task.model_dump(mode="json")))
         edges.append(GraphEdge(source=run.id, target=task.id, type="hasTask"))
     for artifact in repositories.list_artifacts(run_id=run_id):
-        nodes.append(GraphNode(id=artifact.id, type="Artifact", properties=artifact.model_dump(mode="json")))
-        edges.append(GraphEdge(source=artifact.task_id or run.id, target=artifact.id, type="generated"))
+        nodes.append(
+            GraphNode(id=artifact.id, type="Artifact", properties=artifact.model_dump(mode="json"))
+        )
+        edges.append(
+            GraphEdge(source=artifact.task_id or run.id, target=artifact.id, type="generated")
+        )
     return ResearchGraph(nodes=nodes, edges=edges)

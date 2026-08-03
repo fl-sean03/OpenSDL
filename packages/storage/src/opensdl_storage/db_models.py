@@ -56,7 +56,9 @@ class EventRow(Base):
     __tablename__ = "events"
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     type: Mapped[str] = mapped_column(String(255), index=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, index=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=now_utc, index=True
+    )
     actor_id: Mapped[str] = mapped_column(String(255), index=True)
     run_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     task_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)

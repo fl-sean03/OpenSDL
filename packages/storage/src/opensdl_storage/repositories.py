@@ -29,19 +29,21 @@ class Repositories:
 
     def create_run(self, record: RunRecord) -> RunRecord:
         with self.database.session() as session:
-            session.add(RunRow(
-                id=record.id,
-                workflow_id=record.workflow_id,
-                workflow_version=record.workflow_version,
-                state=record.state.value,
-                inputs_json=record.inputs,
-                outputs_json=record.outputs,
-                operator_id=record.operator_id,
-                environment=record.environment,
-                error=record.error,
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            ))
+            session.add(
+                RunRow(
+                    id=record.id,
+                    workflow_id=record.workflow_id,
+                    workflow_version=record.workflow_version,
+                    state=record.state.value,
+                    inputs_json=record.inputs,
+                    outputs_json=record.outputs,
+                    operator_id=record.operator_id,
+                    environment=record.environment,
+                    error=record.error,
+                    created_at=record.created_at,
+                    updated_at=record.updated_at,
+                )
+            )
         return record
 
     def update_run(
@@ -81,7 +83,13 @@ class Repositories:
         with self.database.session() as session:
             row = session.get(TaskRow, record.id)
             if row is None:
-                row = TaskRow(id=record.id, run_id=record.run_id, step_id=record.step_id, capability_id=record.capability_id, state=record.state.value)
+                row = TaskRow(
+                    id=record.id,
+                    run_id=record.run_id,
+                    step_id=record.step_id,
+                    capability_id=record.capability_id,
+                    state=record.state.value,
+                )
                 session.add(row)
             row.state = record.state.value
             row.attempt = record.attempt
@@ -100,28 +108,34 @@ class Repositories:
 
     def get_task_for_step(self, run_id: str, step_id: str) -> TaskRecord | None:
         with self.database.session() as session:
-            row = session.scalar(select(TaskRow).where(TaskRow.run_id == run_id, TaskRow.step_id == step_id))
+            row = session.scalar(
+                select(TaskRow).where(TaskRow.run_id == run_id, TaskRow.step_id == step_id)
+            )
             return self._task_from_row(row) if row else None
 
     def list_tasks(self, run_id: str) -> list[TaskRecord]:
         with self.database.session() as session:
-            rows = session.scalars(select(TaskRow).where(TaskRow.run_id == run_id).order_by(TaskRow.created_at))
+            rows = session.scalars(
+                select(TaskRow).where(TaskRow.run_id == run_id).order_by(TaskRow.created_at)
+            )
             return [self._task_from_row(row) for row in rows]
 
     def append_event(self, event: EventRecord) -> EventRecord:
         with self.database.session() as session:
-            session.add(EventRow(
-                id=event.id,
-                type=event.type,
-                occurred_at=event.occurred_at,
-                actor_id=event.actor_id,
-                run_id=event.run_id,
-                task_id=event.task_id,
-                campaign_id=event.campaign_id,
-                causation_id=event.causation_id,
-                correlation_id=event.correlation_id,
-                payload_json=event.payload,
-            ))
+            session.add(
+                EventRow(
+                    id=event.id,
+                    type=event.type,
+                    occurred_at=event.occurred_at,
+                    actor_id=event.actor_id,
+                    run_id=event.run_id,
+                    task_id=event.task_id,
+                    campaign_id=event.campaign_id,
+                    causation_id=event.causation_id,
+                    correlation_id=event.correlation_id,
+                    payload_json=event.payload,
+                )
+            )
         return event
 
     def list_events(
@@ -151,13 +165,17 @@ class Repositories:
         with self.database.session() as session:
             row = session.get(ResourceRow, resource.id)
             if row is None:
-                row = ResourceRow(id=resource.id, name=resource.name, type=resource.type, state=resource.state)
+                row = ResourceRow(
+                    id=resource.id, name=resource.name, type=resource.type, state=resource.state
+                )
                 session.add(row)
             row.name = resource.name
             row.type = resource.type
             row.state = resource.state
             row.location_id = resource.location_id
-            row.quantity_json = resource.quantity.model_dump(mode="json") if resource.quantity else None
+            row.quantity_json = (
+                resource.quantity.model_dump(mode="json") if resource.quantity else None
+            )
             row.metadata_json = resource.metadata
             row.updated_at = utc_now()
         return resource
@@ -177,7 +195,9 @@ class Repositories:
             )
         return sorted(requested - known)
 
-    def upsert_capability(self, definition: CapabilityDefinition, adapter_name: str) -> CapabilityDefinition:
+    def upsert_capability(
+        self, definition: CapabilityDefinition, adapter_name: str
+    ) -> CapabilityDefinition:
         with self.database.session() as session:
             row = session.get(CapabilityRow, definition.id)
             if row is None:
@@ -190,7 +210,10 @@ class Repositories:
 
     def list_capabilities(self) -> list[tuple[CapabilityDefinition, str]]:
         with self.database.session() as session:
-            return [(CapabilityDefinition.model_validate(row.definition_json), row.adapter_name) for row in session.scalars(select(CapabilityRow).order_by(CapabilityRow.id))]
+            return [
+                (CapabilityDefinition.model_validate(row.definition_json), row.adapter_name)
+                for row in session.scalars(select(CapabilityRow).order_by(CapabilityRow.id))
+            ]
 
     def acquire_leases(self, resource_ids: list[str], holder_id: str, ttl_seconds: float) -> bool:
         if not resource_ids:
@@ -205,7 +228,9 @@ class Repositories:
             for resource_id in sorted(set(resource_ids)):
                 row = session.get(LeaseRow, resource_id)
                 if row is None:
-                    session.add(LeaseRow(resource_id=resource_id, holder_id=holder_id, expires_at=expires))
+                    session.add(
+                        LeaseRow(resource_id=resource_id, holder_id=holder_id, expires_at=expires)
+                    )
                 else:
                     row.holder_id = holder_id
                     row.expires_at = expires
@@ -217,18 +242,20 @@ class Repositories:
 
     def add_artifact(self, artifact: ArtifactRecord) -> ArtifactRecord:
         with self.database.session() as session:
-            session.add(ArtifactRow(
-                id=artifact.id,
-                sha256=artifact.sha256,
-                media_type=artifact.media_type,
-                size_bytes=artifact.size_bytes,
-                kind=artifact.kind.value,
-                storage_path=artifact.storage_path,
-                run_id=artifact.run_id,
-                task_id=artifact.task_id,
-                metadata_json=artifact.metadata,
-                created_at=artifact.created_at,
-            ))
+            session.add(
+                ArtifactRow(
+                    id=artifact.id,
+                    sha256=artifact.sha256,
+                    media_type=artifact.media_type,
+                    size_bytes=artifact.size_bytes,
+                    kind=artifact.kind.value,
+                    storage_path=artifact.storage_path,
+                    run_id=artifact.run_id,
+                    task_id=artifact.task_id,
+                    metadata_json=artifact.metadata,
+                    created_at=artifact.created_at,
+                )
+            )
         return artifact
 
     def list_artifacts(self, run_id: str | None = None) -> list[ArtifactRecord]:
@@ -272,7 +299,18 @@ class Repositories:
 
     @staticmethod
     def _event_from_row(row: EventRow) -> EventRecord:
-        return EventRecord(id=row.id, type=row.type, occurred_at=row.occurred_at, actor_id=row.actor_id, run_id=row.run_id, task_id=row.task_id, campaign_id=row.campaign_id, causation_id=row.causation_id, correlation_id=row.correlation_id, payload=row.payload_json or {})
+        return EventRecord(
+            id=row.id,
+            type=row.type,
+            occurred_at=row.occurred_at,
+            actor_id=row.actor_id,
+            run_id=row.run_id,
+            task_id=row.task_id,
+            campaign_id=row.campaign_id,
+            causation_id=row.causation_id,
+            correlation_id=row.correlation_id,
+            payload=row.payload_json or {},
+        )
 
     @staticmethod
     def _resource_from_row(row: ResourceRow) -> Resource:

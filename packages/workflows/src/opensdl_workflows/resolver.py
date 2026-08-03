@@ -8,7 +8,9 @@ from opensdl_core import ValidationError
 REFERENCE = re.compile(r"^\$\{(?P<path>[a-zA-Z0-9_.-]+)\}$")
 
 
-def resolve_value(value: Any, workflow_inputs: dict[str, Any], step_outputs: dict[str, dict[str, Any]]) -> Any:
+def resolve_value(
+    value: Any, workflow_inputs: dict[str, Any], step_outputs: dict[str, dict[str, Any]]
+) -> Any:
     if isinstance(value, str):
         match = REFERENCE.fullmatch(value)
         if not match:
@@ -27,12 +29,20 @@ def resolve_value(value: Any, workflow_inputs: dict[str, Any], step_outputs: dic
     if isinstance(value, list):
         return [resolve_value(item, workflow_inputs, step_outputs) for item in value]
     if isinstance(value, dict):
-        return {key: resolve_value(item, workflow_inputs, step_outputs) for key, item in value.items()}
+        return {
+            key: resolve_value(item, workflow_inputs, step_outputs) for key, item in value.items()
+        }
     return value
 
 
-def resolve_mapping(mapping: dict[str, Any], workflow_inputs: dict[str, Any], step_outputs: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    return {key: resolve_value(value, workflow_inputs, step_outputs) for key, value in mapping.items()}
+def resolve_mapping(
+    mapping: dict[str, Any],
+    workflow_inputs: dict[str, Any],
+    step_outputs: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        key: resolve_value(value, workflow_inputs, step_outputs) for key, value in mapping.items()
+    }
 
 
 def _walk(value: Any, segments: list[str]) -> Any:

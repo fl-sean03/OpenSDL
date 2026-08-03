@@ -47,10 +47,7 @@ def main() -> None:
     if failures:
         raise SystemExit("inconsistent release versions:\n" + "\n".join(failures))
     version = project_version(ROOT / "pyproject.toml")
-    print(
-        "workspace, citation, and generated dependency versions are synchronized: "
-        f"{version}"
-    )
+    print(f"workspace, citation, and generated dependency versions are synchronized: {version}")
 
 
 if __name__ == "__main__":

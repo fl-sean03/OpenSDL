@@ -237,8 +237,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
             raise LookupError(f"unknown sample: {sample_id}")
         noise = float(self.config.get("color_noise", 0.0))
         measured = [
-            max(0.0, min(255.0, value + self.random.gauss(0, noise)))
-            for value in sample["rgb"]
+            max(0.0, min(255.0, value + self.random.gauss(0, noise))) for value in sample["rgb"]
         ]
         return {"sample_id": sample_id, "rgb": measured, "unit": "sRGB-8bit", "simulated": True}
 
@@ -262,9 +261,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
         state_key = f"labware:{labware_id}:location"
         current = self.state.get(state_key)
         if current is not None and current != source:
-            raise ValueError(
-                f"labware {labware_id} is at {current}, not requested source {source}"
-            )
+            raise ValueError(f"labware {labware_id} is at {current}, not requested source {source}")
         self.state.set(state_key, destination)
         return {
             "labware_id": labware_id,

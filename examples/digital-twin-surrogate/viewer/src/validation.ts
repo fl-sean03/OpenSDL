@@ -17,6 +17,71 @@ const PHASES = new Set([
   "intervention_required",
 ]);
 
+/**
+ * Keys each published contract object declares, mirrored from the generated JSON Schemas in
+ * `packages/schemas/jsonschema/`.
+ *
+ * Every object named here sets `additionalProperties: false`, so the viewer rejects anything else.
+ * As the reference consumer of these contracts it should not accept documents they forbid: a
+ * misspelled or retired key that is silently ignored here is how a viewer ends up rendering
+ * something subtly wrong while looking fine.
+ *
+ * These sets mirror the schemas rather than the viewer's own types, which matters: the definition
+ * contract carries `projectionRules`, which the viewer does not model but the API does serve.
+ * Deriving from `TwinDefinition` would reject every live response. `validation.test.ts` pins each
+ * set against the generated schemas so this cannot drift.
+ *
+ * Objects the schemas leave open stay open. A cue's `parameters` and an animation binding's
+ * `parameterMatch` are free-form by contract, and the envelope carrying `cues` has no published
+ * schema at all, so none of them are constrained here.
+ */
+export const CONTRACT_KEYS = {
+  cue: new Set([
+    "id",
+    "sequence",
+    "sourceEventId",
+    "runId",
+    "taskId",
+    "capabilityId",
+    "occurredAt",
+    "phase",
+    "action",
+    "target",
+    "parameters",
+  ]),
+  definitionRoot: new Set([
+    "apiVersion",
+    "kind",
+    "version",
+    "revision",
+    "coordinateFrame",
+    "scene",
+    "entities",
+    "anchors",
+    "projectionRules",
+    "animationTimeline",
+  ]),
+  coordinateFrame: new Set(["unit", "handedness", "upAxis", "origin"]),
+  scene: new Set(["path", "sha256"]),
+  entity: new Set(["id", "node", "resources"]),
+  anchor: new Set(["id", "position", "node"]),
+  animationTimeline: new Set(["frameRate", "frameStart", "frameEnd", "bindings"]),
+  animationBinding: new Set(["id", "action", "parameterMatch", "frameStart", "frameEnd"]),
+} as const satisfies Record<string, ReadonlySet<string>>;
+
+function rejectUnknownKeys(
+  value: Record<string, unknown>,
+  known: ReadonlySet<string>,
+  label: string,
+): void {
+  const unexpected = Object.keys(value)
+    .filter((key) => !known.has(key))
+    .sort();
+  if (unexpected.length > 0) {
+    throw new TypeError(`${label} has unsupported keys: ${unexpected.join(", ")}`);
+  }
+}
+
 function record(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new TypeError(`${label} must be an object`);
@@ -59,6 +124,7 @@ function integer(value: unknown, label: string): number {
 function parseAnimationTimeline(value: unknown): AnimationTimeline | undefined {
   if (value === undefined || value === null) return undefined;
   const timeline = record(value, "animationTimeline");
+  rejectUnknownKeys(timeline, CONTRACT_KEYS.animationTimeline, "animationTimeline");
   const frameRate = timeline.frameRate;
   if (typeof frameRate !== "number" || !Number.isFinite(frameRate) || frameRate <= 0) {
     throw new TypeError("animationTimeline.frameRate must be a positive finite number");
@@ -74,6 +140,11 @@ function parseAnimationTimeline(value: unknown): AnimationTimeline | undefined {
   const ids = new Set<string>();
   const bindings = timeline.bindings.map((item, index) => {
     const binding = record(item, `animationTimeline.bindings[${index}]`);
+    rejectUnknownKeys(
+      binding,
+      CONTRACT_KEYS.animationBinding,
+      `animationTimeline.bindings[${index}]`,
+    );
     const id = string(binding.id, `animationTimeline.bindings[${index}].id`);
     if (ids.has(id)) throw new TypeError("animationTimeline binding ids must be unique");
     ids.add(id);
@@ -122,29 +193,44 @@ function parseAnimationTimeline(value: unknown): AnimationTimeline | undefined {
 
 export function parseTwinDefinition(value: unknown): TwinDefinition {
   const root = record(value, "twin definition");
+  rejectUnknownKeys(root, CONTRACT_KEYS.definitionRoot, "twin definition");
+  // Deliberate divergence: the schema gives apiVersion and kind defaults, so it does not list them
+  // as required. The viewer demands them anyway. It verifies a scene digest and binds named nodes
+  // against this contract, and the version gate is what makes rejecting unknown keys safe; reading
+  // an absent version as "presumably v0alpha1" would defeat both.
   if (root.apiVersion !== "opensdl.dev/v0alpha1" || root.kind !== "DigitalTwin") {
     throw new TypeError("unsupported twin definition kind or API version");
   }
   const frame = record(root.coordinateFrame, "coordinateFrame");
+  rejectUnknownKeys(frame, CONTRACT_KEYS.coordinateFrame, "coordinateFrame");
   const scene = record(root.scene, "scene");
+  rejectUnknownKeys(scene, CONTRACT_KEYS.scene, "scene");
   const sceneSha256 = string(scene.sha256, "scene.sha256").toLocaleLowerCase();
   if (!/^[0-9a-f]{64}$/.test(sceneSha256)) {
     throw new TypeError("scene.sha256 must contain 64 hexadecimal characters");
   }
-  if (!Array.isArray(root.entities) || !Array.isArray(root.anchors)) {
-    throw new TypeError("entities and anchors must be arrays");
+  if (!Array.isArray(root.entities)) {
+    throw new TypeError("entities must be an array");
+  }
+  // The contract defaults anchors to an empty tuple and omits it from `required`, so a producer
+  // may leave the key out entirely.
+  const rawAnchors = root.anchors ?? [];
+  if (!Array.isArray(rawAnchors)) {
+    throw new TypeError("anchors must be an array");
   }
 
   const entities = root.entities.map((item, index) => {
     const entity = record(item, `entities[${index}]`);
+    rejectUnknownKeys(entity, CONTRACT_KEYS.entity, `entities[${index}]`);
     return {
       id: string(entity.id, `entities[${index}].id`),
       node: string(entity.node, `entities[${index}].node`),
       resources: strings(entity.resources ?? [], `entities[${index}].resources`),
     };
   });
-  const anchors = root.anchors.map((item, index) => {
+  const anchors = rawAnchors.map((item, index) => {
     const anchor = record(item, `anchors[${index}]`);
+    rejectUnknownKeys(anchor, CONTRACT_KEYS.anchor, `anchors[${index}]`);
     return {
       id: string(anchor.id, `anchors[${index}].id`),
       node:
@@ -199,6 +285,7 @@ export function parseProjection(value: unknown): TwinProjection {
   }
   const cues = root.cues.map((item, index): TwinCue => {
     const cue = record(item, `cues[${index}]`);
+    rejectUnknownKeys(cue, CONTRACT_KEYS.cue, `cues[${index}]`);
     const action = string(cue.action, `cues[${index}].action`);
     if (!ACTIONS.has(action as TwinAction)) {
       throw new TypeError(`cues[${index}].action is unsupported`);
@@ -207,10 +294,13 @@ export function parseProjection(value: unknown): TwinProjection {
       throw new TypeError(`cues[${index}].sequence must be a non-negative integer`);
     }
     const parameters = record(cue.parameters ?? {}, `cues[${index}].parameters`);
-    const runId = cue.runId;
-    if (runId !== null && typeof runId !== "string") {
+    // The contract declares runId optional with a null default, so an absent key means null. The
+    // controller currently always emits it, but a producer using exclude_none is equally valid.
+    const rawRunId = cue.runId;
+    if (rawRunId !== null && rawRunId !== undefined && typeof rawRunId !== "string") {
       throw new TypeError(`cues[${index}].runId must be a string or null`);
     }
+    const runId = rawRunId ?? null;
     const phase = string(cue.phase, `cues[${index}].phase`);
     if (!PHASES.has(phase)) {
       throw new TypeError(`cues[${index}].phase is unsupported`);

@@ -45,4 +45,20 @@ describe("viewer data-source selection", () => {
       cues: [],
     });
   });
+
+  it("labels a requested run as a stored one-shot read, not a live feed", async () => {
+    const projection = { ...DEMO_PROJECTION, run_id: "run-stored-001" };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(DEMO_DEFINITION))
+      .mockResolvedValueOnce(jsonResponse(projection));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const experience = await loadExperience("run-stored-001");
+
+    expect(experience.source).toBe("stored-run");
+    expect(experience.sourceDetail).toBe("run-stored-001");
+    // A single definition read plus a single projection read. No polling or subscription.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

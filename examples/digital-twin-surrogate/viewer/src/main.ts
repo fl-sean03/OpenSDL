@@ -5,7 +5,15 @@ import { DataSourceError, loadExperience } from "./data-source";
 import { requireSceneBindings } from "./scene-bindings";
 import { SceneController, type SceneState } from "./scene-controller";
 import { verifySceneBytes } from "./scene-integrity";
-import { buildTimeline, type CueSegment, describeAction, timelineDuration } from "./timeline";
+import {
+  buildTimeline,
+  type CueSegment,
+  describeAction,
+  formatOccurredAt,
+  formatWallClockDuration,
+  runWallClock,
+  timelineDuration,
+} from "./timeline";
 import type { LoadedExperience } from "./types";
 import "./styles.css";
 
@@ -25,6 +33,8 @@ const elements = {
   cueCapability: required<HTMLElement>("cue-capability"),
   cueAction: required<HTMLElement>("cue-action"),
   cueSequence: required<HTMLElement>("cue-sequence"),
+  cueOccurred: required<HTMLElement>("cue-occurred"),
+  runElapsed: required<HTMLElement>("run-elapsed"),
   cueProperties: required<HTMLDListElement>("cue-properties"),
   loader: required<HTMLElement>("loader"),
   loaderLabel: required<HTMLElement>("loader-label"),
@@ -75,10 +85,16 @@ function updateCue(state: SceneState): void {
     elements.cueCapability.textContent = segments.length === 0 ? "No visual events" : "Ready";
     elements.cueAction.textContent = segments.length === 0 ? "EMPTY" : "IDLE";
     elements.cueSequence.textContent = `0 / ${segments.length}`;
+    elements.cueOccurred.textContent = "—";
+    elements.cueOccurred.removeAttribute("title");
+    lastCueId = "";
   } else if (cue.id !== lastCueId) {
     elements.cueCapability.textContent = cue.capabilityId;
     elements.cueAction.textContent = `${describeAction(cue.action)} · ${cue.phase.toLocaleUpperCase()}`;
     elements.cueSequence.textContent = `${state.currentSequence + 1} / ${segments.length}`;
+    // The recorded instant for this cue. Playback pacing never derives from it.
+    elements.cueOccurred.textContent = formatOccurredAt(cue.occurredAt);
+    elements.cueOccurred.title = cue.occurredAt;
     lastCueId = cue.id;
   }
 
@@ -130,10 +146,10 @@ async function loadModel(url: string, expectedSha256: string): Promise<LoadedMod
 }
 
 function setSource(experience: LoadedExperience): void {
-  const live = experience.source === "live-run";
-  elements.app.dataset.source = live ? "live" : "demo";
-  elements.sourceLabel.textContent = live
-    ? "PROJECTED RUN"
+  const stored = experience.source === "stored-run";
+  elements.app.dataset.source = stored ? "stored" : "demo";
+  elements.sourceLabel.textContent = stored
+    ? "STORED RUN"
     : experience.source === "configured-scene"
       ? "CONFIGURED SCENE"
       : "LOCAL DEMO";
@@ -141,10 +157,23 @@ function setSource(experience: LoadedExperience): void {
   elements.sourceDetail.title = experience.note ?? experience.sourceDetail;
 }
 
+function setRunWallClock(experience: LoadedExperience): void {
+  const wallClock = runWallClock(experience.projection.cues);
+  if (!wallClock) {
+    elements.runElapsed.textContent = "—";
+    elements.runElapsed.removeAttribute("title");
+    return;
+  }
+  elements.runElapsed.textContent = formatWallClockDuration(wallClock.elapsedMs);
+  elements.runElapsed.title = `${wallClock.firstOccurredAt} to ${wallClock.lastOccurredAt}`;
+}
+
 async function start(): Promise<void> {
   playing = false;
   timeMs = 0;
   lastCueId = "";
+  elements.cueOccurred.textContent = "—";
+  elements.runElapsed.textContent = "—";
   elements.app.dataset.state = "loading";
   elements.failure.hidden = true;
   elements.loader.hidden = false;
@@ -157,6 +186,7 @@ async function start(): Promise<void> {
   try {
     const experience = await loadExperience(runIdFromLocation());
     setSource(experience);
+    setRunWallClock(experience);
     elements.revision.textContent = experience.definition.revision;
     elements.loaderLabel.textContent = "Loading verified scene";
     elements.loaderProgress.style.width = "18%";

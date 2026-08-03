@@ -73,7 +73,11 @@ export interface LoadedExperience {
   definition: TwinDefinition;
   projection: TwinProjection;
   sceneUrl: string;
-  source: "configured-scene" | "live-run" | "local-demo";
+  /**
+   * How the projection was obtained. `stored-run` is a single one-shot read of an already
+   * completed run; the viewer does not poll, subscribe, or track a run in progress.
+   */
+  source: "configured-scene" | "stored-run" | "local-demo";
   sourceDetail: string;
   note?: string;
 }

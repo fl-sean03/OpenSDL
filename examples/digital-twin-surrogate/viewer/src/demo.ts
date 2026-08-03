@@ -103,6 +103,44 @@ export const DEMO_DEFINITION: TwinDefinition = {
   },
 };
 
+const DEMO_RUN_STARTED_MS = Date.UTC(2026, 7, 3, 12, 0, 0);
+
+/**
+ * Millisecond offsets from the first event of the included run, indexed by cue sequence.
+ *
+ * The surrogate cell is configured with `latency_seconds: 0`, and its adapter only awaits when that
+ * value is truthy, so a simulated run records every event within a few milliseconds. These offsets
+ * reproduce that timing profile: uneven, often repeating inside a single millisecond, and far under
+ * a second end to end. They keep the run's reported wall clock faithful to what this run is.
+ *
+ * They are deliberately not one-per-second. An earlier fixture placed the cue sequence number in
+ * the seconds field, which reported a nineteen-second duration the run never took.
+ */
+const CUE_OFFSETS_MS: readonly number[] = [
+  // cell.transfer_labware: input -> dispenser
+  0, 1, 1,
+  // cell.dispense
+  2, 4, 4, 4,
+  // cell.transfer_labware: dispenser -> mixer
+  5, 6, 6,
+  // cell.mix
+  8, 8,
+  // cell.transfer_labware: mixer -> characterizer
+  9, 10, 10,
+  // cell.characterize
+  12, 12,
+  // cell.transfer_labware: characterizer -> output
+  13, 14, 14,
+];
+
+function occurredAtFor(sequence: number): string {
+  const offsetMs = CUE_OFFSETS_MS[sequence];
+  if (offsetMs === undefined) {
+    throw new Error(`demo cue ${sequence} has no recorded offset`);
+  }
+  return new Date(DEMO_RUN_STARTED_MS + offsetMs).toISOString();
+}
+
 function cue(
   sequence: number,
   capabilityId: string,
@@ -118,7 +156,7 @@ function cue(
     runId: "included-demo",
     taskId: `demo-task-${sequence.toString().padStart(2, "0")}`,
     capabilityId,
-    occurredAt: new Date(Date.UTC(2026, 7, 3, 12, 0, sequence)).toISOString(),
+    occurredAt: occurredAtFor(sequence),
     phase,
     action,
     target,

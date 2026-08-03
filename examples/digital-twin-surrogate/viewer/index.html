@@ -42,6 +42,12 @@
           <samp id="cue-action">WAIT</samp>
           <samp id="cue-sequence">0 / 0</samp>
         </div>
+        <dl class="cue__clock">
+          <dt>Event time</dt>
+          <dd><samp id="cue-occurred">&mdash;</samp></dd>
+          <dt>Run wall clock</dt>
+          <dd><samp id="run-elapsed">&mdash;</samp></dd>
+        </dl>
         <dl class="cue__properties" id="cue-properties" hidden></dl>
       </section>
 
@@ -65,10 +71,16 @@
           <button id="reset" type="button" disabled>Reset</button>
         </div>
         <label class="scrubber">
-          <span class="sr-only">Playback position</span>
+          <span class="sr-only">Playback position in the stylized cue sequence</span>
           <input id="timeline" type="range" min="0" max="1" step="1" value="0" disabled />
         </label>
-        <output id="time" for="timeline">00:00 / 00:00</output>
+        <div
+          class="transport__readout"
+          title="Position in the stylized cue sequence. The run's recorded duration is reported in the cue panel."
+        >
+          <output id="time" for="timeline">00:00 / 00:00</output>
+          <p class="transport__pacing">STYLIZED SEQUENCE PACING &middot; NOT ELAPSED TIME</p>
+        </div>
       </footer>
 
       <p class="read-only">READ-ONLY PROJECTION</p>

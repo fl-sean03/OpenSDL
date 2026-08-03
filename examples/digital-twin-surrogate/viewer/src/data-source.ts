@@ -70,6 +70,8 @@ export async function loadExperience(runId?: string): Promise<LoadedExperience> 
     };
   }
 
+  // One-shot read of an immutable, already persisted projection. There is no polling or
+  // subscription here: live event projection is deferred until the event-query contract matures.
   try {
     const projection = parseProjection(await getJson(`/twin/runs/${encodeURIComponent(runId)}`));
     if (projection.definition_revision !== definition.revision) {
@@ -81,7 +83,7 @@ export async function loadExperience(runId?: string): Promise<LoadedExperience> 
       definition,
       projection,
       sceneUrl: "/twin/scene.glb",
-      source: "live-run",
+      source: "stored-run",
       sourceDetail: runId,
     };
   } catch (error) {

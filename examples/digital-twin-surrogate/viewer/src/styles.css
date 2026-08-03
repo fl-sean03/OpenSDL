@@ -219,6 +219,7 @@ button:disabled {
   font-size: 0.65rem;
 }
 
+.cue__clock,
 .cue__properties {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -230,15 +231,23 @@ button:disabled {
   font-size: 0.66rem;
 }
 
+.cue__clock dt,
 .cue__properties dt {
   color: var(--muted);
   text-transform: uppercase;
 }
 
+.cue__clock dd,
 .cue__properties dd {
   margin: 0;
   color: #e9eded;
   text-align: right;
+}
+
+/* Recorded event time, kept visually distinct from the stylized transport clock. */
+.cue__clock dd samp {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .transport {
@@ -284,12 +293,28 @@ button:disabled {
   cursor: ew-resize;
 }
 
+.transport__readout {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
 .transport output {
   min-width: 90px;
   color: var(--muted);
   font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", monospace;
   font-size: 0.68rem;
   text-align: right;
+}
+
+.transport__pacing {
+  color: rgba(233, 237, 237, 0.52);
+  font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", monospace;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .read-only {
@@ -403,9 +428,14 @@ button:disabled {
     grid-column: 1 / -1;
   }
 
-  .transport output {
+  .transport__readout {
     grid-row: 1;
     grid-column: 2;
+  }
+
+  .transport__pacing {
+    max-width: 18ch;
+    white-space: normal;
   }
 
   .read-only {

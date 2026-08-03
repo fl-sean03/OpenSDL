@@ -35,13 +35,3 @@ OpenSDL is a modular framework for computational and autonomous laboratories.
 - A change is complete when code, tests, schemas, examples, and documentation agree.
 
 Use the nearest nested `AGENTS.md` when working inside a specialized subsystem.
-
-## Agent model routing
-
-- Use GPT-5.6 Sol with ultra reasoning for orchestration, analysis, architecture, debugging,
-  brainstorming, decisions, implementation judgment, review, and user-facing synthesis.
-- Use GPT-5.6 Luna with ultra reasoning only for bounded mechanical bulk work such as inventories,
-  deterministic scans, extraction, and explicitly specified repetitive edits.
-- Luna returns evidence or executes a fixed specification; Sol reviews that evidence and owns every
-  conclusion, scope change, and release decision.
-- Do not use GPT-5.6 Terra or any model outside Sol and Luna for repository work.

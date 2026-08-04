@@ -316,7 +316,7 @@
       "start": 1,
       "end": 150,
       "seconds": 6.25,
-      "note": "The establishing take.  Wide from the front right of the aisle, then a slow dolly in and left across the machine, arriving on the input end as the mover lifts the plate out of the hotel and carries it to the dispense stage.",
+      "note": "The establishing take.  Wide from the front right of the aisle, then a slow dolly in and left across the machine, arriving on the input end as the mover lifts the plate out of the hotel and carries it to the dispense stage.  It ends on transfer_in_end, with the plate seated and the mover clear of it.",
       "keys": [
         {
           "frame": 1,
@@ -377,11 +377,11 @@
       ]
     },
     {
-      "name": "head-change-and-tips",
+      "name": "head-change-and-first-fill",
       "start": 151,
-      "end": 330,
-      "seconds": 7.5,
-      "note": "Head change A, close.  The take opens tight on the gripper dock and the mover flies into it, seats the gripper head, rises away empty and crosses left; the camera tracks it to the pipette dock, watches the coupling, then follows the pipetting head on to the tip rack, the reservoir and the first fill pass.",
+      "end": 358,
+      "seconds": 8.67,
+      "note": "Head change A and the whole of the first dispensing pass, in one take.  It opens tight on the gripper dock as the mover flies into it, seats the gripper head, rises away empty and crosses left; the camera tracks it to the pipette dock, watches the coupling, then follows the pipetting head on to the tip rack and the reservoir, and pushes in through the four seconds of dispensing - twelve dips of the nozzles, one column at a time - until the head fills the frame.  It ends on fill_a_end, the frame the head lifts clear of the last column.",
       "keys": [
         {
           "frame": 151,
@@ -440,30 +440,44 @@
           "lens": 52
         },
         {
-          "frame": 330,
+          "frame": 300,
           "eye": [
-            -1000,
-            -1300,
-            1600
+            -860,
+            -1340,
+            1540
           ],
           "look": [
             -800,
             -30,
-            1200
+            1230
           ],
-          "lens": 52
+          "lens": 60
+        },
+        {
+          "frame": 358,
+          "eye": [
+            -1150,
+            -1180,
+            1500
+          ],
+          "look": [
+            -795,
+            -55,
+            1205
+          ],
+          "lens": 72
         }
       ]
     },
     {
-      "name": "reverse-and-fill",
-      "start": 331,
-      "end": 498,
-      "seconds": 7.0,
-      "note": "The reverse angle, looking down the length of the machine from the output end.  It opens wide enough that the pipetting head working and the gripper head waiting in its dock are in the same frame, which is the whole one-mover-two-heads claim in one image, then travels the length of the aisle and pushes in through the tip drop and the second tip pickup until the nozzles entering the wells fill the frame.",
+      "name": "reverse-and-second-fill",
+      "start": 359,
+      "end": 552,
+      "seconds": 8.08,
+      "note": "The reverse angle, looking down the length of the machine from the output end, and the whole of the second dispensing pass.  It opens wide enough that the pipetting head working and the gripper head waiting in its dock are in the same frame, which is the one-mover-two-heads claim in one image, travels the length of the aisle through the tip drop and the second tip pickup, holds the second fill on a move that keeps closing, then swings back to the waste chute as the tips are dropped.  It ends on dispense_end, with the head empty.",
       "keys": [
         {
-          "frame": 331,
+          "frame": 359,
           "eye": [
             1400,
             -2600,
@@ -477,15 +491,15 @@
           "lens": 34
         },
         {
-          "frame": 384,
+          "frame": 405,
           "eye": [
-            600,
-            -2300,
-            1860
+            500,
+            -2200,
+            1830
           ],
           "look": [
             -700,
-            30,
+            25,
             1240
           ],
           "lens": 42
@@ -493,125 +507,153 @@
         {
           "frame": 440,
           "eye": [
-            -400,
-            -1900,
-            1740
+            -380,
+            -1760,
+            1700
           ],
           "look": [
-            -800,
-            20,
-            1225
+            -830,
+            10,
+            1230
           ],
-          "lens": 55
+          "lens": 52
         },
         {
-          "frame": 498,
+          "frame": 505,
           "eye": [
-            -1180,
-            -1180,
+            -1020,
+            -1300,
             1560
           ],
           "look": [
             -800,
             -40,
-            1190
+            1210
           ],
-          "lens": 75
+          "lens": 68
+        },
+        {
+          "frame": 552,
+          "eye": [
+            -560,
+            -1240,
+            1600
+          ],
+          "look": [
+            -616,
+            45,
+            1250
+          ],
+          "lens": 55
         }
       ]
     },
     {
       "name": "head-change-b-and-to-mix",
-      "start": 499,
+      "start": 553,
       "end": 672,
-      "seconds": 7.25,
-      "note": "Head change B and the transfer that follows it, in one travelling take from the right.  The camera holds the end of the second fill, moves with the mover as it parks the pipetting head and picks the gripper back up, pulls back to catch the plate leaving the dispense stage, and settles as it lands on the mixer.",
+      "seconds": 5.0,
+      "note": "Head change B and the transfer that follows it, in one travelling take from the right.  The camera opens with both docks in frame, moves in as the mover parks the pipetting head and picks the gripper back up, pulls back to catch the plate leaving the dispense stage, and settles as it lands on the mixer.  It ends on mix_place_clear, with the plate down and the jaws away.",
       "keys": [
         {
-          "frame": 499,
+          "frame": 553,
           "eye": [
-            760,
-            -2000,
-            1700
+            1050,
+            -1350,
+            1660
           ],
           "look": [
-            -500,
-            20,
-            1250
+            -100,
+            60,
+            1310
           ],
-          "lens": 34
-        },
-        {
-          "frame": 552,
-          "eye": [
-            900,
-            -1460,
-            1560
-          ],
-          "look": [
-            -320,
-            40,
-            1275
-          ],
-          "lens": 42
+          "lens": 40
         },
         {
           "frame": 600,
           "eye": [
-            940,
-            -1120,
-            1480
+            900,
+            -1180,
+            1500
           ],
           "look": [
             300,
             45,
-            1265
+            1270
           ],
-          "lens": 50
+          "lens": 52
         },
         {
           "frame": 634,
           "eye": [
-            420,
-            -1700,
-            1620
+            520,
+            -1620,
+            1600
           ],
           "look": [
             -680,
             -20,
-            1215
+            1220
           ],
-          "lens": 34
+          "lens": 36
+        },
+        {
+          "frame": 655,
+          "eye": [
+            580,
+            -1520,
+            1540
+          ],
+          "look": [
+            -260,
+            -45,
+            1250
+          ],
+          "lens": 40
         },
         {
           "frame": 672,
           "eye": [
-            560,
-            -1500,
-            1520
+            600,
+            -1420,
+            1500
           ],
           "look": [
             0,
             -45,
             1230
           ],
-          "lens": 38
+          "lens": 44
         }
       ]
     },
     {
-      "name": "mix-and-cross",
+      "name": "mix-and-seal",
       "start": 673,
-      "end": 800,
-      "seconds": 5.33,
-      "note": "Tight on the Heater-Shaker from the left through the clamp close and the orbit, arcing right as it runs, then travelling one station along with the plate and settling on the reader as the mover goes for its door.",
+      "end": 826,
+      "seconds": 6.42,
+      "note": "Tight on the Heater-Shaker from the left through the clamp close and the orbit, arcing right as it runs, then travelling one station along with the plate, watching it seated in the reader and the mover fetch the door off its caddy and lower it home.  It ends on door_close_clear, with the reader sealed and the jaws off it.",
       "keys": [
         {
           "frame": 673,
           "eye": [
-            -700,
-            -880,
-            1400
+            -760,
+            -900,
+            1420
+          ],
+          "look": [
+            0,
+            -50,
+            1235
+          ],
+          "lens": 66
+        },
+        {
+          "frame": 678,
+          "eye": [
+            -720,
+            -910,
+            1415
           ],
           "look": [
             0,
@@ -623,9 +665,9 @@
         {
           "frame": 714,
           "eye": [
-            -520,
-            -930,
-            1390
+            -380,
+            -980,
+            1370
           ],
           "look": [
             0,
@@ -635,80 +677,108 @@
           "lens": 66
         },
         {
-          "frame": 760,
+          "frame": 741,
           "eye": [
-            0,
-            -1080,
-            1450
+            -120,
+            -1020,
+            1400
           ],
           "look": [
-            600,
-            -45,
-            1245
+            60,
+            -50,
+            1240
           ],
-          "lens": 48
+          "lens": 56
         },
         {
-          "frame": 800,
+          "frame": 762,
           "eye": [
-            100,
-            -900,
+            280,
+            -1150,
+            1470
+          ],
+          "look": [
+            700,
+            -45,
+            1250
+          ],
+          "lens": 46
+        },
+        {
+          "frame": 795,
+          "eye": [
+            760,
+            -1160,
+            1500
+          ],
+          "look": [
+            860,
+            30,
+            1290
+          ],
+          "lens": 46
+        },
+        {
+          "frame": 826,
+          "eye": [
+            1180,
+            -1180,
             1420
           ],
           "look": [
-            760,
-            -30,
-            1235
+            820,
+            -40,
+            1215
           ],
-          "lens": 58
+          "lens": 62
         }
       ]
     },
     {
       "name": "read-and-out",
-      "start": 801,
+      "start": 827,
       "end": 960,
-      "seconds": 6.67,
-      "note": "The closing take, from the right.  Wide while the door crosses between the two reader rows, in to the longest lens in the film while the reader indicates, out again as the plate is picked and carried to the output hotel, then a rise and a pull back to the closing wide.",
+      "seconds": 5.58,
+      "note": "The closing take, round on the other side of the aisle.  It opens wide from the left while the reader indicates through the plate read, pushes in on the sealed reader, then pulls out and travels right with the plate as the door comes off and the finished sample is carried to the output hotel, ending on a rise and a pull back to the closing wide.",
       "keys": [
         {
-          "frame": 801,
+          "frame": 827,
           "eye": [
-            2100,
-            -3000,
-            2100
+            -100,
+            -2000,
+            1600
           ],
           "look": [
-            850,
-            -20,
-            1255
+            620,
+            -40,
+            1240
           ],
-          "lens": 38
+          "lens": 44
         },
         {
           "frame": 848,
           "eye": [
-            1700,
-            -1200,
+            420,
+            -1700,
             1560
           ],
           "look": [
-            800,
+            760,
             -40,
-            1230
+            1250
           ],
-          "lens": 62
+          "lens": 52
         },
         {
           "frame": 892,
           "eye": [
-            1500,
-            -1750,
-            1660
+            980,
+            -1620,
+            1620
           ],
           "look": [
             900,
-            -35,
+            -30,
             1250
           ],
           "lens": 46
@@ -716,16 +786,16 @@
         {
           "frame": 927,
           "eye": [
-            1100,
-            -2450,
-            1800
+            900,
+            -2500,
+            1820
           ],
           "look": [
-            1300,
+            1180,
             -40,
             1270
           ],
-          "lens": 42
+          "lens": 40
         },
         {
           "frame": 960,

@@ -198,44 +198,67 @@ Use `--no-export` during render-only iteration when the checked GLB must remain 
 
 The 40-second cycle is shot rather than watched. `CAMERA_SHOTS` in `build_scene.py` is six moving
 takes that tile frames 1–960 exactly. Every one of them moves inside itself, so no framing is ever a
-held still, and every one of them is between five and eight seconds long:
+held still, and every one of them ends where the machine finishes something:
 
-| Frames | Length | Shot | What it is |
-|---|---|---|---|
-| 1–150 | 6.25 s | `establish-and-load` | Wide from the front right of the aisle, trucking left across the machine and zooming in, arriving on the input end as the plate comes out of the hotel and goes to the dispense stage |
-| 151–330 | 7.50 s | `head-change-and-tips` | Head change A, close: the mover flies into the gripper dock, seats the head, rises away empty and crosses to the pipette dock; the camera tracks it, then follows the pipetting head to the tip rack, the reservoir and the first fill |
-| 331–498 | 7.00 s | `reverse-and-fill` | Reverse angle down the length of the machine from the output end, travelling the whole aisle and pushing in through the tip drop and the second tip pickup until the nozzles entering the wells fill the frame |
-| 499–672 | 7.25 s | `head-change-b-and-to-mix` | Head change B and the transfer after it in one travelling take from the right: the mover parks the pipetting head, picks the gripper back up, lifts the plate off the dispense stage and lands it on the mixer |
-| 673–800 | 5.33 s | `mix-and-cross` | Tight on the Heater-Shaker from the left through the clamp close and the orbit, arcing right as it runs, then travelling one station along with the plate and settling on the reader |
-| 801–960 | 6.67 s | `read-and-out` | Wide from the right while the door crosses between the reader rows, in to the longest lens in the film while the reader indicates, out again with the plate to the output hotel, then a pull back to the closing wide |
-
-Six shots over 40 s is a mean of 6.67 s. That number is the point of the list. An earlier cut of the
-same sequence ran thirteen shots averaging 3.1 s, and it read as jittery while the moves inside the
-shots read as fine, so the moves were kept and the edit was rebuilt against the
-architectural-visualisation convention of five to eight seconds a shot. The band is enforced on
-every shot with no exception for the closing one, because none was needed.
+| Frames | Length | Ends on | Shot | What it is |
+|---|---|---|---|---|
+| 1–150 | 6.25 s | `transfer_in_end` | `establish-and-load` | Wide from the front right of the aisle, trucking left across the machine and zooming in, arriving on the input end as the plate comes out of the hotel and goes to the dispense stage |
+| 151–358 | 8.67 s | `fill_a_end` | `head-change-and-first-fill` | Head change A and the whole first dispensing pass: the mover flies into the gripper dock, seats the head, rises away empty and crosses to the pipette dock; the camera tracks it, follows the pipetting head to the tip rack and the reservoir, and pushes in through four seconds of dispensing |
+| 359–552 | 8.08 s | `dispense_end` | `reverse-and-second-fill` | Reverse angle down the length of the machine from the output end, with both heads in the opening frame, travelling the whole aisle through the tip drop and the second tip pickup, closing on the second fill and swinging back to the waste chute as the tips are dropped |
+| 553–672 | 5.00 s | `mix_place_clear` | `head-change-b-and-to-mix` | Head change B and the transfer after it in one travelling take from the right: the mover parks the pipetting head, picks the gripper back up, lifts the plate off the dispense stage and lands it on the mixer |
+| 673–826 | 6.42 s | `door_close_clear` | `mix-and-seal` | Tight on the Heater-Shaker from the left through the clamp close and the orbit, arcing right as it runs, then travelling one station along with the plate, watching it seated in the reader and the mover fetch the door off its caddy and lower it home |
+| 827–960 | 5.58 s | `cycle_end` | `read-and-out` | Round on the other side of the aisle: wide while the reader indicates, in on the sealed reader, then out and right with the plate as the door comes off and the finished sample goes to the output hotel, ending on the closing wide |
 
 ### What makes a cut legal here
 
-`validate_camera_shots` runs before any geometry is built and refuses the build unless the shot list
-tiles 1–960 exactly, every shot is inside the 5–8 s band, every shot's first and last key sit on its
-first and last frame, and every cut passes both film rules: **at least 30° of camera angle**, *and*
-either **two steps of shot size** or **at least 20 mm of focal length**. Both numbers are computed,
-not judged. The angle is the thirty-degree rule read literally, as the angle the two eyes subtend at
-the subject rather than the angle between the two view axes, which a pair of parallel cameras a
-metre apart would pass. Shot size is the horizontal field width at the look point, banded on a
-seven-step ladder from extreme close to extreme long at a ratio of about 1.6 a step, so "two steps"
-is the same claim a director makes when they say a cut goes from a medium to a close-up.
+Three standards decide where a cut may fall, and `validate_camera_shots` computes all three from the
+authored data before any geometry is built. It refuses the build on any failure, because a shot list
+that cuts in the middle of a dispense is a defect in the edit rather than something to discover at
+the end of a forty-minute render.
 
-The five cuts as built:
+**Motivation, which decides where the cuts go.** A cut may land only where an action completes: a
+station changes, a tool changes, or an operation finishes. Never inside a continuous motion, and
+never inside a sustained dwell. An earlier cut of this sequence met every number below and was still
+wrong, because two of its five cuts fell in the middle of a dispensing pass and a third fell between
+a grip and the lift that followed it. A cut there reads as a jump for no reason however well it is
+framed.
 
-| Cut | Angle | Lens | Shot size | Passes on |
-|---|---|---|---|---|
-| 150 → 151 | 41.7° | 52 → 62 mm (10) | long → medium (2 steps) | angle + size |
-| 330 → 331 | 51.7° | 52 → 34 mm (18) | medium → extreme long (3 steps) | angle + size |
-| 498 → 499 | 58.1° | 75 → 34 mm (41) | medium close → long (3 steps) | angle + size + lens |
-| 672 → 673 | 60.2° | 38 → 66 mm (28) | medium long → medium close (2 steps) | angle + size + lens |
-| 800 → 801 | 61.2° | 58 → 38 mm (20) | medium → extreme long (3 steps) | angle + size + lens |
+The legal frames are derived from `_BEATS`, not written down. A beat finishes something when its
+last name word is one of `end`, `clear`, `ready`, `lock`, `settle`, `stored`, `up` or `front` — a
+state the machine has arrived at, rather than a step inside an operation such as `approach`, `down`,
+`grip`, `lift`, `cross`, `seat`, `release` or `unlock`. `hold` is deliberately excluded: the same
+word names the 22-frame plate read and the 3-frame pause at the reservoir, and a rule that cannot
+tell those apart would licence a cut in the middle of an aspiration. At the authored timing that
+leaves 28 legal frames out of 960. Re-timing the workflow moves them with it, so the check cannot go
+stale. Every cut also has to clear the sustained beats — the two 96-frame dispenses, the 36-frame
+orbital mix and the 22-frame read — which no cut may fall strictly inside.
+
+**Shot length, which follows from motivation rather than driving it.** Five seconds is a floor with
+no exceptions. Eight seconds is a ceiling a shot may pass only when no completion inside it splits it
+into two takes that both clear the floor, which the validator checks by trying every legal frame
+rather than taking the claim on trust. Two shots are over: the first dispensing pass at 8.67 s and
+the second at 8.08 s. Each finishes exactly once, so each is one take. The mean is still 6.67 s, and
+an earlier thirteen-shot cut of the same sequence averaging 3.1 s read as jittery, which is where the
+five-to-eight-second convention came from.
+
+**Cut quality.** Every cut has to change the camera angle by **at least 30°** *and* change the
+framing by either **two steps of shot size** or **at least 20 mm of focal length**. Both numbers are
+computed, not judged. The angle is the thirty-degree rule read literally, as the angle the two eyes
+subtend at the subject rather than the angle between the two view axes, which a pair of parallel
+cameras a metre apart would pass. Shot size is the horizontal field width at the look point, banded
+on a seven-step ladder from extreme close to extreme long at a ratio of about 1.6 a step, so "two
+steps" is the same claim a director makes when they say a cut goes from a medium to a close-up.
+
+The five cuts as built. Every one is on a completion, and the beat it lands on is printed with the
+edit report at build time:
+
+| Cut | Lands on | Angle | Lens | Shot size | Passes on |
+|---|---|---|---|---|---|
+| 150 → 151 | `transfer_in_end` — plate seated, mover clear | 41.7° | 52 → 62 mm (10) | long → medium (2 steps) | angle + size |
+| 358 → 359 | `fill_a_end` — head lifts clear of the last column | 60.2° | 72 → 34 mm (38) | medium close → extreme long (4 steps) | angle + size + lens |
+| 552 → 553 | `dispense_end` — tips dropped, head empty | 52.7° | 55 → 40 mm (15) | medium → long (2 steps) | angle + size |
+| 672 → 673 | `mix_place_clear` — plate down, jaws away | 64.3° | 44 → 66 mm (22) | medium long → medium close (2 steps) | angle + size + lens |
+| 826 → 827 | `door_close_clear` — reader sealed, jaws off it | 44.1° | 62 → 44 mm (18) | medium → long (2 steps) | angle + size |
 
 Where a cut could not have passed, the two shots were merged into one moving take instead of being
 forced. That is why a transfer and the operation after it share a shot here: the camera travels with
@@ -245,8 +268,26 @@ spending a cut on it, so both head changes and both dispensing passes are seen c
 rather than at establishing distance.
 
 The two head changes are the machine's most interesting mechanism and neither falls between shots.
-Head change A opens shot two and gets three keys of its own; head change B sits inside shot four,
-with a key on the mover reaching its dock and another on the gripper locking back on.
+Head change A opens shot two and gets three keys of its own; head change B opens shot four, with a
+key on the mover reaching its dock and another on the gripper locking back on.
+
+### No held frames on the long beats
+
+Four beats last twenty frames or more: the two 96-frame dispensing passes, the 36-frame orbital mix
+and the 22-frame plate read. Together they are ten seconds of a forty-second film, and a camera that
+sits still through them turns the operation into dead air. The validator measures the authored camera
+across each one and requires either 200 mm of eye travel or 10 mm of lens change:
+
+| Beat | Frames | In shot | Eye travel | Lens change |
+|---|---|---|---|---|
+| `fill_a_end` | 263–358 | `head-change-and-first-fill` | 513 mm | 18.7 mm |
+| `fill_b_end` | 433–528 | `reverse-and-second-fill` | 839 mm | 11.6 mm |
+| `mix_orbit_end` | 679–714 | `mix-and-seal` | 340 mm | — |
+| `read_hold` | 827–848 | `read-and-out` | 602 mm | 8.0 mm |
+
+The dispensing itself is not static either: the head steps twelve columns across the plate, dipping
+83 mm into the wells and rising again every eight frames, so the camera's push-in runs against a
+visible working rhythm rather than against a held pose.
 
 ### How it is built
 
@@ -271,16 +312,16 @@ Two spatial constraints produced the numbers, and both came out of looking at re
   from the built scene. `validate_camera_shots` refuses a shot that authors an eye behind that
   plane. That is a coarse rule on authored keys, so `validate_camera_path` then flies all 960 frames
   and measures the eye against the world bounds of 1867 bodies: every static body in the cell, plus
-  the moving bridge re-measured on every frame. The built path's closest approach is **427 mm**, to
-  `FrameRailDeck_-0.538` at frame 673; the floor is 222 mm, which is what the previous edit reported.
+  the moving bridge re-measured on every frame. The built path's closest approach is **453 mm**, to
+  `TransferPortGuard` at frame 358; the floor is 222 mm.
 - The input hand-off cannot be shot low from the front. The transfer-port guard stands directly in
   front of it at grip height, so the input end is shot from above it, which is why the establishing
   take ends high rather than at deck level.
 
-Lens is a shot property. Establishing and re-establishing is 26–38 mm, a station that has to read as
-a working mechanism is 42–66 mm, and the tips entering the wells are at 75 mm. Past about 60 mm the
-pipetting head's body crops, which is right when the shot is about the tips and wrong when it is
-about the head.
+Lens is a shot property. Establishing and re-establishing is 26–44 mm, a station that has to read as
+a working mechanism is 46–66 mm, and the end of the first dispensing pass is at 72 mm. Past about
+60 mm the pipetting head's body crops, which is right when the shot is about the nozzles and wrong
+when it is about the head.
 
 `assets/camera-poses.json` publishes the shot list next to the still poses, so a later render or a
 downstream consumer can reproduce the same edit.

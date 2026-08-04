@@ -5928,14 +5928,29 @@ def apply_camera_pose(camera: bpy.types.Object, pose: dict[str, object]) -> None
 # The edit.
 #
 # The still poses above frame the machine.  This is the film: the 40-second
-# cycle cut into six moving takes.  Two standards decide where a cut may fall,
-# and both of them are measured rather than judged by eye.
+# cycle cut into six moving takes.  Three standards decide where a cut may
+# fall, and all three are measured rather than judged by eye.
 #
-# Shot length.  Architectural-visualisation practice is five to eight seconds a
-# shot.  An earlier cut of this sequence ran thirteen shots in forty seconds, an
-# average of 3.1 s, and the note on it was that the cutting read as jittery
-# while the moves themselves were fine.  So the moves stayed and the edit was
-# rebuilt at six shots averaging 6.7 s, every one of them inside the band.
+# Cut motivation, which is the standard that decides where the cuts go.  A cut
+# may land only where an action completes: a station changes, a tool changes, or
+# an operation finishes.  Never inside a continuous motion, and never inside a
+# sustained dwell.  An earlier cut of this sequence passed every number below
+# and was still wrong, because two of its five cuts fell in the middle of a
+# dispense and a third fell between a grip and the lift that followed it.  A cut
+# there reads as a jump for no reason however well it is framed, and a cut on a
+# completion reads as the film moving on with the machine.  The legal frames are
+# derived from ``_BEATS`` rather than written down, so re-timing the workflow
+# moves the cuts with it instead of quietly invalidating them.
+#
+# Shot length, which is a consequence of motivation rather than a driver of it.
+# Architectural-visualisation practice is five to eight seconds a shot, and an
+# earlier cut that ran thirteen shots in forty seconds read as jittery.  Five
+# seconds is a floor with no exceptions.  Eight seconds is a ceiling a shot may
+# pass only when no completion inside it could have carried a cut without
+# putting one of the two halves under the floor, which ``validate_camera_shots``
+# checks by trying every legal frame rather than by taking the claim on trust.
+# Two shots here are over, at 8.67 s and 8.08 s: the whole of the first
+# dispensing pass and the whole of the second, each of which finishes only once.
 #
 # Cut quality.  A cut between two shots of the same subject has to change the
 # camera angle by at least thirty degrees, or it reads as a jump cut, and it has
@@ -5950,6 +5965,28 @@ SHOT_MAX_SECONDS = 8.0
 CUT_MIN_ANGLE_DEGREES = 30.0
 CUT_MIN_SIZE_STEPS = 2
 CUT_MIN_LENS_CHANGE_MM = 20.0
+# The last word of a beat name says whether the beat finishes something.  These
+# eight name a state the machine has arrived at - an operation over, the mover
+# withdrawn, a head coupled, a payload at rest, the bridge back on its row - and
+# the frame such a beat completes on is a frame a cut may land on.  Everything
+# else in ``_BEATS`` is a step inside an operation: ``approach``, ``down``,
+# ``grip``, ``lift``, ``cross``, ``seat``, ``release``, ``drop``, ``dwell``,
+# ``taken``, ``unlock``, ``start``, ``closed``, ``open``, ``back``.  ``hold`` is
+# deliberately absent: the same word names the 22-frame plate read and the
+# 3-frame pause at the reservoir, and a rule that cannot tell those apart would
+# licence a cut in the middle of an aspiration.
+BEAT_COMPLETION_WORDS = frozenset(
+    {"end", "clear", "ready", "lock", "settle", "stored", "up", "front"}
+)
+# A beat this long or longer is a sustained one: the machine is doing a single
+# thing for the best part of a second or more.  At the authored timing that is
+# exactly the two 96-frame dispenses, the 36-frame orbital mix and the 22-frame
+# plate read.  No cut may fall strictly inside one, and the camera has to be
+# moving across one, or four seconds of dispensing becomes four seconds of a
+# held frame.
+SUSTAINED_BEAT_FRAMES = 20
+SUSTAINED_MIN_EYE_TRAVEL_MM = 200.0
+SUSTAINED_MIN_LENS_CHANGE_MM = 10.0
 # The camera stays in the front aisle.  The machine's front-most body is the
 # transfer-port guard handle at y = -829 mm and the frame feet reach y = -613 mm,
 # both measured from the built scene, so an eye behind this plane is authoring a
@@ -6003,6 +6040,12 @@ class Shot(TypedDict):
 # Six shots, in millimetres, tiling frames 1-960 exactly.  A shot's first and
 # last key sit on its first and last frame, which is what lets the validator
 # measure a cut from the authored data rather than from a rendered frame.
+#
+# Every one of the five cuts lands on the frame an operation completes on:
+# 150 ``transfer_in_end``, 358 ``fill_a_end``, 552 ``dispense_end``,
+# 672 ``mix_place_clear`` and 826 ``door_close_clear``.  Nothing is running when
+# the picture changes, which is why the shots come out the lengths they do
+# rather than the lengths a clock would have chosen.
 CAMERA_SHOTS: tuple[Shot, ...] = (
     {
         "name": "establish-and-load",
@@ -6012,7 +6055,8 @@ CAMERA_SHOTS: tuple[Shot, ...] = (
             "The establishing take.  Wide from the front right of the aisle, then a "
             "slow dolly in and left across the machine, arriving on the input end as "
             "the mover lifts the plate out of the hotel and carries it to the "
-            "dispense stage."
+            "dispense stage.  It ends on transfer_in_end, with the plate seated and "
+            "the mover clear of it."
         ),
         "keys": (
             (1, (2950, -4200, 2260), (150, 60, 1300), 26),
@@ -6022,93 +6066,107 @@ CAMERA_SHOTS: tuple[Shot, ...] = (
         ),
     },
     {
-        "name": "head-change-and-tips",
+        "name": "head-change-and-first-fill",
         "start": 151,
-        "end": 330,
+        "end": 358,
         "note": (
-            "Head change A, close.  The take opens tight on the gripper dock and the "
-            "mover flies into it, seats the gripper head, rises away empty and "
-            "crosses left; the camera tracks it to the pipette dock, watches the "
-            "coupling, then follows the pipetting head on to the tip rack, the "
-            "reservoir and the first fill pass."
+            "Head change A and the whole of the first dispensing pass, in one take.  "
+            "It opens tight on the gripper dock as the mover flies into it, seats the "
+            "gripper head, rises away empty and crosses left; the camera tracks it to "
+            "the pipette dock, watches the coupling, then follows the pipetting head "
+            "on to the tip rack and the reservoir, and pushes in through the four "
+            "seconds of dispensing - twelve dips of the nozzles, one column at a time "
+            "- until the head fills the frame.  It ends on fill_a_end, the frame the "
+            "head lifts clear of the last column."
         ),
         "keys": (
             (151, (900, -1500, 1600), (300, 45, 1265), 62),
             (183, (700, -1400, 1580), (300, 45, 1275), 58),
             (208, (60, -1300, 1560), (-300, 45, 1270), 58),
             (256, (-620, -1300, 1580), (-980, 40, 1245), 52),
-            (330, (-1000, -1300, 1600), (-800, -30, 1200), 52),
+            (300, (-860, -1340, 1540), (-800, -30, 1230), 60),
+            (358, (-1150, -1180, 1500), (-795, -55, 1205), 72),
         ),
     },
     {
-        "name": "reverse-and-fill",
-        "start": 331,
-        "end": 498,
+        "name": "reverse-and-second-fill",
+        "start": 359,
+        "end": 552,
         "note": (
             "The reverse angle, looking down the length of the machine from the "
-            "output end.  It opens wide enough that the pipetting head working and "
-            "the gripper head waiting in its dock are in the same frame, which is "
-            "the whole one-mover-two-heads claim in one image, then travels the "
-            "length of the aisle and pushes in through the tip drop and the second "
-            "tip pickup until the nozzles entering the wells fill the frame."
+            "output end, and the whole of the second dispensing pass.  It opens wide "
+            "enough that the pipetting head working and the gripper head waiting in "
+            "its dock are in the same frame, which is the one-mover-two-heads claim "
+            "in one image, travels the length of the aisle through the tip drop and "
+            "the second tip pickup, holds the second fill on a move that keeps "
+            "closing, then swings back to the waste chute as the tips are dropped.  "
+            "It ends on dispense_end, with the head empty."
         ),
         "keys": (
-            (331, (1400, -2600, 1980), (-500, 20, 1250), 34),
-            (384, (600, -2300, 1860), (-700, 30, 1240), 42),
-            (440, (-400, -1900, 1740), (-800, 20, 1225), 55),
-            (498, (-1180, -1180, 1560), (-800, -40, 1190), 75),
+            (359, (1400, -2600, 1980), (-500, 20, 1250), 34),
+            (405, (500, -2200, 1830), (-700, 25, 1240), 42),
+            (440, (-380, -1760, 1700), (-830, 10, 1230), 52),
+            (505, (-1020, -1300, 1560), (-800, -40, 1210), 68),
+            (552, (-560, -1240, 1600), (-616, 45, 1250), 55),
         ),
     },
     {
         "name": "head-change-b-and-to-mix",
-        "start": 499,
+        "start": 553,
         "end": 672,
         "note": (
             "Head change B and the transfer that follows it, in one travelling take "
-            "from the right.  The camera holds the end of the second fill, moves with "
-            "the mover as it parks the pipetting head and picks the gripper back up, "
-            "pulls back to catch the plate leaving the dispense stage, and settles as "
-            "it lands on the mixer."
+            "from the right.  The camera opens with both docks in frame, moves in as "
+            "the mover parks the pipetting head and picks the gripper back up, pulls "
+            "back to catch the plate leaving the dispense stage, and settles as it "
+            "lands on the mixer.  It ends on mix_place_clear, with the plate down and "
+            "the jaws away."
         ),
         "keys": (
-            (499, (760, -2000, 1700), (-500, 20, 1250), 34),
-            (552, (900, -1460, 1560), (-320, 40, 1275), 42),
-            (600, (940, -1120, 1480), (300, 45, 1265), 50),
-            (634, (420, -1700, 1620), (-680, -20, 1215), 34),
-            (672, (560, -1500, 1520), (0, -45, 1230), 38),
+            (553, (1050, -1350, 1660), (-100, 60, 1310), 40),
+            (600, (900, -1180, 1500), (300, 45, 1270), 52),
+            (634, (520, -1620, 1600), (-680, -20, 1220), 36),
+            (655, (580, -1520, 1540), (-260, -45, 1250), 40),
+            (672, (600, -1420, 1500), (0, -45, 1230), 44),
         ),
     },
     {
-        "name": "mix-and-cross",
+        "name": "mix-and-seal",
         "start": 673,
-        "end": 800,
+        "end": 826,
         "note": (
             "Tight on the Heater-Shaker from the left through the clamp close and the "
             "orbit, arcing right as it runs, then travelling one station along with "
-            "the plate and settling on the reader as the mover goes for its door."
+            "the plate, watching it seated in the reader and the mover fetch the door "
+            "off its caddy and lower it home.  It ends on door_close_clear, with the "
+            "reader sealed and the jaws off it."
         ),
         "keys": (
-            (673, (-700, -880, 1400), (0, -50, 1235), 66),
-            (714, (-520, -930, 1390), (0, -50, 1235), 66),
-            (760, (0, -1080, 1450), (600, -45, 1245), 48),
-            (800, (100, -900, 1420), (760, -30, 1235), 58),
+            (673, (-760, -900, 1420), (0, -50, 1235), 66),
+            (678, (-720, -910, 1415), (0, -50, 1235), 66),
+            (714, (-380, -980, 1370), (0, -50, 1235), 66),
+            (741, (-120, -1020, 1400), (60, -50, 1240), 56),
+            (762, (280, -1150, 1470), (700, -45, 1250), 46),
+            (795, (760, -1160, 1500), (860, 30, 1290), 46),
+            (826, (1180, -1180, 1420), (820, -40, 1215), 62),
         ),
     },
     {
         "name": "read-and-out",
-        "start": 801,
+        "start": 827,
         "end": 960,
         "note": (
-            "The closing take, from the right.  Wide while the door crosses between "
-            "the two reader rows, in to the longest lens in the film while the reader "
-            "indicates, out again as the plate is picked and carried to the output "
-            "hotel, then a rise and a pull back to the closing wide."
+            "The closing take, round on the other side of the aisle.  It opens wide "
+            "from the left while the reader indicates through the plate read, pushes "
+            "in on the sealed reader, then pulls out and travels right with the plate "
+            "as the door comes off and the finished sample is carried to the output "
+            "hotel, ending on a rise and a pull back to the closing wide."
         ),
         "keys": (
-            (801, (2100, -3000, 2100), (850, -20, 1255), 38),
-            (848, (1700, -1200, 1560), (800, -40, 1230), 62),
-            (892, (1500, -1750, 1660), (900, -35, 1250), 46),
-            (927, (1100, -2450, 1800), (1300, -40, 1270), 42),
+            (827, (-100, -2000, 1600), (620, -40, 1240), 44),
+            (848, (420, -1700, 1560), (760, -40, 1250), 52),
+            (892, (980, -1620, 1620), (900, -30, 1250), 46),
+            (927, (900, -2500, 1820), (1180, -40, 1270), 40),
             (960, (400, -4150, 2320), (0, 60, 1330), 28),
         ),
     },
@@ -6167,15 +6225,87 @@ def cut_metrics(before: CameraKey, after: CameraKey) -> dict[str, object]:
     }
 
 
+def beat_spans() -> tuple[tuple[str, int, int], ...]:
+    """Every beat as ``(name, first frame it occupies, frame it completes on)``.
+
+    ``_BEATS`` stores gaps, so a beat named at frame *f* with a gap of *n* runs
+    over frames ``f - n + 1 .. f``.  Everything about cut motivation is read off
+    these spans rather than off frame numbers written down somewhere, so
+    re-timing the workflow moves the rules with it.
+    """
+    spans: list[tuple[str, int, int]] = []
+    previous = 0
+    for name, gap in _BEATS:
+        spans.append((name, previous + 1, previous + gap))
+        previous += gap
+    return tuple(spans)
+
+
+def beat_completions() -> dict[int, str]:
+    """The frames a cut may land on: where an operation actually finishes.
+
+    A beat finishes something when its last name word says so - see
+    ``BEAT_COMPLETION_WORDS``.  Every other beat is a step inside an operation,
+    and a cut on one of those is the jump cut this edit exists to avoid.
+    """
+    completions: dict[int, str] = {}
+    for name, _first, last in beat_spans():
+        if name.rsplit("_", 1)[-1] in BEAT_COMPLETION_WORDS:
+            completions[last] = name
+    return completions
+
+
+def sustained_beats() -> tuple[tuple[str, int, int], ...]:
+    """The beats the machine spends a real length of time inside."""
+    return tuple(
+        (name, first, last)
+        for name, first, last in beat_spans()
+        if last - first + 1 >= SUSTAINED_BEAT_FRAMES
+    )
+
+
+def beat_covering(frame: int) -> str:
+    """The beat a frame falls in, which is how a bad cut gets named in the error."""
+    for name, first, last in beat_spans():
+        if first <= frame <= last:
+            return name
+    return "outside the timeline"
+
+
+def camera_state_at(frame: int) -> tuple[tuple[float, float, float], float] | None:
+    """Authored eye and lens at a frame, interpolated between the keys around it.
+
+    Straight lines between keys rather than the built bezier: this is asked only
+    whether the camera is going anywhere across a sustained beat, and a bezier
+    that passes through the same keys cannot answer that differently.
+    """
+    for shot in CAMERA_SHOTS:
+        if not shot["start"] <= frame <= shot["end"]:
+            continue
+        keys = shot["keys"]
+        for before, after in zip(keys, keys[1:]):
+            if before[0] <= frame <= after[0]:
+                span = after[0] - before[0]
+                ratio = 0.0 if span == 0 else (frame - before[0]) / span
+                eye = tuple(a + (b - a) * ratio for a, b in zip(before[1], after[1]))
+                lens = before[3] + (after[3] - before[3]) * ratio
+                return eye, lens  # type: ignore[return-value]
+        return keys[-1][1], keys[-1][3]
+    return None
+
+
 def validate_camera_shots() -> dict[str, object]:
-    """Refuse to build an edit that breaks the two standards it claims to meet.
+    """Refuse to build an edit that breaks the three standards it claims to meet.
 
     This runs before anything is built, because a shot list that does not tile
-    the timeline, or that cuts every three seconds, is a defect in the edit and
-    not something to discover at the end of a forty-minute render.
+    the timeline, that cuts every three seconds, or that cuts in the middle of a
+    dispense, is a defect in the edit and not something to discover at the end
+    of a forty-minute render.
     """
     failures: list[str] = []
     shots: list[dict[str, object]] = []
+    completions = beat_completions()
+    sustained = sustained_beats()
     seconds_total = 0.0
     expected_start = 1
     for index, shot in enumerate(CAMERA_SHOTS):
@@ -6190,11 +6320,32 @@ def validate_camera_shots() -> dict[str, object]:
         expected_start = end + 1
         seconds = (end - start + 1) / FPS
         seconds_total += seconds
-        if not SHOT_MIN_SECONDS <= seconds <= SHOT_MAX_SECONDS:
-            failures.append(
-                f"{name}: {seconds:.2f} s is outside the "
-                f"{SHOT_MIN_SECONDS:.0f}-{SHOT_MAX_SECONDS:.0f} s band"
-            )
+        # The floor has no exceptions.  The ceiling has exactly one: a take may
+        # run long when no completion inside it could have carried a cut without
+        # putting one of the two halves under the floor.  That is checked by
+        # trying every legal frame, so "there was nowhere to cut" is a measured
+        # claim rather than an authoring note.
+        held_for: str | None = None
+        if seconds < SHOT_MIN_SECONDS:
+            failures.append(f"{name}: {seconds:.2f} s is under the {SHOT_MIN_SECONDS:.0f} s floor")
+        elif seconds > SHOT_MAX_SECONDS:
+            splits = [
+                frame
+                for frame in sorted(completions)
+                if start < frame < end
+                and (frame - start + 1) / FPS >= SHOT_MIN_SECONDS
+                and (end - frame) / FPS >= SHOT_MIN_SECONDS
+            ]
+            if splits:
+                failures.append(
+                    f"{name}: {seconds:.2f} s is over the {SHOT_MAX_SECONDS:.0f} s ceiling and "
+                    f"could have been cut on {completions[splits[0]]} at frame {splits[0]}"
+                )
+            else:
+                held_for = (
+                    f"no completion between frames {start} and {end} splits it into two "
+                    f"takes of at least {SHOT_MIN_SECONDS:.0f} s"
+                )
         frames = [key[0] for key in keys]
         if len(frames) < 2:
             failures.append(f"{name}: a shot needs at least two keys, it has {len(frames)}")
@@ -6212,20 +6363,21 @@ def validate_camera_shots() -> dict[str, object]:
                 failures.append(f"{name} frame {frame}: lens {lens} is not a focal length")
         opens_on = frame_width(keys[0][1], keys[0][2], keys[0][3])
         ends_on = frame_width(keys[-1][1], keys[-1][2], keys[-1][3])
-        shots.append(
-            {
-                "index": index,
-                "name": name,
-                "start": start,
-                "end": end,
-                "frames": end - start + 1,
-                "seconds": round(seconds, 2),
-                "opensOn": shot_size(opens_on)[1],
-                "endsOn": shot_size(ends_on)[1],
-                "lensRange": [min(key[3] for key in keys), max(key[3] for key in keys)],
-                "note": shot["note"],
-            }
-        )
+        entry: dict[str, object] = {
+            "index": index,
+            "name": name,
+            "start": start,
+            "end": end,
+            "frames": end - start + 1,
+            "seconds": round(seconds, 2),
+            "opensOn": shot_size(opens_on)[1],
+            "endsOn": shot_size(ends_on)[1],
+            "lensRange": [min(key[3] for key in keys), max(key[3] for key in keys)],
+            "note": shot["note"],
+        }
+        if held_for is not None:
+            entry["overCeilingBecause"] = held_for
+        shots.append(entry)
     if expected_start != FRAME_END + 1:
         failures.append(f"The shot list ends at frame {expected_start - 1}, not {FRAME_END}")
 
@@ -6234,13 +6386,30 @@ def validate_camera_shots() -> dict[str, object]:
         metrics = cut_metrics(before["keys"][-1], after["keys"][0])
         metrics["from"] = before["name"]
         metrics["to"] = after["name"]
-        metrics["frame"] = before["end"]
+        frame = before["end"]
+        metrics["frame"] = frame
+        # Motivation first.  A cut that is not on a completion is refused
+        # however well it is framed, and the error names the operation it
+        # would have interrupted.
+        beat = completions.get(frame)
+        metrics["beat"] = beat
+        if beat is None:
+            failures.append(
+                f"cut {before['name']} -> {after['name']}: frame {frame} is not the frame "
+                f"any operation completes on; it lands inside {beat_covering(frame)}"
+            )
+        for held, first, last in sustained:
+            if first <= frame < last:
+                failures.append(
+                    f"cut {before['name']} -> {after['name']}: frame {frame} is inside "
+                    f"{held}, which runs {first}-{last}"
+                )
         steps = int(metrics["sizeSteps"])  # type: ignore[call-overload]
         lens_change = float(metrics["lensChange"])  # type: ignore[arg-type]
         angle = float(metrics["angle"])  # type: ignore[arg-type]
         framing_ok = steps >= CUT_MIN_SIZE_STEPS or lens_change >= CUT_MIN_LENS_CHANGE_MM
         angle_ok = angle >= CUT_MIN_ANGLE_DEGREES
-        metrics["passed"] = angle_ok and framing_ok
+        metrics["passed"] = angle_ok and framing_ok and beat is not None
         cuts.append(metrics)
         if not angle_ok:
             failures.append(
@@ -6254,9 +6423,46 @@ def validate_camera_shots() -> dict[str, object]:
                 f"nor {CUT_MIN_LENS_CHANGE_MM:.0f} mm"
             )
 
+    # A sustained beat the camera sits still through is dead air, whatever the
+    # cutting does.  Measure the authored move across each one.
+    holds: list[dict[str, object]] = []
+    for held, first, last in sustained:
+        owner = next((shot for shot in CAMERA_SHOTS if shot["start"] <= last <= shot["end"]), None)
+        if owner is None:
+            failures.append(f"{held}: frame {last} is not inside any shot")
+            continue
+        opened = camera_state_at(max(first, owner["start"]))
+        closed = camera_state_at(last)
+        if opened is None or closed is None:
+            failures.append(f"{held}: no authored camera state over frames {first}-{last}")
+            continue
+        travel = math.dist(opened[0], closed[0])
+        lens_change = abs(closed[1] - opened[1])
+        moved = travel >= SUSTAINED_MIN_EYE_TRAVEL_MM or lens_change >= SUSTAINED_MIN_LENS_CHANGE_MM
+        holds.append(
+            {
+                "beat": held,
+                "start": first,
+                "end": last,
+                "frames": last - first + 1,
+                "shot": owner["name"],
+                "eyeTravel": round(travel),
+                "lensChange": round(lens_change, 1),
+                "passed": moved,
+            }
+        )
+        if not moved:
+            failures.append(
+                f"{held}: the camera travels {travel:.0f} mm and changes "
+                f"{lens_change:.1f} mm of lens over its {last - first + 1} frames, which "
+                f"is a held frame rather than a move"
+            )
+
     report: dict[str, object] = {
         "shots": shots,
         "cuts": cuts,
+        "sustained": holds,
+        "cutFramesAvailable": len(completions),
         "meanSeconds": round(seconds_total / len(CAMERA_SHOTS), 2),
     }
     if failures:

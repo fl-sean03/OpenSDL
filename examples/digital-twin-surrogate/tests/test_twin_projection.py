@@ -35,5 +35,5 @@ def test_failed_operation_does_not_play_success_motion() -> None:
         ("started", "highlight"),
         ("failed", "highlight"),
     ]
-    assert cues[-1].target == "dispenser-head"
+    assert cues[-1].target == "pipette-head"
     assert cues[-1].parameters == {"active": True, "tone": "red", "status": "failed"}

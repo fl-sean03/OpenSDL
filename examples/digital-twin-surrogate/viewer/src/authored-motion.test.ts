@@ -9,9 +9,9 @@ const timeline: AnimationTimeline = {
   frameEnd: 960,
   bindings: [
     {
-      id: "input-to-dispenser",
+      id: "input-to-dispense",
       action: "transfer",
-      parameterMatch: { source: "input", destination: "dispenser" },
+      parameterMatch: { source: "input", destination: "dispense" },
       frameStart: 1,
       frameEnd: 160,
     },
@@ -48,13 +48,13 @@ describe("authored animation bindings", () => {
         timeline,
         cue("transfer", {
           source: "input",
-          destination: "dispenser",
+          destination: "dispense",
           labware: "plate-1",
         }),
       )?.id,
-    ).toBe("input-to-dispenser");
+    ).toBe("input-to-dispense");
     expect(
-      bindingForCue(timeline, cue("transfer", { source: "input", destination: "characterizer" })),
+      bindingForCue(timeline, cue("transfer", { source: "input", destination: "characterize" })),
     ).toBeUndefined();
   });
 

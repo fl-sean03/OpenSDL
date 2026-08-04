@@ -15,7 +15,7 @@ bulk reagent supply, the waste column, and the rack running the campaign with it
 display. Material crosses the boundary at exactly one interlocked load and unload port. Nothing is
 enclosed, so every stage of the workflow can be seen while it runs. Each machine is a full-scale,
 original reconstruction that uses published dimensions and operating behavior for the gripper,
-8-channel pipette, plate hotels, Heater-Shaker, plate reader, and labware. It includes no
+8-channel pipette, plate hotels, orbital mixer, absorbance reader, and labware. It includes no
 manufacturer CAD, product images, textures, logos, or copied meshes. See
 [scene/SOURCES.md](scene/SOURCES.md) for provenance.
 
@@ -27,19 +27,25 @@ its own repository.
 
 The adapter-neutral workflow uses four semantic capabilities:
 
-1. `cell.transfer_labware` moves the plate from input to dispensing.
+1. `cell.transfer_labware` moves the plate from `input` to `dispense`.
 2. `cell.dispense` adds 40 µL of reagent A and 60 µL of reagent B to each of 96 wells.
-3. `cell.transfer_labware` moves the plate to mixing.
+3. `cell.transfer_labware` moves the plate to `mix`.
 4. `cell.mix` applies the declared 800 rpm, 20-second operation.
-5. `cell.transfer_labware` moves the plate to characterization.
+5. `cell.transfer_labware` moves the plate to `characterize`.
 6. `cell.characterize` returns a deterministic normalized response.
-7. `cell.transfer_labware` moves the plate to output.
+7. `cell.transfer_labware` moves the plate to `output`.
 
-The 40-second scene animation expands those tasks into visible equipment actions. The input hotel's
-shuttle presents a plate at the front of its station, the gripper carries it along the bridge, and
-the 8-channel head illustrates two pipetting passes. The Heater-Shaker uses a 2 mm-diameter orbital
-translation with no plate yaw. The gripper moves the reader lid between the reader and the lid caddy
-behind it, then sends the plate to the output hotel.
+The 40-second scene animation expands those tasks into visible equipment actions. There is one
+mover on the bridge and two interchangeable heads. The input hotel's shuttle presents a plate at the
+front of its station and the mover, wearing the gripper head, carries it to the dispensing stage. It
+then parks the gripper head in `HeadDock_Gripper`, couples the pipetting head out of
+`HeadDock_Pipette`, and runs two 8-channel pipetting passes; the reverse change puts the gripper
+back on for everything after. The mixer uses a 2 mm-diameter orbital translation with no plate yaw.
+The gripper head moves the reader door between the reader and its dock behind it, then sends the
+plate to the output hotel.
+
+The two head changes occupy frames 150-208 and 552-612. They are the only frames no workflow phase
+covers, because a head change is the cell's own housekeeping rather than a commanded operation.
 
 The animation timing illustrates the sequence. It does not reproduce device cycle times.
 
@@ -62,11 +68,16 @@ bolted to a bench.
 
 | Station | X offset | Slots |
 |---|---|---|
-| 01 Input hotel | -1.56 m | `input-tower` (magazine), `input-handoff` (shuttle presentation) |
-| 02 Liquid handling | -0.78 m | `reservoir`, `tips`, `tip-waste` (rear row), `stage` (front row) |
-| 03 Heater-Shaker | 0.00 m | `shaker` |
-| 04 Absorbance read | +0.78 m | `reader` (front row), `lid-dock` (rear row) |
-| 05 Output hotel | +1.56 m | `output-tower` (magazine), `output-handoff` (shuttle presentation) |
+| `Station_Input` | -1.56 m | `input-hotel` (magazine), `input-handoff` (shuttle presentation) |
+| `Station_Dispense` | -0.78 m | `reservoir`, `tips`, `tip-waste` (rear row), `stage` (front row) |
+| `Station_Mix` | 0.00 m | `mixer` |
+| `Station_Characterize` | +0.78 m | `reader` (front row), `door-dock` (rear row) |
+| `Station_Output` | +1.56 m | `output-hotel` (magazine), `output-handoff` (shuttle presentation) |
+
+The two head docks stand on the rear row of the deck between the stations, `HeadDock_Pipette` at
+-0.30 m and `HeadDock_Gripper` at +0.30 m. Their order is load-bearing: each dock sits on the far
+side of the machine from the work the other head does, so a coupled head never travels over the
+other head waiting in its cradle.
 
 The three in-line process stations are positions on one 2.32 m hard-anodised tooling plate on an M6
 fixing grid, not three machines on three pedestals. The two hotels stand outside that plate on the

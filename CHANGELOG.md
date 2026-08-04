@@ -54,8 +54,34 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   display shows the campaign as state — a parameter space converging, a flattening residual, the last
   measured responses. The human layer is gone apart from one interlocked load port. Slot identifiers
   are named for their role rather than borrowed from a vendor deck grid, and the build emits a named
-  camera rig with per-pose hide lists, so stills and the animation frame the work deliberately
-  instead of auto-framing;
+  camera rig with per-pose hide lists, so stills frame the work deliberately instead of auto-framing;
+- the animation held one fixed wide pose for all 960 frames, so no component was ever seen closely
+  and nothing read as active. It is now a six-shot edit averaging 6.7 seconds, cut to the standards
+  the form actually uses: shots sit inside the 5–8 second band architectural visualisation works to,
+  and every cut changes the camera angle about the subject by more than the 30 degrees that separates
+  a cut from a jump cut, as well as changing framing by at least two size steps. Those figures are
+  computed by the build and printed, and `validate_camera_shots` refuses to build a list that misses
+  the band, the angle or the framing change, so pacing cannot regress quietly. The camera aims
+  through a constraint on an animated target rather than keyframed Euler rotation, which cannot flip
+  on an arcing move. Cameras are excluded from the export, so the edit does not touch the scene
+  digest; and
+- EEVEE was silently dropping shadow maps. Twenty area lights over a 2300-node scene overflow the
+  default shadow pool on the close shots, and the only symptom is a line on stderr, so a render can
+  look finished and be wrong. Raising the pool took a full pass from 5568 overflow reports to none;
+- the reference cell drove two independent carriages along one rail, which is a collision hazard and
+  forced every spatial check to keep testing the two against each other. There is now a single mover
+  carrying interchangeable heads: a gripper and a pipetting head that couple to it and rest in docks
+  when idle, with two head changes in the sequence. A coupled head's pose is written from the mover's,
+  so a head cannot move under its own power, and a new invariant asserts that at every frame each head
+  is either coupled or docked — never both, never neither — with no two heads coupled at once;
+- the scene used four different words for the reader station: the anchor called it `characterize`, the
+  node called it `Colorimeter`, the entity called it `plate-reader`, and the capability driving it is
+  `cell-characterize`. Hardware vocabulary is now defined once and applied throughout — cell, mover,
+  head, dock, station, slot, hotel, carrier, anchor — with stations and anchors taking the capability
+  verb, and the table is published in the scene README rather than left implied. Renaming the anchors
+  reached further than the scene, because an anchor identifier is also a transfer cue's source and
+  destination: the workflow, the transfer capability's location enum, and the example adapter moved
+  with it, or the viewer could not have resolved a transfer;
 - the gripper jaws had no geometry connecting them to the wrist, so they read as floating bars even
   though they tracked the carriage exactly and gripped the plate correctly. There is now a
   continuous actuator, cross-rail, finger-carrier and paddle chain, and a jaw-mechanism invariant

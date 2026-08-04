@@ -32,7 +32,7 @@ async def _run_cell_cycle(adapter: CellSurrogateAdapter) -> list[dict[str, objec
             inputs={
                 "labware_id": INPUTS["labware_id"],
                 "source": "input",
-                "destination": "dispenser",
+                "destination": "dispense",
             },
         ),
         ExecutionRequest(
@@ -46,8 +46,8 @@ async def _run_cell_cycle(adapter: CellSurrogateAdapter) -> list[dict[str, objec
             capability_id="cell.transfer_labware",
             inputs={
                 "labware_id": INPUTS["labware_id"],
-                "source": "dispenser",
-                "destination": "mixer",
+                "source": "dispense",
+                "destination": "mix",
             },
         ),
         ExecutionRequest(
@@ -62,8 +62,8 @@ async def _run_cell_cycle(adapter: CellSurrogateAdapter) -> list[dict[str, objec
             capability_id="cell.transfer_labware",
             inputs={
                 "labware_id": INPUTS["labware_id"],
-                "source": "mixer",
-                "destination": "characterizer",
+                "source": "mix",
+                "destination": "characterize",
             },
         ),
         ExecutionRequest(
@@ -77,7 +77,7 @@ async def _run_cell_cycle(adapter: CellSurrogateAdapter) -> list[dict[str, objec
             capability_id="cell.transfer_labware",
             inputs={
                 "labware_id": INPUTS["labware_id"],
-                "source": "characterizer",
+                "source": "characterize",
                 "destination": "output",
             },
         ),
@@ -115,24 +115,24 @@ async def test_state_transition_failure_does_not_advance_revision() -> None:
     await adapter.execute(
         ExecutionRequest(
             capability_id="cell.transfer_labware",
-            inputs={"labware_id": "plate-1", "source": "input", "destination": "dispenser"},
+            inputs={"labware_id": "plate-1", "source": "input", "destination": "dispense"},
         )
     )
 
-    with pytest.raises(ValueError, match="not requested source mixer"):
+    with pytest.raises(ValueError, match="not requested source mix"):
         await adapter.execute(
             ExecutionRequest(
                 capability_id="cell.transfer_labware",
                 inputs={
                     "labware_id": "plate-1",
-                    "source": "mixer",
+                    "source": "mix",
                     "destination": "output",
                 },
             )
         )
 
     assert adapter.snapshot()["revision"] == 1
-    assert adapter.snapshot()["labware"]["plate-1"]["location"] == "dispenser"
+    assert adapter.snapshot()["labware"]["plate-1"]["location"] == "dispense"
 
 
 @pytest.mark.asyncio
@@ -177,7 +177,7 @@ async def test_fake_physical_adapter_has_semantic_and_output_parity() -> None:
 
     request = ExecutionRequest(
         capability_id="cell.transfer_labware",
-        inputs={"labware_id": "metadata-plate", "source": "input", "destination": "dispenser"},
+        inputs={"labware_id": "metadata-plate", "source": "input", "destination": "dispense"},
     )
     surrogate_result = await CellSurrogateAdapter(CONFIG).execute(request)
     physical_result = await FakePhysicalCellAdapter(CONFIG).execute(request)

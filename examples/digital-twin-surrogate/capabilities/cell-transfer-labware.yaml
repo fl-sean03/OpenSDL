@@ -12,10 +12,10 @@ input_schema:
       minLength: 1
     source:
       type: string
-      enum: [input, dispenser, mixer, characterizer, output]
+      enum: [input, dispense, mix, characterize, output]
     destination:
       type: string
-      enum: [input, dispenser, mixer, characterizer, output]
+      enum: [input, dispense, mix, characterize, output]
   additionalProperties: false
 output_schema:
   type: object
@@ -26,10 +26,10 @@ output_schema:
       minLength: 1
     source:
       type: string
-      enum: [input, dispenser, mixer, characterizer, output]
+      enum: [input, dispense, mix, characterize, output]
     destination:
       type: string
-      enum: [input, dispenser, mixer, characterizer, output]
+      enum: [input, dispense, mix, characterize, output]
   additionalProperties: false
 risk_class: R1
 required_resources: [cell-transport]

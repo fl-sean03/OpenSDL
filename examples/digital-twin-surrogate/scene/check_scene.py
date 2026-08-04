@@ -2,32 +2,41 @@
 
 ``validate_motion`` in ``build_scene.py`` checks scalars: deck pitch, object
 counts, keyframe values, orbit radius.  A scalar check cannot see a plate that
-slides out of the gripper, jaws that close on empty air, or a carriage that
-travels through the bench it is supposed to work over, because none of those
-facts belong to a single object.  This module checks relationships between
-bodies.
+slides out of the gripper, jaws that close on empty air, a head hanging in
+mid-air beside its dock, or a mover that travels through the bench it is
+supposed to work over, because none of those facts belong to a single object.
+This module checks relationships between bodies.
 
 Invariant A - carry rigidity
     Whenever a payload moves it moves rigidly with the body carrying it.  The
-    supports are the gripper carriage, the shaker rotor, and the two hotel
+    supports are the gripper head, the shaker rotor, and the two hotel
     shuttles; nothing else in the cell can move labware.
 
 Invariant B - grip contact
     Whenever the jaws hold a closed grip width, the jaw assemblies bracket that
     payload with no gap larger than ``GRIP_SEPARATION`` on any axis, and the
-    payload never rides the carriage with the jaws open.
+    payload never rides the gripper head with the jaws open.
 
 Invariant C - interpenetration
     No moving assembly pushes into a fixed assembly deeper than the contact
     margin, except for the documented contacts in ``ALLOWED_CONTACTS``.
 
 Invariant D - gripper mechanism continuity
-    Every jaw reaches the carriage through an unbroken mechanism: paddle to
-    finger to carrier to cross-rail.  Each link stays in contact at every
+    Every jaw reaches the head's collar through an unbroken mechanism: paddle
+    to finger to carrier to cross-rail.  Each link stays in contact at every
     frame and therefore at every authored jaw width, and neither carrier ever
     runs off the end of the rail it rides.  A jaw can be parented perfectly and
-    track its carriage exactly while still reading as a bar floating in space,
+    track its head exactly while still reading as a bar floating in space,
     because nothing spans the gap; only this check sees that.
+
+Invariant E - head ownership
+    There is one mover.  Every head is at every frame either coupled to
+    ``MoverCoupler`` or resting in its own dock, never both and never neither;
+    it moves only while coupled, and only with the mover's own displacement;
+    and no two heads are ever coupled on the same frame.  An earlier scene ran
+    two independently driven carriages on one bridge, and every scalar check
+    passed, because neither carriage was ever wrong about its own pose.  This
+    is the check that refuses that shape.
 
 Run standalone against a built file::
 
@@ -51,6 +60,12 @@ import bpy
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
+# The authored timeline lives in build_scene.  Importing it here rather than
+# repeating frame numbers is what keeps a re-timed animation from silently
+# invalidating every window below.  build_scene imports this module inside a
+# function, so the dependency runs one way at module level.
+from build_scene import BEAT, HEAD_DOCK_X, HEAD_DOCK_Y, HEAD_DOCK_Z
+
 
 # Motion thresholds.  A payload counts as moving above MOVE_EPSILON, and a
 # rigid carry may not drift from its support by more than RIGID_TOLERANCE.
@@ -71,15 +86,27 @@ JAW_LID_CLOSED = 0.0855
 JAW_STATE_TOLERANCE = 1e-4
 
 PLATE = "SampleCarrier"
-READER_LID = "ColorimeterDoor"
-CARRIAGE = "RobotCarriage"
+READER_DOOR = "CharacterizerDoor"
+MOVER = "Mover"
+COUPLER = "MoverCoupler"
+GRIPPER_HEAD = "GripperHead"
+PIPETTE_HEAD = "PipetteHead"
 JAW_LEFT = "GripperJawLeft"
 JAW_RIGHT = "GripperJawRight"
 
-# Every body in the cell that can move labware.
-SUPPORTS = (CARRIAGE, "MixerRotor", "InputStacker_Shuttle", "OutputStacker_Shuttle")
+# Interchangeable tooling, and the dock each head waits in when it is not on
+# the mover.  There is one entry per head and one dock per entry, which is the
+# whole shape of the claim this file exists to defend.
+HEAD_DOCKS: dict[str, str] = {
+    GRIPPER_HEAD: "HeadDock_Gripper",
+    PIPETTE_HEAD: "HeadDock_Pipette",
+}
 
-MOVERS = (PLATE, CARRIAGE, JAW_LEFT, JAW_RIGHT, "DispenserHead")
+# Every body in the cell that can move labware.  Only the gripper head can, and
+# only while it is coupled; the mover itself never touches labware.
+SUPPORTS = (GRIPPER_HEAD, "MixerRotor", "Hotel_Input_Shuttle", "Hotel_Output_Shuttle")
+
+MOVERS = (PLATE, MOVER, GRIPPER_HEAD, PIPETTE_HEAD, JAW_LEFT, JAW_RIGHT)
 # The line is open, so there is no enclosure to test against.  What a mover can
 # run into instead is the machine frame it is built into, the process deck, the
 # service assemblies packed under that deck, the runway that carries it, and the
@@ -94,19 +121,20 @@ STATICS = (
     "WasteColumn",
     "TransferPort",
     "MachineServices",
-    "GantryPortal",
-    "Station_input",
-    "Station_dispenser",
-    "Station_mixer",
-    "Station_characterizer",
-    "Station_output",
-    "HeaterShaker",
-    "ColorimeterHousing",
-    "ReaderLidCaddy",
-    "InputStacker",
-    "OutputStacker",
+    "MoverRail",
+    "Station_Input",
+    "Station_Dispense",
+    "Station_Mix",
+    "Station_Characterize",
+    "Station_Output",
+    "MixerModule",
+    "CharacterizerHousing",
+    "CharacterizerDoorDock",
+    "Hotel_Input",
+    "Hotel_Output",
     "TipRack",
     "ReagentReservoir",
+    *HEAD_DOCKS.values(),
 )
 
 # Invariant D.  Each side of the gripper is a chain of bodies from the paddle
@@ -138,9 +166,9 @@ ABSENT_SCALE = 0.05
 # between other bodies of the same two assemblies, still fails.
 ALLOWED_CONTACTS: tuple[dict[str, object], ...] = (
     {
-        "mover": "DispenserHead",
+        "mover": "PipetteHead",
         "static": "TipRack",
-        "frames": (164, 186),
+        "frames": (BEAT["tips_a_down"] - 6, BEAT["tips_a_up"] + 2),
         "bodies": (("PipetteNozzle_*", "RackTip_*"), ("AttachedTip_*", "RackTip_*")),
         "reason": (
             "Mounting a disposable tip puts the nozzle inside the tip bore, and the "
@@ -149,16 +177,16 @@ ALLOWED_CONTACTS: tuple[dict[str, object], ...] = (
         ),
     },
     {
-        "mover": "DispenserHead",
+        "mover": "PipetteHead",
         "static": "TipRack",
-        "frames": (342, 360),
+        "frames": (BEAT["tips_b_down"] - 6, BEAT["tips_b_up"] + 2),
         "bodies": (("PipetteNozzle_*", "RackTip_*"), ("AttachedTip_*", "RackTip_*")),
         "reason": "Second tip pickup; same nozzle-in-tip contact as the first.",
     },
     {
         "mover": PLATE,
-        "static": "InputStacker",
-        "frames": (1, 110),
+        "static": "Hotel_Input",
+        "frames": (1, BEAT["plate_lift"] + 4),
         "reason": (
             "The input plate starts inside the storage tower and rides the shuttle out "
             "through it.  The tower is modelled as a closed shell standing in for a "
@@ -168,8 +196,8 @@ ALLOWED_CONTACTS: tuple[dict[str, object], ...] = (
     },
     {
         "mover": PLATE,
-        "static": "OutputStacker",
-        "frames": (900, 960),
+        "static": "Hotel_Output",
+        "frames": (BEAT["out_place_release"], BEAT["cycle_end"]),
         "reason": (
             "The finished plate rides the output shuttle back into the storage tower. "
             "Same closed-shell simplification as the input tower."
@@ -379,7 +407,7 @@ def _carry_rigidity(
     scene: bpy.types.Scene, frames: Sequence[int]
 ) -> tuple[list[dict[str, object]], dict[str, list[int]]]:
     """Invariant A.  Sample every frame and attribute every payload move."""
-    payloads = {PLATE: _object(PLATE), READER_LID: _object(READER_LID)}
+    payloads = {PLATE: _object(PLATE), READER_DOOR: _object(READER_DOOR)}
     supports = {name: _object(name) for name in SUPPORTS}
     tracked = {**payloads, **supports}
     samples: dict[str, list[Vector]] = {name: [] for name in tracked}
@@ -389,7 +417,7 @@ def _carry_rigidity(
             samples[name].append(obj.matrix_world.translation.copy())
 
     checks: list[dict[str, object]] = []
-    ridden: dict[str, list[int]] = {PLATE: [], READER_LID: []}
+    ridden: dict[str, list[int]] = {PLATE: [], READER_DOOR: []}
     for payload in payloads:
         moving = 0
         unsupported = 0
@@ -420,18 +448,18 @@ def _carry_rigidity(
                 if residuals[best] > worst_gap:
                     worst_gap = residuals[best]
                     worst_frame = frame
-            elif best == CARRIAGE:
+            elif best == GRIPPER_HEAD:
                 ridden[payload].append(frame)
-                if residuals[CARRIAGE] > carriage_worst:
-                    carriage_worst = residuals[CARRIAGE]
+                if residuals[GRIPPER_HEAD] > carriage_worst:
+                    carriage_worst = residuals[GRIPPER_HEAD]
                     carriage_worst_frame = frame
-            # The measurement Sean reported: payload against the carriage with
-            # no notion of which body is carrying it.
-            if residuals[CARRIAGE] > RIGID_TOLERANCE:
+            # The naive measurement: payload against the gripper head with no
+            # notion of which body is carrying it.
+            if residuals[GRIPPER_HEAD] > RIGID_TOLERANCE:
                 naive_unfollowed += 1
-                naive_slip += residuals[CARRIAGE]
-                if residuals[CARRIAGE] > naive_worst:
-                    naive_worst = residuals[CARRIAGE]
+                naive_slip += residuals[GRIPPER_HEAD]
+                if residuals[GRIPPER_HEAD] > naive_worst:
+                    naive_worst = residuals[GRIPPER_HEAD]
                     naive_worst_frame = frame
         checks.append(
             {
@@ -443,17 +471,17 @@ def _carry_rigidity(
                     "unsupportedSample": unsupported_frames,
                     "worstSlipMm": _round(worst_gap * 1000.0),
                     "worstFrame": worst_frame,
-                    "carriageOnlySlipFrames": naive_unfollowed,
-                    "carriageOnlyWorstSlipMm": _round(naive_worst * 1000.0),
-                    "carriageOnlyWorstFrame": naive_worst_frame,
-                    "carriageOnlyTotalSlipMm": _round(naive_slip * 1000.0, 1),
+                    "gripperOnlySlipFrames": naive_unfollowed,
+                    "gripperOnlyWorstSlipMm": _round(naive_worst * 1000.0),
+                    "gripperOnlyWorstFrame": naive_worst_frame,
+                    "gripperOnlyTotalSlipMm": _round(naive_slip * 1000.0, 1),
                 },
                 "expected": {"unsupportedFrames": 0, "worstSlipMm": 0.0},
             }
         )
         checks.append(
             {
-                "name": f"{payload} rides the carriage without slip",
+                "name": f"{payload} rides the gripper head without slip",
                 "passed": bool(ridden[payload]) and carriage_worst <= RIGID_TOLERANCE,
                 "actual": {
                     "carriedFrames": len(ridden[payload]),
@@ -473,14 +501,14 @@ def _grip_contact(
     depsgraph = bpy.context.evaluated_depsgraph_get()
     left = _object(JAW_LEFT)
     right = _object(JAW_RIGHT)
-    payload_of = {"plate": _object(PLATE), "lid": _object(READER_LID)}
+    payload_of = {"plate": _object(PLATE), "lid": _object(READER_DOOR)}
     groups = {state: _group_members(obj) for state, obj in payload_of.items()}
     jaws = {"left": _group_members(left), "right": _group_members(right)}
 
     worst: dict[str, tuple[float, int]] = {state: (0.0, 0) for state in payload_of}
     held: dict[str, int] = {state: 0 for state in payload_of}
     straddle_failures: dict[str, int] = {state: 0 for state in payload_of}
-    open_carry: dict[str, list[int]] = {PLATE: [], READER_LID: []}
+    open_carry: dict[str, list[int]] = {PLATE: [], READER_DOOR: []}
     state_by_frame: dict[int, str] = {}
 
     for frame in frames:
@@ -507,13 +535,13 @@ def _grip_contact(
             if not outside:
                 straddle_failures[state] += 1
 
-    for payload, name in ((PLATE, "plate"), (READER_LID, "lid")):
+    for payload, name in ((PLATE, "plate"), (READER_DOOR, "lid")):
         for frame in ridden[payload]:
             if state_by_frame.get(frame) != name:
                 open_carry[payload].append(frame)
 
     checks: list[dict[str, object]] = []
-    for state, label in (("plate", PLATE), ("lid", READER_LID)):
+    for state, label in (("plate", PLATE), ("lid", READER_DOOR)):
         gap, frame = worst[state]
         checks.append(
             {
@@ -533,10 +561,10 @@ def _grip_contact(
                 },
             }
         )
-    for payload in (PLATE, READER_LID):
+    for payload in (PLATE, READER_DOOR):
         checks.append(
             {
-                "name": f"{payload} only rides the carriage in a closed grip",
+                "name": f"{payload} only rides the gripper head in a closed grip",
                 "passed": not open_carry[payload],
                 "actual": {
                     "carriedFrames": len(ridden[payload]),
@@ -623,6 +651,158 @@ def _jaw_mechanism(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[s
                 "expected": {"worstRailGapMm": 0.0, "worstOverrunMm": "<= 0"},
             }
         )
+    return checks
+
+
+def _head_coupling(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[str, object]]:
+    """Invariant E.  One mover, interchangeable heads, nothing floating.
+
+    A head is at every frame in exactly one of two states:
+
+    ``coupled``
+        its world bounds overlap ``MoverCoupler`` on all three axes, so the
+        changer's boss is inside the head and the mover is holding it; and
+
+    ``docked``
+        the coupler is not holding it, it stands at its own dock's authored
+        pose, and its bounds overlap that dock on all three axes, so the cradle
+        arms are under its collar.
+
+    The states are exclusive because a head the changer still holds is not
+    resting on anything, and they are exhaustive because there is nowhere else
+    for a head to be.  On top of that, a head may only move while coupled, and
+    its motion must equal the mover's, so no head has a drive of its own; and no
+    two heads may be coupled on the same frame, which is what makes this one
+    mover with interchangeable tooling rather than two carriages sharing a rail.
+
+    A version of this scene shipped with two independently driven carriages on
+    the same bridge.  Nothing in the scalar checks objected, because neither
+    carriage was ever wrong about its own pose.  This is the check that sees it.
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    mover = _object(MOVER)
+    coupler = _group_members(_object(COUPLER))
+    heads = {name: _object(name) for name in HEAD_DOCKS}
+    head_groups = {name: _group_members(obj) for name, obj in heads.items()}
+    dock_groups = {name: _group_members(_object(dock)) for name, dock in HEAD_DOCKS.items()}
+    dock_pose = {
+        name: Vector((HEAD_DOCK_X[name.removesuffix("Head")], HEAD_DOCK_Y, HEAD_DOCK_Z))
+        for name in HEAD_DOCKS
+    }
+
+    coupled_frames: dict[str, list[int]] = {name: [] for name in HEAD_DOCKS}
+    docked_frames: dict[str, int] = dict.fromkeys(HEAD_DOCKS, 0)
+    unsupported: dict[str, list[int]] = {name: [] for name in HEAD_DOCKS}
+    seat_error: dict[str, tuple[float, int]] = {name: (0.0, 0) for name in HEAD_DOCKS}
+    driven: dict[str, list[int]] = {name: [] for name in HEAD_DOCKS}
+    slip: dict[str, tuple[float, int]] = {name: (0.0, 0) for name in HEAD_DOCKS}
+    moving: dict[str, int] = dict.fromkeys(HEAD_DOCKS, 0)
+    shared: list[int] = []
+    previous: dict[str, Vector] = {}
+    previous_mover: Vector | None = None
+
+    for frame in frames:
+        scene.frame_set(frame)
+        depsgraph.update()
+        coupler_bounds = _world_bounds(coupler, depsgraph)
+        mover_position = mover.matrix_world.translation.copy()
+        live = 0
+        for name in HEAD_DOCKS:
+            head_bounds = _world_bounds(head_groups[name], depsgraph)
+            dock_bounds = _world_bounds(dock_groups[name], depsgraph)
+            if head_bounds is None or dock_bounds is None or coupler_bounds is None:
+                continue
+            is_coupled = _boxes_overlap(head_bounds, coupler_bounds, 0.0)
+            offset = (heads[name].matrix_world.translation - dock_pose[name]).length
+            is_seated = offset <= RIGID_TOLERANCE and _boxes_overlap(head_bounds, dock_bounds, 0.0)
+            if is_coupled:
+                live += 1
+                coupled_frames[name].append(frame)
+            elif is_seated:
+                docked_frames[name] += 1
+                if offset > seat_error[name][0]:
+                    seat_error[name] = (offset, frame)
+            elif len(unsupported[name]) < 12:
+                unsupported[name].append(frame)
+
+            position = heads[name].matrix_world.translation.copy()
+            if name in previous and previous_mover is not None:
+                delta = position - previous[name]
+                if delta.length > MOVE_EPSILON:
+                    moving[name] += 1
+                    residual = (delta - (mover_position - previous_mover)).length
+                    if not is_coupled or residual > RIGID_TOLERANCE:
+                        if len(driven[name]) < 12:
+                            driven[name].append(frame)
+                    if residual > slip[name][0]:
+                        slip[name] = (residual, frame)
+            previous[name] = position
+        if live > 1 and len(shared) < 12:
+            shared.append(frame)
+        previous_mover = mover_position
+
+    checks: list[dict[str, object]] = []
+    for name, dock in HEAD_DOCKS.items():
+        checks.append(
+            {
+                "name": f"{name} is coupled to the mover or resting in {dock}",
+                "passed": (
+                    not unsupported[name] and bool(coupled_frames[name]) and docked_frames[name] > 0
+                ),
+                "actual": {
+                    "coupledFrames": len(coupled_frames[name]),
+                    "dockedFrames": docked_frames[name],
+                    "unsupportedFrames": len(unsupported[name]),
+                    "unsupportedSample": unsupported[name],
+                    "worstSeatOffsetMm": _round(seat_error[name][0] * 1000.0, 3),
+                    "worstSeatFrame": seat_error[name][1],
+                },
+                "expected": {
+                    "unsupportedFrames": 0,
+                    "coupledFrames": "> 0",
+                    "dockedFrames": "> 0",
+                },
+            }
+        )
+        checks.append(
+            {
+                "name": f"{name} only moves while coupled to the mover",
+                "passed": not driven[name] and moving[name] > 0,
+                "actual": {
+                    "movingFrames": moving[name],
+                    "selfDrivenFrames": len(driven[name]),
+                    "selfDrivenSample": driven[name],
+                    "worstSlipMm": _round(slip[name][0] * 1000.0, 3),
+                    "worstFrame": slip[name][1],
+                },
+                "expected": {"selfDrivenFrames": 0, "movingFrames": "> 0"},
+            }
+        )
+    # Every unbroken run of coupled frames is one head sitting on the mover.
+    # Three runs across two heads is two changes: gripper, pipette, gripper.
+    runs = 0
+    for name in HEAD_DOCKS:
+        windows = coupled_frames[name]
+        if windows:
+            runs += 1 + sum(
+                1 for first, second in zip(windows, windows[1:], strict=False) if second - first > 1
+            )
+    changes = max(0, runs - 1)
+    checks.append(
+        {
+            "name": "one head is coupled to the mover at a time",
+            "passed": not shared and changes >= 2,
+            "actual": {
+                "framesWithTwoHeadsCoupled": len(shared),
+                "sampleFrames": shared,
+                "headChanges": changes,
+                "coupledFrames": {
+                    name: len(frames_for) for name, frames_for in coupled_frames.items()
+                },
+            },
+            "expected": {"framesWithTwoHeadsCoupled": 0, "headChanges": ">= 2"},
+        }
+    )
     return checks
 
 
@@ -739,6 +919,7 @@ def spatial_checks(*, step: int = 2, frame_end: int | None = None) -> list[dict[
     checks, ridden = _carry_rigidity(scene, every_frame)
     checks.extend(_grip_contact(scene, every_frame, ridden))
     checks.extend(_jaw_mechanism(scene, every_frame))
+    checks.extend(_head_coupling(scene, every_frame))
     checks.extend(_interpenetration(scene, sampled))
     scene.frame_set(original)
     return checks

@@ -39,7 +39,7 @@ function looseDefinition(): LooseDefinition {
 describe("API payload validation", () => {
   it("accepts the included definition and projection", () => {
     const definition = parseTwinDefinition(DEMO_DEFINITION);
-    expect(definition.entities).toHaveLength(7);
+    expect(definition.entities).toHaveLength(8);
     expect(definition.animationTimeline?.bindings).toHaveLength(7);
     expect(parseProjection(DEMO_PROJECTION).cues).toHaveLength(20);
   });
@@ -161,11 +161,11 @@ describe("API payload validation", () => {
         id: "dispense-started",
         match: { eventType: "TaskStarted", capability: "cell.dispense", phase: "started" },
         action: "highlight",
-        target: "dispenser-head",
+        target: "pipette-head",
       },
     ];
 
-    expect(parseTwinDefinition(definition).entities).toHaveLength(7);
+    expect(parseTwinDefinition(definition).entities).toHaveLength(8);
   });
 
   it("accepts an omitted anchors list as the empty default the contract declares", () => {

@@ -19,7 +19,7 @@ from opensdl_core import (
 
 
 _LABWARE_ID = {"type": "string", "minLength": 1}
-_LOCATIONS = ("input", "dispenser", "mixer", "characterizer", "output")
+_LOCATIONS = ("input", "dispense", "mix", "characterize", "output")
 _LOCATION = {"type": "string", "enum": list(_LOCATIONS)}
 _WELL_COUNT = 96
 _ADDITION = {
@@ -252,9 +252,9 @@ class CellSurrogateAdapter(CapabilityAdapter):
         if not isinstance(configured_stations, dict):
             raise TypeError("stations must be a mapping")
         defaults = {
-            "dispenser": "dispenser",
-            "mixer": "mixer",
-            "characterizer": "characterizer",
+            "dispense": "dispense",
+            "mix": "mix",
+            "characterize": "characterize",
         }
         self._stations = {
             key: str(configured_stations.get(key, default)) for key, default in defaults.items()
@@ -355,7 +355,7 @@ class CellSurrogateAdapter(CapabilityAdapter):
 
     def _dispense(self, inputs: dict[str, Any]) -> dict[str, Any]:
         labware_id = str(inputs["labware_id"])
-        state = self._require_location(labware_id, self._stations["dispenser"])
+        state = self._require_location(labware_id, self._stations["dispense"])
         additions = [
             {
                 "material_id": str(item["material_id"]),
@@ -388,7 +388,7 @@ class CellSurrogateAdapter(CapabilityAdapter):
 
     def _mix(self, inputs: dict[str, Any]) -> dict[str, Any]:
         labware_id = str(inputs["labware_id"])
-        state = self._require_location(labware_id, self._stations["mixer"])
+        state = self._require_location(labware_id, self._stations["mix"])
         if not state.contents_per_well_ul:
             raise ValueError(f"labware {labware_id} has no contents to mix")
         speed_rpm = float(inputs["speed_rpm"])
@@ -424,7 +424,7 @@ class CellSurrogateAdapter(CapabilityAdapter):
 
     def _characterize(self, inputs: dict[str, Any]) -> dict[str, Any]:
         labware_id = str(inputs["labware_id"])
-        state = self._require_location(labware_id, self._stations["characterizer"])
+        state = self._require_location(labware_id, self._stations["characterize"])
         method = str(inputs["method"])
         if method != "normalized-response":
             raise ValueError(f"unsupported characterization method: {method}")
@@ -502,7 +502,7 @@ class CellSurrogateAdapter(CapabilityAdapter):
                 inputs={
                     "labware_id": "conformance-plate",
                     "source": "input",
-                    "destination": "dispenser",
+                    "destination": "dispense",
                 },
             ),
             ExecutionRequest(
@@ -516,8 +516,8 @@ class CellSurrogateAdapter(CapabilityAdapter):
                 capability_id="cell.transfer_labware",
                 inputs={
                     "labware_id": "conformance-plate",
-                    "source": "dispenser",
-                    "destination": "mixer",
+                    "source": "dispense",
+                    "destination": "mix",
                 },
             ),
             ExecutionRequest(
@@ -532,8 +532,8 @@ class CellSurrogateAdapter(CapabilityAdapter):
                 capability_id="cell.transfer_labware",
                 inputs={
                     "labware_id": "conformance-plate",
-                    "source": "mixer",
-                    "destination": "characterizer",
+                    "source": "mix",
+                    "destination": "characterize",
                 },
             ),
             ExecutionRequest(

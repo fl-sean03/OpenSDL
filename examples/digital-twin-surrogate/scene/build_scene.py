@@ -26,6 +26,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TypedDict
 
 import bpy
 from mathutils import Vector
@@ -78,7 +79,7 @@ DOOR_CENTER_Y = -2.60
 # station owns a world X offset and every slot inside a station is placed
 # relative to that offset, so a station can be re-spaced without editing what
 # stands on it.
-STATION_ORDER = ("input", "dispenser", "mixer", "characterizer", "output")
+STATION_ORDER = ("input", "dispense", "mix", "characterize", "output")
 STATION_PITCH = 0.78
 STATION_X = {name: (index - 2) * STATION_PITCH for index, name in enumerate(STATION_ORDER)}
 # Two working rows per station, one deck pitch apart.  The rows are packed at
@@ -88,28 +89,28 @@ ROW_FRONT = -SLOT_PITCH_Y / 2.0
 ROW_BACK = SLOT_PITCH_Y / 2.0
 # A plate hotel stands at the back of its station and presents labware this far
 # in front of its own root.
-STACKER_PRESENT_Y = 0.164
+HOTEL_PRESENT_Y = 0.164
 
 # Slot table: id -> (station, x offset inside the station, y).  Slot ids say
 # what the slot is for; the station column is what places them on the deck.
 SLOT_TABLE: dict[str, tuple[str, float, float]] = {
     "input-handoff": ("input", 0.0, ROW_FRONT),
-    "input-tower": ("input", 0.0, ROW_FRONT + STACKER_PRESENT_Y),
-    "reservoir": ("dispenser", -SLOT_PITCH_X, ROW_BACK),
-    "tips": ("dispenser", 0.0, ROW_BACK),
-    "tip-waste": ("dispenser", SLOT_PITCH_X, ROW_BACK),
-    "stage": ("dispenser", 0.0, ROW_FRONT),
-    "shaker": ("mixer", 0.0, ROW_FRONT),
-    "lid-dock": ("characterizer", 0.0, ROW_BACK),
-    "reader": ("characterizer", 0.0, ROW_FRONT),
+    "input-hotel": ("input", 0.0, ROW_FRONT + HOTEL_PRESENT_Y),
+    "reservoir": ("dispense", -SLOT_PITCH_X, ROW_BACK),
+    "tips": ("dispense", 0.0, ROW_BACK),
+    "tip-waste": ("dispense", SLOT_PITCH_X, ROW_BACK),
+    "stage": ("dispense", 0.0, ROW_FRONT),
+    "mixer": ("mix", 0.0, ROW_FRONT),
+    "door-dock": ("characterize", 0.0, ROW_BACK),
+    "reader": ("characterize", 0.0, ROW_FRONT),
     "output-handoff": ("output", 0.0, ROW_FRONT),
-    "output-tower": ("output", 0.0, ROW_FRONT + STACKER_PRESENT_Y),
+    "output-hotel": ("output", 0.0, ROW_FRONT + HOTEL_PRESENT_Y),
 }
 # Slots that are a seat on a station deck.  The two hand-off slots and the two
 # hotel roots belong to the hotels, which bring their own presentation surface,
 # so no deck plate is built under them.
-DECK_SLOTS = ("reservoir", "tips", "tip-waste", "stage", "shaker", "lid-dock", "reader")
-LID_DOCK_SLOT = "lid-dock"
+DECK_SLOTS = ("reservoir", "tips", "tip-waste", "stage", "mixer", "door-dock", "reader")
+DOOR_DOCK_SLOT = "door-dock"
 
 # The machine frame.  40/45-series aluminium extrusion, four full-height corner
 # towers and two rear intermediate uprights, standing on levelling feet through
@@ -175,15 +176,17 @@ WASTE_X = -0.616
 FLUIDICS_X = (-0.230, 0.560)
 CONSUMABLE_X = (0.660, 1.020)
 
-# The gantry.  The bridge rides two runway beams landed directly on the frame's
-# end towers, so the transport is part of the frame rather than four posts
-# bolted to a bench.
-GANTRY_HALF_SPAN = FRAME_HALF_LENGTH - PROFILE - 0.020
-GANTRY_RAIL_Z = 1.618
-GANTRY_BEAM_Z = 1.565
-GANTRY_POST_Y = 0.285
-# Where the carriage waits while the pipetting head owns the dispenser station.
-GANTRY_PARK_X = STATION_X["mixer"] + STATION_PITCH / 2.0
+# The transport.  There is exactly one mover.  It rides a bridge that rides two
+# runway beams landed directly on the frame's end towers, so the transport is
+# part of the frame rather than four posts bolted to a bench.  The mover carries
+# no tooling of its own: a head couples to it, and the head it is not using
+# waits in that head's own dock.  One carriage cannot collide with itself.
+MOVER_HALF_SPAN = FRAME_HALF_LENGTH - PROFILE - 0.020
+MOVER_RAIL_Z = 1.618
+MOVER_BRIDGE_Z = 1.565
+MOVER_RAIL_POST_Y = 0.285
+# Where the mover waits at the end of the cycle.
+MOVER_PARK_X = STATION_X["mix"] + STATION_PITCH / 2.0
 
 # Physical seating planes.  The plate root is at the vertical center of its
 # 14.3 mm envelope, so every station defines the actual supporting surface
@@ -194,8 +197,8 @@ PLATE_HEIGHT = 0.0143
 PLATE_HALF_HEIGHT = PLATE_HEIGHT / 2.0
 DECK_SLOT_TOP_Z = DECK_Z + 0.0075
 DIRECT_DECK_PLATE_Z = DECK_SLOT_TOP_Z + PLATE_HALF_HEIGHT
-STACKER_NEST_TOP_Z = BENCH_Z + 0.228 + 0.011 + 0.0025
-STACKER_PLATE_Z = STACKER_NEST_TOP_Z + PLATE_HALF_HEIGHT
+HOTEL_NEST_TOP_Z = BENCH_Z + 0.228 + 0.011 + 0.0025
+HOTEL_PLATE_Z = HOTEL_NEST_TOP_Z + PLATE_HALF_HEIGHT
 MIXER_PLATFORM_TOP_Z = DECK_Z + 0.008 + 0.069 + 0.007
 MIXER_PLATE_Z = MIXER_PLATFORM_TOP_Z + PLATE_HALF_HEIGHT
 
@@ -213,19 +216,19 @@ MIXER_LATCH_OPEN_ANGLE = math.radians(12.0)
 # Published reader dimensions describe an assembled envelope of roughly
 # 57-60 mm.  The detector body is 18.5 mm high; the plate and removable lid
 # occupy the remainder without stacking two full-height housings.
-READER_ROOT_Z = DECK_Z + 0.008
-READER_DECK_TOP_Z = READER_ROOT_Z + 0.0205
-READER_PLATE_Z = READER_DECK_TOP_Z + PLATE_HALF_HEIGHT
-READER_LID_CLOSED_Z = READER_ROOT_Z + 0.0350
+CHARACTERIZER_ROOT_Z = DECK_Z + 0.008
+CHARACTERIZER_DECK_TOP_Z = CHARACTERIZER_ROOT_Z + 0.0205
+CHARACTERIZER_PLATE_Z = CHARACTERIZER_DECK_TOP_Z + PLATE_HALF_HEIGHT
+DOOR_CLOSED_Z = CHARACTERIZER_ROOT_Z + 0.0350
 # The lid parks on a caddy rather than flat on the deck: the caddy lifts the
 # grip line above the neighbouring module tops, so the paddles never descend
 # past them when docking the lid.
-READER_LID_CADDY_HEIGHT = 0.030
-READER_LID_DOCK_Z = DECK_SLOT_TOP_Z + READER_LID_CADDY_HEIGHT
-READER_LID_HEIGHT = 0.0220
-READER_LID_GRIP_Z = 0.0140
-READER_LID_GRIP_DEPTH = 0.008
-READER_LID_GRIP_OUTER_X = 0.0775
+DOOR_DOCK_HEIGHT = 0.030
+DOOR_DOCK_Z = DECK_SLOT_TOP_Z + DOOR_DOCK_HEIGHT
+DOOR_HEIGHT_M = 0.0220
+DOOR_GRIP_Z = 0.0140
+DOOR_GRIP_DEPTH = 0.008
+DOOR_GRIP_OUTER_X = 0.0775
 
 # Pipette tips.  The rack presents full-length tips standing proud of its
 # insert, so a mounted tip occupies exactly the volume the rack tip vacated
@@ -237,7 +240,7 @@ TIP_RACK_INSERT_TOP_Z = TIP_RACK_ROOT_Z + 0.020
 TIP_RACK_STANDOFF = 0.0015
 TIP_TOP_Z = TIP_RACK_INSERT_TOP_Z + TIP_RACK_STANDOFF + TIP_LENGTH
 # The mounted tip hangs from the nozzle column, whose top sits at this height
-# in DispenserHead space; the nozzle enters the tip by 3 mm when mounting.
+# in PipetteHead space; the nozzle enters the tip by 3 mm when mounting.
 NOZZLE_TIP_TOP_LOCAL_Z = 1.286
 # The nozzle column hangs 6 mm in front of the carriage origin.  Commanded
 # positions are tool-point positions, so the gantry compensates for the offset
@@ -253,22 +256,72 @@ RESERVOIR_LANE_PITCH = 0.009
 RESERVOIR_LANE_WIDTH = 0.0073
 RESERVOIR_ASPIRATE_Z = (RESERVOIR_SKIRT_TOP_Z + 0.002) - (NOZZLE_TIP_TOP_LOCAL_Z - TIP_LENGTH)
 
-# The gripper.  PLATE_GRIP_LOCAL_Z is the height of the grip line in the
-# carriage's own space: a payload held by the jaws sits at
-# (carriage x, gantry y, carriage z + PLATE_GRIP_LOCAL_Z).  Every carried
+# The tool changer.  Every head presents the same interface, so the mover does
+# not know or care which one it is holding.  Reading down from the mover:
+# the changer's master plate on the mover's underside, an open gap that makes
+# the joint visible, then the head's own collar and the head below it.
+HEAD_TOP_Z = 1.3575
+HEAD_COLLAR_HEIGHT = 0.012
+HEAD_COLLAR_LENGTH = 0.104
+# The collar is deeper than it is wide on purpose.  A head drops onto its dock
+# straight down, so the only feature the cradle may touch is one that is proud
+# of every body below it along the whole descent.  Nothing under the collar
+# reaches past HEAD_BODY_HALF_DEPTH, so the cradle takes the collar there.
+HEAD_COLLAR_DEPTH = 0.116
+HEAD_BODY_HALF_DEPTH = 0.038
+HEAD_COLLAR_TOP_Z = HEAD_TOP_Z + HEAD_COLLAR_HEIGHT
+COUPLER_GAP = 0.016
+COUPLER_PLATE_HEIGHT = 0.012
+COUPLER_BOSS_RADIUS = 0.017
+COUPLER_PIN_RADIUS = 0.005
+COUPLER_PIN_X = 0.034
+# The boss reaches through the collar and into the head body; the guide pins
+# stop just inside the head's top face.  Both are what "coupled" means.
+COUPLER_BOSS_BOTTOM_Z = HEAD_TOP_Z - 0.008
+COUPLER_PIN_BOTTOM_Z = HEAD_TOP_Z - 0.004
+# The mover.  One carriage on the bridge, ending in the changer's master plate.
+MOVER_BOTTOM_Z = HEAD_COLLAR_TOP_Z + COUPLER_GAP
+COUPLER_PLATE_Z = MOVER_BOTTOM_Z + COUPLER_PLATE_HEIGHT / 2.0
+MOVER_CARRIAGE_BOTTOM_Z = MOVER_BOTTOM_Z + COUPLER_PLATE_HEIGHT
+MOVER_CARRIAGE_TOP_Z = 1.5625
+MOVER_CARRIAGE_HEIGHT = MOVER_CARRIAGE_TOP_Z - MOVER_CARRIAGE_BOTTOM_Z
+MOVER_CARRIAGE_LOCAL_Z = MOVER_CARRIAGE_BOTTOM_Z + MOVER_CARRIAGE_HEIGHT / 2.0
+
+# The head docks.  An idle head hangs by its collar on a two-armed cradle that
+# reaches in from posts standing clear of the head's widest body.  The mover
+# lowers a head onto the arms, unlocks, and rises away; the head stays.
+# HEAD_DOCK_Z is the mover height at which a head is seated, so the arm face
+# and the docked collar are the same number by construction.
+# Deep enough that a head crossing the dock row at travel height passes over
+# the cradle arms instead of through them.  The gripper head's cross-rails hang
+# 69 mm below its collar, so a shallow dock is one the head shears off on the
+# way in; that is what the first build of this dock did.
+HEAD_DOCK_Z = -0.112
+HEAD_DOCK_ARM_TOP_Z = HEAD_TOP_Z + HEAD_DOCK_Z
+HEAD_DOCK_ARM_HEIGHT = 0.010
+HEAD_DOCK_ARM_Y = HEAD_BODY_HALF_DEPTH + 0.014
+HEAD_DOCK_ARM_DEPTH = 0.020
+HEAD_DOCK_ARM_LENGTH = 0.120
+HEAD_DOCK_POST_X = 0.054
+HEAD_DOCK_Y = ROW_BACK
+# Docked left of the mix station and right of it.  The order matters: a head on
+# the coupler never travels over the other head's dock, because each dock lies
+# on the far side of the machine from the work the other head does.
+HEAD_DOCK_X = {"Pipette": -0.30, "Gripper": 0.30}
+
+# The gripper head.  PLATE_GRIP_LOCAL_Z is the height of the grip line in the
+# mover's own space: a payload held by the jaws sits at
+# (mover x, bridge y, mover z + PLATE_GRIP_LOCAL_Z).  Every carried
 # keyframe is derived from that relation instead of being authored twice.
 PLATE_GRIP_LOCAL_Z = 1.267
-# The gripper is a mechanism, not two bars.  Reading down from the carriage:
-# a wrist block, the actuator housing that drives the jaws, a cross-rail
+# The gripper is a mechanism, not two bars.  Reading down from the collar:
+# a socket block, the actuator housing that drives the jaws, a cross-rail
 # spanning the whole jaw travel, a finger carrier per side that rides that
 # rail, a finger, and the paddle that actually touches the payload.  Each
 # stage is authored flush with the one above it, so the chain is continuous
-# from the carriage to the paddle at every jaw width.
-GRIPPER_CARRIAGE_HEIGHT = 0.205
-GRIPPER_CARRIAGE_LOCAL_Z = 1.46
-GRIPPER_CARRIAGE_BOTTOM_Z = GRIPPER_CARRIAGE_LOCAL_Z - GRIPPER_CARRIAGE_HEIGHT / 2.0
+# from the coupler to the paddle at every jaw width.
 GRIPPER_WRIST_HEIGHT = 0.032
-GRIPPER_WRIST_Z = GRIPPER_CARRIAGE_BOTTOM_Z - GRIPPER_WRIST_HEIGHT / 2.0
+GRIPPER_WRIST_Z = HEAD_TOP_Z - GRIPPER_WRIST_HEIGHT / 2.0
 GRIPPER_HOUSING_HEIGHT = 0.025
 GRIPPER_HOUSING_Z = GRIPPER_WRIST_Z - (GRIPPER_WRIST_HEIGHT + GRIPPER_HOUSING_HEIGHT) / 2.0
 GRIPPER_RAIL_HEIGHT = 0.012
@@ -299,8 +352,178 @@ JAW_TRAVEL_LIMIT = 0.092
 GRIPPER_RAIL_LENGTH = 2.0 * (JAW_TRAVEL_LIMIT + JAW_CARRIER_THICKNESS / 2.0 + 0.010)
 GRIPPER_HOUSING_LENGTH = GRIPPER_RAIL_LENGTH - 0.012
 # The reader lid is gripped by its side features, which sit
-# READER_LID_GRIP_Z above the lid root.
-LID_GRIP_LOCAL_Z = PLATE_GRIP_LOCAL_Z - READER_LID_GRIP_Z
+# DOOR_GRIP_Z above the lid root.
+DOOR_GRIP_LOCAL_Z = PLATE_GRIP_LOCAL_Z - DOOR_GRIP_Z
+
+# The authored timeline, as one ordered table of named marks and the gap in
+# frames from the previous mark.  Every keyframe in ``animate_scene``, every
+# checkpoint in ``validate_motion``, every window in ``check_scene`` and every
+# range published in ``../twin.yaml`` reads a name out of ``BEAT``, so the seven
+# workflow phases and the two head changes are re-timed in exactly one place.
+#
+# The two head changes are the two long gaps.  A change is a real beat - travel
+# to the dock, seat, unlock, rise away, cross to the other dock, lower, lock,
+# rise - and it needs about sixty frames to read as a mechanism rather than as a
+# cut.  Everything else was compressed to pay for them inside the same 960.
+_BEATS: tuple[tuple[str, int], ...] = (
+    ("start", 1),
+    # Phase 1: stage the reader door, then transfer the input plate to dispense.
+    ("door_settle", 16),
+    ("door_down", 7),
+    ("door_grip", 5),
+    ("door_lift", 7),
+    ("door_cross", 8),
+    ("door_seat", 7),
+    ("door_release", 5),
+    ("door_clear", 7),
+    ("door_row_front", 8),
+    ("plate_approach", 18),
+    ("plate_down", 7),
+    ("plate_grip", 5),
+    ("plate_lift", 7),
+    ("plate_cross", 14),
+    ("plate_seat", 7),
+    ("plate_release", 5),
+    ("plate_clear", 7),
+    ("transfer_in_end", 9),
+    # Head change A: gripper head to its dock, pipetting head onto the mover.
+    ("swap_a_over_gripper", 10),
+    ("swap_a_row_back", 6),
+    ("swap_a_seat", 7),
+    ("swap_a_unlock", 4),
+    ("swap_a_lift", 6),
+    ("swap_a_traverse", 9),
+    ("swap_a_down", 7),
+    ("swap_a_lock", 4),
+    ("swap_a_ready", 5),
+    # Phase 2: two 8-channel tip, aspirate, dispense and tip-drop passes.
+    ("tips_a_approach", 6),
+    ("tips_a_down", 8),
+    ("tips_a_dwell", 3),
+    ("tips_a_taken", 3),
+    ("tips_a_up", 7),
+    ("res_a_approach", 6),
+    ("res_a_down", 7),
+    ("res_a_hold", 3),
+    ("res_a_up", 5),
+    ("fill_a_start", 6),
+    ("fill_a_end", 96),
+    ("waste_a_approach", 6),
+    ("waste_a_down", 6),
+    ("waste_a_drop", 3),
+    ("waste_a_up", 5),
+    ("tips_b_approach", 6),
+    ("tips_b_down", 8),
+    ("tips_b_dwell", 3),
+    ("tips_b_taken", 3),
+    ("tips_b_up", 7),
+    ("res_b_approach", 6),
+    ("res_b_down", 7),
+    ("res_b_hold", 3),
+    ("res_b_up", 5),
+    ("fill_b_start", 6),
+    ("fill_b_end", 96),
+    ("waste_b_approach", 6),
+    ("waste_b_down", 6),
+    ("waste_b_drop", 3),
+    ("waste_b_up", 5),
+    ("dispense_end", 4),
+    # Head change B: pipetting head to its dock, gripper head onto the mover.
+    ("swap_b_over_pipette", 10),
+    ("swap_b_seat", 7),
+    ("swap_b_unlock", 4),
+    ("swap_b_lift", 6),
+    ("swap_b_traverse", 9),
+    ("swap_b_down", 7),
+    ("swap_b_lock", 4),
+    ("swap_b_lift2", 6),
+    ("swap_b_row_front", 7),
+    # Phase 3: transfer dispense -> mix.
+    ("mix_approach", 14),
+    ("mix_pick_down", 6),
+    ("mix_pick_grip", 5),
+    ("mix_pick_lift", 6),
+    ("mix_cross", 12),
+    ("mix_place_down", 6),
+    ("mix_place_release", 5),
+    ("mix_place_clear", 6),
+    # Phase 4: orbital mixing.
+    ("mix_clamp_closed", 6),
+    ("mix_orbit_end", 36),
+    ("mix_clamp_open", 6),
+    ("mix_settle", 4),
+    # Phase 5: transfer mix -> characterize.
+    ("read_pick_down", 6),
+    ("read_pick_grip", 5),
+    ("read_pick_lift", 6),
+    ("read_cross", 12),
+    ("read_place_down", 6),
+    ("read_place_release", 5),
+    ("read_place_clear", 6),
+    # Phase 6: close the reader with its door, read, reopen.
+    ("characterize_start", 6),
+    ("door_fetch_cross", 8),
+    ("door_fetch_down", 6),
+    ("door_fetch_grip", 5),
+    ("door_fetch_lift", 6),
+    ("door_close_cross", 8),
+    ("door_close_down", 6),
+    ("door_close_release", 5),
+    ("door_close_clear", 6),
+    ("read_hold", 22),
+    ("door_open_down", 6),
+    ("door_open_grip", 5),
+    ("door_open_lift", 6),
+    ("door_return_cross", 8),
+    ("door_return_down", 6),
+    ("door_return_release", 5),
+    ("door_return_clear", 6),
+    ("characterize_end", 2),
+    # Phase 7: transfer characterize -> output, then store.
+    ("out_start", 6),
+    ("out_pick_down", 6),
+    ("out_pick_grip", 5),
+    ("out_pick_lift", 6),
+    ("out_cross", 12),
+    ("out_place_down", 6),
+    ("out_place_release", 5),
+    ("out_place_clear", 6),
+    ("out_stored", 12),
+    ("cycle_end", 4),
+)
+
+
+def _beat_table() -> dict[str, int]:
+    marks: dict[str, int] = {}
+    frame = 0
+    for name, gap in _BEATS:
+        frame += gap
+        marks[name] = frame
+    if frame != FRAME_END:
+        raise RuntimeError(f"Authored beats total {frame} frames, not {FRAME_END}")
+    return marks
+
+
+BEAT = _beat_table()
+# The seven workflow phases, published to ../twin.yaml as animationTimeline
+# frame ranges.  The gaps between them are the machine's own housekeeping: the
+# two long ones are the head changes.
+PHASE_RANGES: dict[str, tuple[int, int]] = {
+    "input-to-dispense": (BEAT["start"], BEAT["transfer_in_end"]),
+    "dispense-cycle": (BEAT["swap_a_ready"], BEAT["dispense_end"]),
+    "dispense-to-mix": (BEAT["swap_b_row_front"], BEAT["mix_place_clear"]),
+    "mix-cycle": (BEAT["mix_place_clear"], BEAT["mix_settle"]),
+    "mix-to-characterize": (BEAT["mix_settle"], BEAT["read_place_clear"]),
+    "characterize-cycle": (BEAT["characterize_start"], BEAT["characterize_end"]),
+    "characterize-to-output": (BEAT["out_start"], BEAT["cycle_end"]),
+}
+# One dispense column every WELL_COLUMN_PITCH frames: approach, descend, fill,
+# rise.  The pitch cannot drop below eight without two keys landing on the same
+# frame at the hand-over between columns.
+WELL_COLUMN_PITCH = 8
+# Nozzle depths, expressed as mover heights rather than remembered numbers.
+WELL_ENTRY_Z = -0.083
+WASTE_ENTRY_Z = -0.082
 
 MATERIALS: dict[str, bpy.types.Material] = {}
 COLLECTIONS: dict[str, bpy.types.Collection] = {}
@@ -1269,7 +1492,7 @@ def build_decks(cell_root: bpy.types.Object) -> bpy.types.Object:
     # metre of plate reading as a sheet of steel.
     for slot_index, slot_y in enumerate((DECK_FRONT_Y + 0.056, DECK_REAR_Y - 0.056)):
         rounded_box(
-            f"DeckSlotChannel_{slot_index}",
+            f"DeckChannel_{slot_index}",
             (2 * DECK_HALF_LENGTH - 0.030, 0.020, 0.006),
             (0.0, slot_y, DECK_Z - 0.002),
             "CaseworkShadow",
@@ -1279,7 +1502,7 @@ def build_decks(cell_root: bpy.types.Object) -> bpy.types.Object:
         )
         for lip in (-1.0, 1.0):
             rounded_box(
-                f"DeckSlotLip_{slot_index}_{lip:+.0f}",
+                f"DeckChannelLip_{slot_index}_{lip:+.0f}",
                 (2 * DECK_HALF_LENGTH - 0.030, 0.005, 0.005),
                 (0.0, slot_y + lip * 0.0125, DECK_Z - 0.0015),
                 "MachinedAluminum",
@@ -3159,6 +3382,11 @@ def slot_position(slot_id: str) -> tuple[float, float]:
     return STATION_X[station] + offset_x, y
 
 
+def node_case(identifier: str) -> str:
+    """``tip-waste`` -> ``TipWaste``.  Ids are lower-case; node names are not."""
+    return "".join(part.capitalize() for part in identifier.split("-"))
+
+
 def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float, float]]:
     """Place the five workflow positions and return the world slot table.
 
@@ -3175,7 +3403,10 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
 
     for name in STATION_ORDER:
         station = empty(
-            f"Station_{name}", target=target, location=(0.0, 0.0, 0.0), parent=cell_root
+            f"Station_{node_case(name)}",
+            target=target,
+            location=(0.0, 0.0, 0.0),
+            parent=cell_root,
         )
         station["opensdlStation"] = name
         deck_ids = [slot for slot in DECK_SLOTS if SLOT_TABLE[slot][0] == name]
@@ -3185,7 +3416,7 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
             # what puts its nest level with the process deck without any of it
             # standing on a worktop.
             rounded_box(
-                f"StationFootplate_{name}",
+                f"Station_{node_case(name)}_Footplate",
                 (0.34, 0.62, 0.008),
                 (STATION_X[name], ROW_FRONT + 0.10, BENCH_Z - 0.004),
                 "PowderCoatGraphite",
@@ -3200,7 +3431,7 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
                 (0.140, 0.284),
             ):
                 screw(
-                    f"StationFootplateScrew_{name}_{corner_x:+.3f}_{corner_y:+.3f}",
+                    f"Station_{node_case(name)}_Screw_{corner_x:+.3f}_{corner_y:+.3f}",
                     (
                         STATION_X[name] + corner_x,
                         ROW_FRONT + 0.10 + corner_y,
@@ -3216,7 +3447,7 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
         for slot_id in deck_ids:
             x, y = slot_position(slot_id)
             rounded_box(
-                f"DeckSlot_{slot_id}",
+                f"Slot_{node_case(slot_id)}",
                 (0.128, 0.086, 0.006),
                 (x, y, DECK_Z + 0.003),
                 "PowderCoatGraphite",
@@ -3225,7 +3456,7 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
                 bevel=0.004,
             )
             rounded_box(
-                f"DeckSlotInset_{slot_id}",
+                f"Slot_{node_case(slot_id)}_Inset",
                 (0.118, 0.076, 0.003),
                 (x, y, DECK_Z + 0.006),
                 "AnodizedAluminum",
@@ -3238,7 +3469,7 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
             # 3 mm above the slot by four posts standing through its skirt.
             for dx, dy in ((-0.055, -0.034), (0.055, -0.034), (-0.055, 0.034), (0.055, 0.034)):
                 cylinder(
-                    f"SlotPad_{slot_id}_{dx:+.3f}_{dy:+.3f}",
+                    f"Slot_{node_case(slot_id)}_Pad_{dx:+.3f}_{dy:+.3f}",
                     0.0035,
                     0.0035,
                     (x + dx, y + dy, DECK_SLOT_TOP_Z - 0.00175),
@@ -3251,7 +3482,134 @@ def build_stations(cell_root: bpy.types.Object) -> dict[str, tuple[float, float,
     return slots
 
 
-def build_gantry(
+def head_collar(
+    name: str,
+    y: float,
+    target: bpy.types.Collection,
+    head: bpy.types.Object,
+) -> bpy.types.Object:
+    """The tool half of the changer, identical on every head.
+
+    It is the only part of a head the mover and the docks touch: the coupler
+    boss passes through it, and the dock arms take the head's weight under it.
+    Because both heads carry the same collar at the same height, one dock
+    geometry and one coupling test cover both.
+    """
+    collar = rounded_box(
+        name,
+        (HEAD_COLLAR_LENGTH, HEAD_COLLAR_DEPTH, HEAD_COLLAR_HEIGHT),
+        (0.0, y, HEAD_TOP_Z + HEAD_COLLAR_HEIGHT / 2.0),
+        "MachinedAluminum",
+        target=target,
+        parent=head,
+        bevel=0.004,
+    )
+    for sign in (-1.0, 1.0):
+        screw(
+            f"{name}Screw{'Left' if sign < 0 else 'Right'}",
+            (sign * 0.042, y, HEAD_COLLAR_TOP_Z),
+            target=target,
+            parent=head,
+            axis="Z",
+            radius=0.0035,
+        )
+    return collar
+
+
+def build_head_dock(label: str, cell_root: bpy.types.Object) -> bpy.types.Object:
+    """A cradle an idle head hangs in, standing on the process deck.
+
+    Two bars run along the machine axis, one in front of the head and one
+    behind it, and the head's collar lands across both.  They engage from the
+    front and rear rather than from the sides because a head arrives straight
+    down: anything inboard of the collar's own footprint would be swept through
+    by the housing, the cross-rails and the jaws on the way in, which is what
+    the first cradle here did.
+
+    ``HEAD_DOCK_ARM_TOP_Z`` is derived from ``HEAD_DOCK_Z``, so the seated
+    collar and the bar face are the same number and the head rests on the bars
+    instead of hovering over them or sinking into them.
+    """
+    target = COLLECTIONS["Mechanisms"]
+    x = HEAD_DOCK_X[label]
+    collar_y = -0.012 if label == "Gripper" else -0.006
+    dock = empty(
+        f"HeadDock_{label}",
+        target=target,
+        location=(x, HEAD_DOCK_Y, 0.0),
+        parent=cell_root,
+    )
+    dock["opensdlHeadDock"] = label
+    rounded_box(
+        f"HeadDock_{label}_Base",
+        (0.150, 2.0 * HEAD_DOCK_ARM_Y + 0.040, 0.006),
+        (0.0, collar_y, DECK_Z + 0.003),
+        "PowderCoatGraphite",
+        target=target,
+        parent=dock,
+        bevel=0.002,
+    )
+    arm_bottom = HEAD_DOCK_ARM_TOP_Z - HEAD_DOCK_ARM_HEIGHT
+    for side, sign in (("Front", -1.0), ("Rear", 1.0)):
+        rounded_box(
+            f"HeadDock_{label}_Arm{side}",
+            (HEAD_DOCK_ARM_LENGTH, HEAD_DOCK_ARM_DEPTH, HEAD_DOCK_ARM_HEIGHT),
+            (
+                0.0,
+                collar_y + sign * HEAD_DOCK_ARM_Y,
+                HEAD_DOCK_ARM_TOP_Z - HEAD_DOCK_ARM_HEIGHT / 2.0,
+            ),
+            "BrushedStainless",
+            target=target,
+            parent=dock,
+            bevel=0.002,
+        )
+        # A retaining lip on each bar's outboard edge, clear of the collar's
+        # own footprint: it traps a seated head without standing in the path
+        # the head descends through.
+        rounded_box(
+            f"HeadDock_{label}_Lip{side}",
+            (HEAD_DOCK_ARM_LENGTH - 0.020, 0.006, 0.008),
+            (
+                0.0,
+                collar_y + sign * (HEAD_COLLAR_DEPTH / 2.0 + 0.005),
+                HEAD_DOCK_ARM_TOP_Z + 0.004,
+            ),
+            "BrushedStainless",
+            target=target,
+            parent=dock,
+            bevel=0.0015,
+        )
+        for end, end_sign in (("Left", -1.0), ("Right", 1.0)):
+            rounded_box(
+                f"HeadDock_{label}_Post{side}{end}",
+                (0.020, HEAD_DOCK_ARM_DEPTH, arm_bottom - (DECK_Z + 0.006)),
+                (
+                    end_sign * HEAD_DOCK_POST_X,
+                    collar_y + sign * HEAD_DOCK_ARM_Y,
+                    (arm_bottom + DECK_Z + 0.006) / 2.0,
+                ),
+                "AnodizedAluminum",
+                target=target,
+                parent=dock,
+                bevel=0.003,
+            )
+            screw(
+                f"HeadDock_{label}_Screw{side}{end}",
+                (
+                    end_sign * HEAD_DOCK_POST_X,
+                    collar_y + sign * HEAD_DOCK_ARM_Y,
+                    DECK_Z + 0.006,
+                ),
+                target=target,
+                parent=dock,
+                axis="Z",
+                radius=0.004,
+            )
+    return dock
+
+
+def build_transport(
     cell_root: bpy.types.Object,
 ) -> tuple[
     bpy.types.Object,
@@ -3261,27 +3619,36 @@ def build_gantry(
     bpy.types.Object,
     bpy.types.Object,
     bpy.types.Object,
+    bpy.types.Object,
 ]:
+    """Build the rail, the bridge, the one mover, and its two heads.
+
+    The mover is the only driven carriage.  ``GripperHead`` and ``PipetteHead``
+    are tooling: each one either hangs from ``MoverCoupler`` or waits in its own
+    dock, and neither has a drive of its own.  Both heads are parented to the
+    cell rather than to the bridge, because a docked head must not follow the
+    bridge; a coupled head is keyed from the mover pose instead.
+    """
     target = COLLECTIONS["Mechanisms"]
     # The transport is part of the frame, not equipment standing on a bench.
     # Two Y runway beams land directly on the machine's end towers and the
     # bridge spans between them, so the stations stay open on every side and one
     # mover still reaches all of them.
-    portal = empty("GantryPortal", target=target, location=(0.0, 0.0, 0.0), parent=cell_root)
-    for x in (-GANTRY_HALF_SPAN, GANTRY_HALF_SPAN):
+    portal = empty("MoverRail", target=target, location=(0.0, 0.0, 0.0), parent=cell_root)
+    for x in (-MOVER_HALF_SPAN, MOVER_HALF_SPAN):
         rounded_box(
-            f"GantryRunway_{x:+.3f}",
-            (0.052, 2 * GANTRY_POST_Y + 0.13, 0.046),
-            (x, 0.0, GANTRY_RAIL_Z),
+            f"MoverRailBeam_{x:+.3f}",
+            (0.052, 2 * MOVER_RAIL_POST_Y + 0.13, 0.046),
+            (x, 0.0, MOVER_RAIL_Z),
             "AnodizedAluminum",
             target=target,
             parent=portal,
             bevel=0.006,
         )
         rounded_box(
-            f"GantryRunwayTrack_{x:+.3f}",
-            (0.016, 2 * GANTRY_POST_Y + 0.09, 0.014),
-            (x, 0.0, GANTRY_RAIL_Z - 0.026),
+            f"MoverRailTrack_{x:+.3f}",
+            (0.016, 2 * MOVER_RAIL_POST_Y + 0.09, 0.014),
+            (x, 0.0, MOVER_RAIL_Z - 0.026),
             "BrushedStainless",
             target=target,
             parent=portal,
@@ -3289,11 +3656,11 @@ def build_gantry(
         )
         # The runway is bolted to the tower through a machined saddle at each
         # end, so the load goes straight into the frame's corner columns.
-        for y in (-GANTRY_POST_Y, GANTRY_POST_Y):
+        for y in (-MOVER_RAIL_POST_Y, MOVER_RAIL_POST_Y):
             rounded_box(
-                f"GantrySaddle_{x:+.3f}_{y:+.3f}",
+                f"MoverRailSaddle_{x:+.3f}_{y:+.3f}",
                 (0.086, 0.086, 0.020),
-                (x, y, GANTRY_RAIL_Z - 0.032),
+                (x, y, MOVER_RAIL_Z - 0.032),
                 "PowderCoatGraphite",
                 target=target,
                 parent=portal,
@@ -3301,73 +3668,73 @@ def build_gantry(
             )
             for corner in (-0.030, 0.030):
                 screw(
-                    f"GantrySaddleScrew_{x:+.3f}_{y:+.3f}_{corner:+.3f}",
-                    (x + corner, y + corner, GANTRY_RAIL_Z - 0.020),
+                    f"MoverRailScrew_{x:+.3f}_{y:+.3f}_{corner:+.3f}",
+                    (x + corner, y + corner, MOVER_RAIL_Z - 0.020),
                     target=target,
                     parent=portal,
                     axis="Z",
                     radius=0.005,
                 )
         # Tie-back struts from the runway ends into the tower columns.
-        for y in (-GANTRY_POST_Y, GANTRY_POST_Y):
+        for y in (-MOVER_RAIL_POST_Y, MOVER_RAIL_POST_Y):
             strut_y = math.copysign(FRAME_POST_Y[1], y)
             length = abs(strut_y - y)
             extrusion(
-                f"GantryStrut_{x:+.3f}_{y:+.3f}",
+                f"MoverRailStrut_{x:+.3f}_{y:+.3f}",
                 length,
                 "Y",
-                (x, (y + strut_y) / 2.0, GANTRY_RAIL_Z - 0.040),
+                (x, (y + strut_y) / 2.0, MOVER_RAIL_Z - 0.040),
                 target=target,
                 parent=portal,
                 profile=0.030,
                 slots=False,
             )
 
-    gantry_y = empty("GantryY", target=target, location=(0.0, ROW_FRONT, 0.0), parent=cell_root)
-    gantry_y["movable"] = True
-    beam_length = 2 * GANTRY_HALF_SPAN + 0.10
+    bridge = empty("MoverBridge", target=target, location=(0.0, ROW_FRONT, 0.0), parent=cell_root)
+    bridge["movable"] = True
+    beam_length = 2 * MOVER_HALF_SPAN + 0.10
     rounded_box(
-        "GantryCrossbeam",
+        "MoverBridgeBeam",
         (beam_length, 0.070, 0.096),
-        (0.0, 0.0, GANTRY_BEAM_Z),
+        (0.0, 0.0, MOVER_BRIDGE_Z),
         "AnodizedAluminum",
         target=target,
-        parent=gantry_y,
+        parent=bridge,
         bevel=0.010,
     )
     rounded_box(
-        "GantryFrontCover",
+        "MoverBridgeCover",
         (beam_length - 0.10, 0.012, 0.070),
-        (0.0, -0.041, GANTRY_BEAM_Z),
+        (0.0, -0.041, MOVER_BRIDGE_Z),
         "PowderCoatGraphite",
         target=target,
-        parent=gantry_y,
+        parent=bridge,
         bevel=0.007,
     )
     rounded_box(
-        "GantryLinearTrack",
+        "MoverBridgeTrack",
         (beam_length - 0.14, 0.020, 0.024),
-        (0.0, -0.050, GANTRY_BEAM_Z - 0.030),
+        (0.0, -0.050, MOVER_BRIDGE_Z - 0.030),
         "BrushedStainless",
         target=target,
-        parent=gantry_y,
+        parent=bridge,
         bevel=0.003,
     )
-    for x in (-GANTRY_HALF_SPAN, GANTRY_HALF_SPAN):
+    for x in (-MOVER_HALF_SPAN, MOVER_HALF_SPAN):
         rounded_box(
-            f"GantryEndTruck_{x:+.3f}",
+            f"MoverBridgeTruck_{x:+.3f}",
             (0.090, 0.115, 0.120),
-            (x, 0.0, GANTRY_BEAM_Z + 0.010),
+            (x, 0.0, MOVER_BRIDGE_Z + 0.010),
             "PowderCoatBlack",
             target=target,
-            parent=gantry_y,
+            parent=bridge,
             bevel=0.010,
         )
         screw(
-            f"GantryEndScrew_{x:+.3f}",
-            (x, -0.059, GANTRY_BEAM_Z + 0.010),
+            f"MoverBridgeScrew_{x:+.3f}",
+            (x, -0.059, MOVER_BRIDGE_Z + 0.010),
             target=target,
-            parent=gantry_y,
+            parent=bridge,
             axis="Y",
         )
 
@@ -3375,92 +3742,179 @@ def build_gantry(
     # bridge carrying the X-axis umbilical, open only along its top face.  The
     # chain's return run lies inside it for the whole stroke, which is what lets
     # the visible tail be a rigid piece riding the carriage.
-    trough_z = GANTRY_BEAM_Z + 0.062
+    trough_z = MOVER_BRIDGE_Z + 0.062
     for wall, wall_y, wall_size in (
-        ("Floor", 0.058, (2 * GANTRY_HALF_SPAN - 0.02, 0.076, 0.006)),
-        ("Front", 0.022, (2 * GANTRY_HALF_SPAN - 0.02, 0.006, 0.048)),
-        ("Rear", 0.094, (2 * GANTRY_HALF_SPAN - 0.02, 0.006, 0.048)),
+        ("Floor", 0.058, (2 * MOVER_HALF_SPAN - 0.02, 0.076, 0.006)),
+        ("Front", 0.022, (2 * MOVER_HALF_SPAN - 0.02, 0.006, 0.048)),
+        ("Rear", 0.094, (2 * MOVER_HALF_SPAN - 0.02, 0.006, 0.048)),
     ):
         rounded_box(
-            f"DragTrough{wall}",
+            f"MoverTrough{wall}",
             wall_size,
             (0.0, wall_y, trough_z + (0.0 if wall == "Floor" else 0.024)),
             "PowderCoatGraphite",
             target=target,
-            parent=gantry_y,
+            parent=bridge,
             bevel=0.002,
         )
-    for anchor_x in (-GANTRY_HALF_SPAN + 0.02, GANTRY_HALF_SPAN - 0.02):
+    for anchor_x in (-MOVER_HALF_SPAN + 0.02, MOVER_HALF_SPAN - 0.02):
         rounded_box(
-            f"DragTroughEnd_{anchor_x:+.3f}",
+            f"MoverTroughEnd_{anchor_x:+.3f}",
             (0.014, 0.088, 0.062),
             (anchor_x, 0.058, trough_z + 0.022),
             "PowderCoatGraphite",
             target=target,
-            parent=gantry_y,
+            parent=bridge,
             bevel=0.003,
         )
     tube_path(
-        "GantryDataCable",
+        "MoverBridgeCable",
         (
-            (-GANTRY_HALF_SPAN + 0.06, 0.088, trough_z + 0.052),
+            (-MOVER_HALF_SPAN + 0.06, 0.088, trough_z + 0.052),
             (0.0, 0.092, trough_z + 0.044),
-            (GANTRY_HALF_SPAN - 0.06, 0.088, trough_z + 0.052),
+            (MOVER_HALF_SPAN - 0.06, 0.088, trough_z + 0.052),
         ),
         0.0036,
         "CableBlue",
         target=target,
-        parent=gantry_y,
+        parent=bridge,
     )
 
-    dispenser = empty(
-        "DispenserHead", target=target, location=(STATION_X["dispenser"], 0.0, 0.0), parent=gantry_y
+    # The mover: one carriage on the bridge, ending in the changer master plate.
+    # It has no jaws and no nozzles.  Whatever it is holding is a head.
+    mover = empty(
+        "Mover", target=target, location=(STATION_X["characterize"], 0.0, 0.0), parent=bridge
     )
-    dispenser["movable"] = True
+    mover["movable"] = True
+    mover["opensdlEntityId"] = "mover"
     rounded_box(
-        "PipetteCarriage",
-        (0.074, 0.105, 0.205),
-        (0.0, -0.006, 1.455),
+        "MoverCarriage",
+        (0.105, 0.075, MOVER_CARRIAGE_HEIGHT),
+        (0.0, -0.012, MOVER_CARRIAGE_LOCAL_Z),
         "PowderCoatGraphite",
         target=target,
-        parent=dispenser,
-        bevel=0.011,
+        parent=mover,
+        bevel=0.012,
     )
     rounded_box(
-        "PipetteFrontPanel",
-        (0.061, 0.012, 0.169),
-        (0.0, -0.064, 1.455),
+        "MoverFrontPanel",
+        (0.086, 0.012, MOVER_CARRIAGE_HEIGHT - 0.039),
+        (0.0, -0.055, MOVER_CARRIAGE_LOCAL_Z),
         "AnodizedAluminum",
         target=target,
-        parent=dispenser,
-        bevel=0.007,
+        parent=mover,
+        bevel=0.008,
+    )
+    cylinder(
+        "MoverCamera",
+        0.009,
+        0.007,
+        (0.0, -0.049, MOVER_CARRIAGE_BOTTOM_Z + 0.024),
+        "ScreenGlass",
+        target=target,
+        parent=mover,
+        rotation=(math.pi / 2, 0.0, 0.0),
+        vertices=32,
+        bevel=0.001,
     )
     rounded_box(
+        "MoverBadge",
+        (0.040, 0.004, 0.011),
+        (0.0, -0.062, MOVER_CARRIAGE_TOP_Z - 0.062),
+        "AnodizedAluminum",
+        target=target,
+        parent=mover,
+        bevel=0.002,
+    )
+
+    # The changer.  MoverCoupler is the master half: a plate under the carriage,
+    # a tapered boss that reaches through the head's collar into the head body,
+    # and two guide pins that stop just inside the head's top face.  Its bounds
+    # overlapping a head on all three axes is what "coupled" means to
+    # check_scene, so this geometry is the invariant, not decoration.
+    coupler = empty("MoverCoupler", target=target, location=(0.0, 0.0, 0.0), parent=mover)
+    rounded_box(
+        "MoverCouplerPlate",
+        (0.096, 0.070, COUPLER_PLATE_HEIGHT),
+        (0.0, -0.012, COUPLER_PLATE_Z),
+        "MachinedAluminum",
+        target=target,
+        parent=coupler,
+        bevel=0.003,
+    )
+    cylinder(
+        "MoverCouplerBoss",
+        COUPLER_BOSS_RADIUS,
+        MOVER_CARRIAGE_BOTTOM_Z - COUPLER_BOSS_BOTTOM_Z,
+        (0.0, -0.012, (MOVER_CARRIAGE_BOTTOM_Z + COUPLER_BOSS_BOTTOM_Z) / 2.0),
+        "BrushedStainless",
+        target=target,
+        parent=coupler,
+        vertices=28,
+        bevel=0.002,
+    )
+    for side, sign in (("Left", -1.0), ("Right", 1.0)):
+        cylinder(
+            f"MoverCouplerPin{side}",
+            COUPLER_PIN_RADIUS,
+            MOVER_CARRIAGE_BOTTOM_Z - COUPLER_PIN_BOTTOM_Z,
+            (
+                sign * COUPLER_PIN_X,
+                -0.012,
+                (MOVER_CARRIAGE_BOTTOM_Z + COUPLER_PIN_BOTTOM_Z) / 2.0,
+            ),
+            "MachinedAluminum",
+            target=target,
+            parent=coupler,
+            vertices=16,
+            bevel=0.0008,
+        )
+        screw(
+            f"MoverCouplerScrew{side}",
+            (sign * 0.042, -0.012, MOVER_BOTTOM_Z + COUPLER_PLATE_HEIGHT),
+            target=target,
+            parent=coupler,
+            axis="Z",
+            radius=0.0035,
+        )
+
+    # The pipetting head.  Everything above its collar used to be a second
+    # carriage; that carriage is now the mover, and this is only the tool.
+    pipette_head = empty(
+        "PipetteHead",
+        target=target,
+        location=(HEAD_DOCK_X["Pipette"], HEAD_DOCK_Y, HEAD_DOCK_Z),
+        parent=cell_root,
+    )
+    pipette_head["movable"] = True
+    pipette_head["opensdlEntityId"] = "pipette-head"
+    head_collar("PipetteHeadCollar", -0.006, target, pipette_head)
+    rounded_box(
         "PipetteEjector",
-        (0.050, 0.092, 0.024),
-        (0.0, -0.006, 1.345),
+        (0.074, 0.070, 0.034),
+        (0.0, -0.006, 1.340),
         "BlackPolymer",
         target=target,
-        parent=dispenser,
+        parent=pipette_head,
         bevel=0.005,
     )
     rounded_box(
         "PipetteManifold",
-        (0.034, 0.084, 0.030),
+        (0.034, 0.068, 0.030),
         (0.0, -0.006, 1.320),
         "MachinedAluminum",
         target=target,
-        parent=dispenser,
+        parent=pipette_head,
         bevel=0.005,
     )
     rounded_box(
         "PipetteBadge",
-        (0.046, 0.004, 0.012),
-        (0.0, -0.070, 1.470),
+        (0.028, 0.003, 0.008),
+        (0.0, -0.0425, 1.345),
         "AnodizedAluminum",
         target=target,
-        parent=dispenser,
-        bevel=0.002,
+        parent=pipette_head,
+        bevel=0.0015,
     )
 
     # Eight real nozzle positions at ANSI/SLAS 9 mm row pitch.  The detachable
@@ -3469,7 +3923,7 @@ def build_gantry(
         "AttachedTipColumn",
         target=target,
         location=(0.0, 0.0, NOZZLE_TIP_TOP_LOCAL_Z),
-        parent=dispenser,
+        parent=pipette_head,
     )
     nozzle_mesh: bpy.types.Mesh | None = None
     tip_mesh: bpy.types.Mesh | None = None
@@ -3483,7 +3937,7 @@ def build_gantry(
                 (0.0, y, 1.294),
                 "BrushedStainless",
                 target=target,
-                parent=dispenser,
+                parent=pipette_head,
                 vertices=16,
                 bevel=0.0002,
             )
@@ -3504,7 +3958,7 @@ def build_gantry(
             nozzle = bpy.data.objects.new(f"PipetteNozzle_{row:02d}", nozzle_mesh)
             target.objects.link(nozzle)
             nozzle.location = (0.0, y, 1.294)
-            nozzle.parent = dispenser
+            nozzle.parent = pipette_head
             mark_export(nozzle)
             tip = bpy.data.objects.new(f"AttachedTip_{row:02d}", tip_mesh)
             target.objects.link(tip)
@@ -3513,61 +3967,27 @@ def build_gantry(
             mark_export(tip)
     tip_group.scale = (1.0, 1.0, 0.02)
 
-    gripper = empty(
-        "RobotCarriage",
+    # The gripper head.  Same collar as the pipetting head, so the mover cannot
+    # tell them apart, and the same dock geometry catches either one.
+    gripper_head = empty(
+        "GripperHead",
         target=target,
-        location=(STATION_X["characterizer"], 0.0, 0.0),
-        parent=gantry_y,
+        location=(STATION_X["characterize"], ROW_FRONT, 0.0),
+        parent=cell_root,
     )
-    gripper["movable"] = True
-    rounded_box(
-        "GripperCarriage",
-        (0.105, 0.075, GRIPPER_CARRIAGE_HEIGHT),
-        (0.0, -0.012, GRIPPER_CARRIAGE_LOCAL_Z),
-        "PowderCoatGraphite",
-        target=target,
-        parent=gripper,
-        bevel=0.012,
-    )
-    rounded_box(
-        "GripperFrontPanel",
-        (0.086, 0.012, 0.166),
-        (0.0, -0.055, GRIPPER_CARRIAGE_LOCAL_Z),
-        "AnodizedAluminum",
-        target=target,
-        parent=gripper,
-        bevel=0.008,
-    )
-    cylinder(
-        "GripperCamera",
-        0.009,
-        0.007,
-        (0.0, -0.049, 1.38),
-        "ScreenGlass",
-        target=target,
-        parent=gripper,
-        rotation=(math.pi / 2, 0.0, 0.0),
-        vertices=32,
-        bevel=0.001,
-    )
-    rounded_box(
-        "GripperBadge",
-        (0.040, 0.004, 0.011),
-        (0.0, -0.062, 1.500),
-        "AnodizedAluminum",
-        target=target,
-        parent=gripper,
-        bevel=0.002,
-    )
+    gripper_head["movable"] = True
+    gripper_head["opensdlEntityId"] = "gripper-head"
+    head_collar("GripperHeadCollar", -0.012, target, gripper_head)
+    gripper = gripper_head
 
-    # The mechanism between the carriage and the paddles.  Without it the
+    # The mechanism between the collar and the paddles.  Without it the
     # paddles read as two bars floating beside the arm, which is exactly what
     # they were: the jaws tracked the carriage correctly and nothing spanned
-    # the gap.  Wrist, actuator housing, cross-rail and rail end supports are
+    # the gap.  Socket, actuator housing, cross-rail and rail end supports are
     # each flush with the stage above, and the rail is long enough that a
     # carrier can never run off it at any authored jaw width.
     rounded_box(
-        "GripperWrist",
+        "GripperHeadSocket",
         (0.086, 0.064, GRIPPER_WRIST_HEIGHT),
         (0.0, -0.012, GRIPPER_WRIST_Z),
         "MachinedAluminum",
@@ -3698,17 +4118,17 @@ def build_gantry(
 
     # The visible end of the X-axis energy chain.  It rides the carriage in X
     # only: the Z stroke happens inside the carriage on a real machine, so a
-    # chain that bobbed with the tool would be wrong.  ``DragChain`` therefore
+    # chain that bobbed with the tool would be wrong.  ``MoverChain`` therefore
     # gets its own transform, keyed from the same X the carriage is keyed from,
     # and the return run stays down in the covered trough for the whole stroke.
     drag = empty(
-        "DragChain",
+        "MoverChain",
         target=target,
-        location=(STATION_X["characterizer"], 0.0, 0.0),
-        parent=gantry_y,
+        location=(STATION_X["characterize"], 0.0, 0.0),
+        parent=bridge,
     )
     drag["movable"] = True
-    trough_z = GANTRY_BEAM_Z + 0.062
+    trough_z = MOVER_BRIDGE_Z + 0.062
     link_pitch = 0.042
     for link in range(9):
         # A flat run out of the trough, then the U-bend up to the carriage.
@@ -3726,7 +4146,7 @@ def build_gantry(
             )
             pitch_angle = -angle
         rounded_box(
-            f"DragChainLink_{link:02d}",
+            f"MoverChainLink_{link:02d}",
             (link_pitch - 0.004, 0.052, 0.028),
             position,
             "BlackPolymer",
@@ -3736,7 +4156,7 @@ def build_gantry(
             bevel=0.003,
         )
         rounded_box(
-            f"DragChainPin_{link:02d}",
+            f"MoverChainPin_{link:02d}",
             (0.008, 0.058, 0.008),
             position,
             "PowderCoatGraphite",
@@ -3746,7 +4166,7 @@ def build_gantry(
             bevel=0.001,
         )
     rounded_box(
-        "DragChainBracket",
+        "MoverChainBracket",
         (0.062, 0.046, 0.030),
         (-0.002, 0.052, trough_z + 0.126),
         "PowderCoatGraphite",
@@ -3755,18 +4175,21 @@ def build_gantry(
         bevel=0.004,
     )
     tube_path(
-        "DragChainUmbilical",
+        "MoverChainUmbilical",
         (
             (-0.010, 0.050, trough_z + 0.138),
             (0.006, 0.010, trough_z + 0.106),
-            (0.006, -0.020, GRIPPER_CARRIAGE_LOCAL_Z + GRIPPER_CARRIAGE_HEIGHT / 2.0 + 0.004),
+            (0.006, -0.020, MOVER_CARRIAGE_TOP_Z + 0.004),
         ),
         0.0072,
         "CableBlack",
         target=target,
         parent=drag,
     )
-    return gantry_y, dispenser, tip_group, gripper, jaw_left, jaw_right, drag
+
+    for label in ("Gripper", "Pipette"):
+        build_head_dock(label, cell_root)
+    return bridge, mover, gripper_head, pipette_head, tip_group, jaw_left, jaw_right, drag
 
 
 def build_plate(
@@ -3973,15 +4396,14 @@ def build_reservoir(location: Sequence[float], cell_root: bpy.types.Object) -> N
         )
 
 
-def build_heater_shaker(
+def build_mixer(
     location: Sequence[float],
     cell_root: bpy.types.Object,
 ) -> tuple[bpy.types.Object, tuple[bpy.types.Object, bpy.types.Object], bpy.types.Object]:
     target = COLLECTIONS["Modules"]
-    root = empty("HeaterShaker", target=target, location=location, parent=cell_root)
-    root["opensdlEntityId"] = "mixer"
+    root = empty("MixerModule", target=target, location=location, parent=cell_root)
     rounded_box(
-        "HeaterShakerBody",
+        "MixerBody",
         (0.152, 0.090, 0.061),
         (0.0, 0.0, 0.0305),
         "MachinedAluminum",
@@ -3990,7 +4412,7 @@ def build_heater_shaker(
         bevel=0.008,
     )
     rounded_box(
-        "HeaterShakerRear",
+        "MixerRear",
         (0.035, 0.086, 0.065),
         (-0.057, 0.0, 0.033),
         "PowderCoatGraphite",
@@ -3999,7 +4421,7 @@ def build_heater_shaker(
         bevel=0.006,
     )
     rounded_box(
-        "HeaterShakerPanel",
+        "MixerPanel",
         (0.004, 0.068, 0.044),
         (0.077, 0.0, 0.035),
         "AnodizedAluminum",
@@ -4008,7 +4430,7 @@ def build_heater_shaker(
         bevel=0.003,
     )
     cylinder(
-        "HeaterShakerPower",
+        "MixerPower",
         0.008,
         0.005,
         (-0.076, 0.025, 0.031),
@@ -4020,7 +4442,7 @@ def build_heater_shaker(
         bevel=0.001,
     )
     mixer = empty("MixerRotor", target=target, location=(0.0, 0.0, 0.069), parent=root)
-    mixer["opensdlEntityId"] = "mixer"
+    mixer["opensdlEntityId"] = "mixer-rotor"
     mixer["movable"] = True
     rounded_box(
         "MixerPlatform",
@@ -4059,7 +4481,7 @@ def build_heater_shaker(
         )
         latches.append(latch)
     status = rounded_box(
-        "HeaterShakerStatus",
+        "MixerStatus",
         (0.018, 0.004, 0.005),
         (-0.063, -0.047, 0.044),
         "WhiteIndicator",
@@ -4070,16 +4492,16 @@ def build_heater_shaker(
     return mixer, (latches[0], latches[1]), status
 
 
-def build_plate_reader(
+def build_characterizer(
     location: Sequence[float], lid_dock: Sequence[float], cell_root: bpy.types.Object
 ) -> tuple[bpy.types.Object, bpy.types.Object, bpy.types.Object]:
     target = COLLECTIONS["Modules"]
-    reader = empty("ColorimeterHousing", target=target, location=location, parent=cell_root)
+    reader = empty("CharacterizerHousing", target=target, location=location, parent=cell_root)
     reader["opensdlEntityId"] = "characterizer"
     # The published assembled module is approximately 57-60 mm high.  Its
     # 18.5 mm detector body, labware, and removable lid share that envelope.
     rounded_box(
-        "ReaderDetectionBody",
+        "CharacterizerBody",
         (0.1553, 0.0955, 0.0185),
         (0.0, 0.0, 0.00925),
         "MachinedAluminum",
@@ -4088,7 +4510,7 @@ def build_plate_reader(
         bevel=0.006,
     )
     rounded_box(
-        "ReaderFrontFascia",
+        "CharacterizerFascia",
         (0.145, 0.006, 0.014),
         (0.0, -0.0505, 0.010),
         "PowderCoatGraphite",
@@ -4097,7 +4519,7 @@ def build_plate_reader(
         bevel=0.003,
     )
     rounded_box(
-        "ReaderBlackDeck",
+        "CharacterizerDeck",
         (0.130, 0.082, 0.003),
         (0.0, 0.0, 0.0190),
         "PowderCoatBlack",
@@ -4108,7 +4530,7 @@ def build_plate_reader(
     # The read window and its detectors are inlaid into the black deck.  The
     # plate seats on that deck, so nothing may stand above it.
     rounded_box(
-        "ReaderReadWindow",
+        "CharacterizerWindow",
         (0.124, 0.076, 0.0012),
         (0.0, 0.0, 0.0199),
         "ReaderIndicator",
@@ -4121,7 +4543,7 @@ def build_plate_reader(
             x = (col - 5.5) * 0.009
             y = (row - 3.5) * 0.009
             cylinder(
-                f"ReaderDetector_{row:02d}_{col:02d}",
+                f"CharacterizerDetector_{row:02d}_{col:02d}",
                 0.0018,
                 0.0010,
                 (x, y, 0.0196),
@@ -4132,7 +4554,7 @@ def build_plate_reader(
                 bevel=0.0002,
             )
     status = rounded_box(
-        "ReaderStatus",
+        "CharacterizerStatus",
         (0.034, 0.006, 0.006),
         (0.050, -0.0515, 0.010),
         "ReaderIndicator",
@@ -4142,20 +4564,20 @@ def build_plate_reader(
     )
 
     rounded_box(
-        "ReaderLidCaddy",
-        (0.128, 0.086, READER_LID_CADDY_HEIGHT),
-        (lid_dock[0], lid_dock[1], lid_dock[2] - READER_LID_CADDY_HEIGHT / 2.0),
+        "CharacterizerDoorDock",
+        (0.128, 0.086, DOOR_DOCK_HEIGHT),
+        (lid_dock[0], lid_dock[1], lid_dock[2] - DOOR_DOCK_HEIGHT / 2.0),
         "PowderCoatGraphite",
         target=target,
         parent=cell_root,
         bevel=0.005,
     )
 
-    lid = empty("ColorimeterDoor", target=target, location=lid_dock, parent=cell_root)
+    lid = empty("CharacterizerDoor", target=target, location=lid_dock, parent=cell_root)
     lid["opensdlEntityId"] = "characterizer-door"
     lid["movable"] = True
     rounded_box(
-        "ReaderLidLower",
+        "CharacterizerDoorLower",
         (0.139, 0.089, 0.010),
         (0.0, 0.0, 0.005),
         "MachinedAluminum",
@@ -4164,7 +4586,7 @@ def build_plate_reader(
         bevel=0.006,
     )
     rounded_box(
-        "ReaderLidTop",
+        "CharacterizerDoorTop",
         (0.132, 0.082, 0.011),
         (0.0, 0.0, 0.0155),
         "PowderCoatGraphite",
@@ -4172,19 +4594,19 @@ def build_plate_reader(
         parent=lid,
         bevel=0.006,
     )
-    grip_x = READER_LID_GRIP_OUTER_X - READER_LID_GRIP_DEPTH / 2.0
+    grip_x = DOOR_GRIP_OUTER_X - DOOR_GRIP_DEPTH / 2.0
     for side, x in (("Left", -grip_x), ("Right", grip_x)):
         rounded_box(
-            f"ReaderLidGrip{side}",
-            (READER_LID_GRIP_DEPTH, 0.032, 0.012),
-            (x, 0.0, READER_LID_GRIP_Z),
+            f"CharacterizerDoorGrip{side}",
+            (DOOR_GRIP_DEPTH, 0.032, 0.012),
+            (x, 0.0, DOOR_GRIP_Z),
             "BlackPolymer",
             target=target,
             parent=lid,
             bevel=0.0025,
         )
     rounded_box(
-        "ReaderLidBadge",
+        "CharacterizerDoorBadge",
         (0.030, 0.009, 0.002),
         (0.0, -0.001, 0.0212),
         "AnodizedAluminum",
@@ -4195,7 +4617,7 @@ def build_plate_reader(
     return reader, lid, status
 
 
-def build_stacker(
+def build_hotel(
     name: str,
     slot: Sequence[float],
     cell_root: bpy.types.Object,
@@ -4620,9 +5042,18 @@ def _tip_box_stack(
         )
 
 
-def anchor(name: str, position: Sequence[float], cell_root: bpy.types.Object) -> bpy.types.Object:
-    obj = empty(name, target=COLLECTIONS["Anchors"], location=position, parent=cell_root)
+def anchor(
+    anchor_id: str, position: Sequence[float], cell_root: bpy.types.Object
+) -> bpy.types.Object:
+    """An anchor is a semantic workflow point: ``Anchor_<Id>`` carries its id."""
+    obj = empty(
+        f"Anchor_{node_case(anchor_id)}",
+        target=COLLECTIONS["Anchors"],
+        location=position,
+        parent=cell_root,
+    )
     obj["opensdlAnchor"] = True
+    obj["opensdlAnchorId"] = anchor_id
     obj.empty_display_type = "SPHERE"
     obj.empty_display_size = 0.018
     return obj
@@ -4649,17 +5080,7 @@ def set_action_name(obj: bpy.types.Object, name: str) -> None:
 
 
 def set_interpolation(obj: bpy.types.Object, interpolation: str = "BEZIER") -> None:
-    if not obj.animation_data or not obj.animation_data.action:
-        return
-    action = obj.animation_data.action
-    fcurves = list(getattr(action, "fcurves", ()))
-    if not fcurves:
-        # Blender 5 stores curves in layered Action channel bags.
-        for layer in action.layers:
-            for strip in layer.strips:
-                for channelbag in strip.channelbags:
-                    fcurves.extend(channelbag.fcurves)
-    for fcurve in fcurves:
+    for fcurve in action_fcurves(obj):
         for point in fcurve.keyframe_points:
             point.interpolation = interpolation
             if interpolation == "BEZIER":
@@ -4668,10 +5089,11 @@ def set_interpolation(obj: bpy.types.Object, interpolation: str = "BEZIER") -> N
 
 
 def animate_scene(
-    gantry: bpy.types.Object,
-    dispenser: bpy.types.Object,
+    bridge: bpy.types.Object,
+    mover: bpy.types.Object,
+    gripper_head: bpy.types.Object,
+    pipette_head: bpy.types.Object,
     attached_tips: bpy.types.Object,
-    gripper: bpy.types.Object,
     jaw_left: bpy.types.Object,
     jaw_right: bpy.types.Object,
     drag: bpy.types.Object,
@@ -4679,7 +5101,7 @@ def animate_scene(
     liquid_columns: Sequence[bpy.types.Object],
     mixer: bpy.types.Object,
     mixer_latches: Sequence[bpy.types.Object],
-    reader_lid: bpy.types.Object,
+    reader_door: bpy.types.Object,
     reader_status: bpy.types.Object,
     rack_tip_columns: Sequence[bpy.types.Object],
     input_shuttle: bpy.types.Object,
@@ -4687,66 +5109,86 @@ def animate_scene(
     slots: dict[str, tuple[float, float, float]],
 ) -> None:
     positions = {
-        "input": (slots["input-handoff"][0], slots["input-handoff"][1], STACKER_PLATE_Z),
-        "dispenser": (slots["stage"][0], slots["stage"][1], DIRECT_DECK_PLATE_Z),
-        "mixer": (slots["shaker"][0], slots["shaker"][1], MIXER_PLATE_Z),
-        "reader": (slots["reader"][0], slots["reader"][1], READER_PLATE_Z),
-        "lid_closed": (slots["reader"][0], slots["reader"][1], READER_LID_CLOSED_Z),
-        "lid_dock": (slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z),
-        "output": (slots["output-handoff"][0], slots["output-handoff"][1], STACKER_PLATE_Z),
+        "input": (slots["input-handoff"][0], slots["input-handoff"][1], HOTEL_PLATE_Z),
+        "dispense": (slots["stage"][0], slots["stage"][1], DIRECT_DECK_PLATE_Z),
+        "mix": (slots["mixer"][0], slots["mixer"][1], MIXER_PLATE_Z),
+        "characterize": (slots["reader"][0], slots["reader"][1], CHARACTERIZER_PLATE_Z),
+        "door_closed": (slots["reader"][0], slots["reader"][1], DOOR_CLOSED_Z),
+        "door_dock": (slots[DOOR_DOCK_SLOT][0], slots[DOOR_DOCK_SLOT][1], DOOR_DOCK_Z),
+        "output": (slots["output-handoff"][0], slots["output-handoff"][1], HOTEL_PLATE_Z),
     }
-    # Tool heights derive from the grip line and the real seating plane of each
+    # Mover heights derive from the grip line and the real seating plane of each
     # station, so a station height can only be changed in one place.
-    gripper_safe_z = 0.0
-    gripper_input_z = positions["input"][2] - PLATE_GRIP_LOCAL_Z
-    gripper_dispenser_z = positions["dispenser"][2] - PLATE_GRIP_LOCAL_Z
-    gripper_mixer_z = positions["mixer"][2] - PLATE_GRIP_LOCAL_Z
-    gripper_reader_z = positions["reader"][2] - PLATE_GRIP_LOCAL_Z
-    gripper_output_z = positions["output"][2] - PLATE_GRIP_LOCAL_Z
-    gripper_lid_closed_z = positions["lid_closed"][2] - LID_GRIP_LOCAL_Z
-    gripper_lid_dock_z = positions["lid_dock"][2] - LID_GRIP_LOCAL_Z
+    safe_z = 0.0
+    mover_input_z = positions["input"][2] - PLATE_GRIP_LOCAL_Z
+    mover_dispense_z = positions["dispense"][2] - PLATE_GRIP_LOCAL_Z
+    mover_mix_z = positions["mix"][2] - PLATE_GRIP_LOCAL_Z
+    mover_characterize_z = positions["characterize"][2] - PLATE_GRIP_LOCAL_Z
+    mover_output_z = positions["output"][2] - PLATE_GRIP_LOCAL_Z
+    mover_door_closed_z = positions["door_closed"][2] - DOOR_GRIP_LOCAL_Z
+    mover_door_dock_z = positions["door_dock"][2] - DOOR_GRIP_LOCAL_Z
     jaw_open = 0.092
     # The closed widths are the payload half-width plus half the paddle, so the
-    # paddle faces meet the plate skirt and the lid grips exactly.
+    # paddle faces meet the plate skirt and the door grips exactly.
     jaw_plate_closed = PLATE_LENGTH / 2.0 + JAW_THICKNESS / 2.0 + 0.00002
-    jaw_lid_closed = READER_LID_GRIP_OUTER_X + JAW_THICKNESS / 2.0
-    stacker_stored_x = 0.2075
-    # Both Stackers are turned a quarter turn, so their shuttle stroke is a
+    jaw_door_closed = DOOR_GRIP_OUTER_X + JAW_THICKNESS / 2.0
+    hotel_stored_x = 0.2075
+    # Both hotels are turned a quarter turn, so their shuttle stroke is a
     # local X displacement that reads out along world Y.
-    stacker_extended_x = slots["input-handoff"][1] - slots["input-tower"][1]
+    hotel_extended_x = slots["input-handoff"][1] - slots["input-hotel"][1]
     # A payload held by the jaws hangs below the grip line by its own grip
     # offset.  Every carried keyframe is computed from this table.
-    carry_offset = {sample: PLATE_GRIP_LOCAL_Z, reader_lid: LID_GRIP_LOCAL_Z}
+    carry_offset = {sample: PLATE_GRIP_LOCAL_Z, reader_door: DOOR_GRIP_LOCAL_Z}
+    head_dock_pose = {
+        gripper_head: (HEAD_DOCK_X["Gripper"], HEAD_DOCK_Y, HEAD_DOCK_Z),
+        pipette_head: (HEAD_DOCK_X["Pipette"], HEAD_DOCK_Y, HEAD_DOCK_Z),
+    }
+    coupler_pins = [bpy.data.objects[f"MoverCouplerPin{side}"] for side in ("Left", "Right")]
+    pin_base_z = (MOVER_CARRIAGE_BOTTOM_Z + COUPLER_PIN_BOTTOM_Z) / 2.0
 
-    def key_gantry(
+    def key_mover(
         frame: int,
         x: float,
         y: float,
-        z: float = gripper_safe_z,
+        z: float = safe_z,
         *,
+        head: bpy.types.Object | None = None,
         carrying: bpy.types.Object | None = None,
     ) -> None:
-        """Key the carriage, and any payload it holds, from one pose."""
-        key_location(gantry, frame, (0.0, y, 0.0))
-        key_location(gripper, frame, (x, 0.0, z))
+        """Key the bridge, the mover, its head and any payload from one pose.
+
+        There is one driven carriage.  A coupled head has no pose of its own:
+        it is written from the mover pose here, which is what makes a head
+        physically incapable of travelling on its own.
+        """
+        key_location(bridge, frame, (0.0, y, 0.0))
+        key_location(mover, frame, (x, 0.0, z))
         key_location(drag, frame, (x, 0.0, 0.0))
+        if head is not None:
+            key_location(head, frame, (x, y, z))
         if carrying is not None:
             key_location(carrying, frame, (x, y, z + carry_offset[carrying]))
 
-    def key_dispenser(frame: int, x: float, y: float, z: float = 0.0) -> None:
-        """Place the nozzle column, not the carriage origin, over (x, y)."""
-        key_location(gantry, frame, (0.0, y - NOZZLE_COLUMN_Y, 0.0))
-        key_location(dispenser, frame, (x, 0.0, z))
+    def key_head_docked(head: bpy.types.Object, frame: int) -> None:
+        """Hold a head at rest in its own dock, hanging by its collar."""
+        key_location(head, frame, head_dock_pose[head])
 
-    def key_carriage_x(frame: int, x: float, z: float = gripper_safe_z) -> None:
-        """Move the carriage along the bridge without touching the shared Y.
+    def key_coupler(frame: int, *, locked: bool) -> None:
+        """Extend or retract the changer's guide pins.
 
-        The bridge carries both tools, so its Y belongs to whichever tool is
-        working.  Parking the gripper clear of the pipetting head is therefore
-        an X-only move.
+        The boss still reaches into the head while the pins are out, which is
+        correct: the head is released by the mover rising, not by the pins.
         """
-        key_location(gripper, frame, (x, 0.0, z))
-        key_location(drag, frame, (x, 0.0, 0.0))
+        for pin in coupler_pins:
+            key_location(
+                pin,
+                frame,
+                (pin.location.x, pin.location.y, pin_base_z + (0.0 if locked else 0.018)),
+            )
+
+    def key_pipette(frame: int, x: float, y: float, z: float = safe_z) -> None:
+        """Place the nozzle column, not the mover origin, over (x, y)."""
+        key_mover(frame, x, y - NOZZLE_COLUMN_Y, z, head=pipette_head)
 
     def key_jaws(frame: int, width: float) -> None:
         key_location(jaw_left, frame, (-width, -0.012, JAW_CARRIER_LOCAL_Z))
@@ -4759,9 +5201,7 @@ def animate_scene(
         """Key the shaker platform, and the plate clamped to it, together."""
         key_location(mixer, frame, (dx, dy, 0.069))
         if carrying:
-            key_plate(
-                frame, (positions["mixer"][0] + dx, positions["mixer"][1] + dy, MIXER_PLATE_Z)
-            )
+            key_plate(frame, (positions["mix"][0] + dx, positions["mix"][1] + dy, MIXER_PLATE_Z))
 
     def key_shuttle(
         shuttle: bpy.types.Object,
@@ -4771,14 +5211,14 @@ def animate_scene(
         *,
         carrying: bool,
     ) -> None:
-        """Key a Stacker shuttle, and the plate resting in its nest, together.
+        """Key a hotel shuttle, and the plate resting in its nest, together.
 
         The module is rotated a quarter turn, so a local +X shuttle move is a
         world +Y move of the plate riding it.
         """
         key_location(shuttle, frame, (x, 0.0, 0.228))
         if carrying:
-            key_plate(frame, (slot[0], slot[1] + x, STACKER_PLATE_Z))
+            key_plate(frame, (slot[0], slot[1] + x, HOTEL_PLATE_Z))
 
     def key_latches(frame: int, *, opened: bool) -> None:
         for latch, sign in zip(mixer_latches, (-1.0, 1.0), strict=True):
@@ -4787,316 +5227,492 @@ def animate_scene(
             key_location(latch, frame, (0.0, y, 0.014))
             key_rotation(latch, frame, (angle, 0.0, 0.0))
 
-    # The real reader begins empty and closed. Initialize it, then move the
-    # illumination lid off the reader to its caddy behind it.
-    key_gantry(1, positions["reader"][0], positions["reader"][1])
-    key_jaws(1, jaw_open)
-    key_location(reader_lid, 1, positions["lid_closed"])
+    reader_x, reader_y = positions["characterize"][0], positions["characterize"][1]
+    door_dock_x, door_dock_y = positions["door_dock"][0], positions["door_dock"][1]
+
+    # ---- Phase 1: transfer input -> dispense -------------------------------
+    # The cell starts with the gripper head coupled, the pipetting head in its
+    # dock, and the reader closed.  Stage the reader door, then fetch the plate.
+    key_mover(BEAT["start"], reader_x, reader_y, head=gripper_head)
+    key_coupler(BEAT["start"], locked=True)
+    key_jaws(BEAT["start"], jaw_open)
+    key_location(reader_door, BEAT["start"], positions["door_closed"])
+    key_head_docked(pipette_head, BEAT["start"])
     reader_emission = (
         reader_status.data.materials[0]
         .node_tree.nodes["Principled BSDF"]
         .inputs["Emission Strength"]
     )
     for frame, value in (
-        (1, 1.0),
+        (BEAT["start"], 1.0),
         (8, 7.0),
-        (18, 1.0),
-        (752, 1.0),
-        (758, 11.0),
-        (770, 4.0),
-        (782, 11.0),
-        (792, 1.0),
-        (960, 1.0),
+        (BEAT["door_settle"], 1.0),
+        (BEAT["door_close_clear"], 1.0),
+        (BEAT["door_close_clear"] + 6, 11.0),
+        (BEAT["door_close_clear"] + 12, 4.0),
+        (BEAT["door_close_clear"] + 18, 11.0),
+        (BEAT["read_hold"], 1.0),
+        (FRAME_END, 1.0),
     ):
         reader_emission.default_value = value
         reader_emission.keyframe_insert(data_path="default_value", frame=frame)
-    key_gantry(22, positions["reader"][0], positions["reader"][1])
-    key_gantry(30, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
-    key_jaws(30, jaw_open)
-    key_jaws(36, jaw_lid_closed)
-    key_gantry(
-        36,
-        positions["reader"][0],
-        positions["reader"][1],
-        gripper_lid_closed_z,
-        carrying=reader_lid,
+    key_mover(BEAT["door_settle"], reader_x, reader_y, head=gripper_head)
+    key_mover(BEAT["door_down"], reader_x, reader_y, mover_door_closed_z, head=gripper_head)
+    key_jaws(BEAT["door_down"], jaw_open)
+    key_jaws(BEAT["door_grip"], jaw_door_closed)
+    key_mover(
+        BEAT["door_grip"],
+        reader_x,
+        reader_y,
+        mover_door_closed_z,
+        head=gripper_head,
+        carrying=reader_door,
     )
-    key_gantry(46, positions["reader"][0], positions["reader"][1], carrying=reader_lid)
-    key_gantry(58, positions["lid_dock"][0], positions["lid_dock"][1], carrying=reader_lid)
-    key_gantry(
-        68,
-        positions["lid_dock"][0],
-        positions["lid_dock"][1],
-        gripper_lid_dock_z,
-        carrying=reader_lid,
+    key_mover(BEAT["door_lift"], reader_x, reader_y, head=gripper_head, carrying=reader_door)
+    key_mover(BEAT["door_cross"], door_dock_x, door_dock_y, head=gripper_head, carrying=reader_door)
+    key_mover(
+        BEAT["door_seat"],
+        door_dock_x,
+        door_dock_y,
+        mover_door_dock_z,
+        head=gripper_head,
+        carrying=reader_door,
     )
-    key_jaws(68, jaw_lid_closed)
-    key_jaws(74, jaw_open)
-    key_gantry(74, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
-    key_gantry(82, positions["lid_dock"][0], positions["lid_dock"][1])
+    key_jaws(BEAT["door_seat"], jaw_door_closed)
+    key_jaws(BEAT["door_release"], jaw_open)
+    key_mover(BEAT["door_release"], door_dock_x, door_dock_y, mover_door_dock_z, head=gripper_head)
+    key_mover(BEAT["door_clear"], door_dock_x, door_dock_y, head=gripper_head)
+    key_mover(BEAT["door_row_front"], door_dock_x, positions["characterize"][1], head=gripper_head)
 
-    # Retrieve the input plate: the Stacker shuttle extends to the hand-off
-    # position at the front of the input station before the
-    # gripper approaches. The plate rides the shuttle, so its keys derive from
-    # the shuttle pose rather than repeating the same travel by hand.
-    input_slot = slots["input-tower"]
-    key_shuttle(input_shuttle, input_slot, 1, stacker_stored_x, carrying=True)
-    key_shuttle(input_shuttle, input_slot, 70, stacker_stored_x, carrying=True)
-    key_shuttle(input_shuttle, input_slot, 92, stacker_extended_x, carrying=True)
+    # Retrieve the input plate: the hotel shuttle extends to the hand-off
+    # position at the front of the input station before the mover approaches.
+    # The plate rides the shuttle, so its keys derive from the shuttle pose
+    # rather than repeating the same travel by hand.
+    input_slot = slots["input-hotel"]
+    key_shuttle(input_shuttle, input_slot, BEAT["start"], hotel_stored_x, carrying=True)
+    key_shuttle(input_shuttle, input_slot, BEAT["door_clear"], hotel_stored_x, carrying=True)
+    key_shuttle(
+        input_shuttle, input_slot, BEAT["plate_approach"] - 5, hotel_extended_x, carrying=True
+    )
 
-    # Input hand-off -> pipetting stage.
-    key_gantry(100, positions["input"][0], positions["input"][1])
-    key_gantry(108, positions["input"][0], positions["input"][1], gripper_input_z)
-    key_jaws(108, jaw_open)
-    key_jaws(114, jaw_plate_closed)
-    key_gantry(114, positions["input"][0], positions["input"][1], gripper_input_z, carrying=sample)
-    key_gantry(124, positions["input"][0], positions["input"][1], carrying=sample)
-    # Once the plate has cleared the shuttle, retract the empty presentation
-    # tray into the input tower instead of leaving it across the hand-off.
-    key_shuttle(input_shuttle, input_slot, 124, stacker_extended_x, carrying=False)
-    key_shuttle(input_shuttle, input_slot, 144, stacker_stored_x, carrying=False)
-    key_gantry(138, positions["dispenser"][0], positions["dispenser"][1], carrying=sample)
-    key_gantry(
-        148,
-        positions["dispenser"][0],
-        positions["dispenser"][1],
-        gripper_dispenser_z,
+    key_mover(
+        BEAT["plate_approach"], positions["input"][0], positions["input"][1], head=gripper_head
+    )
+    key_mover(
+        BEAT["plate_down"],
+        positions["input"][0],
+        positions["input"][1],
+        mover_input_z,
+        head=gripper_head,
+    )
+    key_jaws(BEAT["plate_down"], jaw_open)
+    key_jaws(BEAT["plate_grip"], jaw_plate_closed)
+    key_mover(
+        BEAT["plate_grip"],
+        positions["input"][0],
+        positions["input"][1],
+        mover_input_z,
+        head=gripper_head,
         carrying=sample,
     )
-    key_jaws(148, jaw_plate_closed)
-    key_jaws(154, jaw_open)
-    key_gantry(154, positions["dispenser"][0], positions["dispenser"][1], gripper_dispenser_z)
-    key_gantry(160, positions["dispenser"][0], positions["dispenser"][1])
-    # The pipetting head now owns the dispenser station, so the carriage steps
-    # along the bridge to a clear stretch of bench and waits there.
-    key_carriage_x(178, GANTRY_PARK_X)
-    key_carriage_x(500, GANTRY_PARK_X)
+    key_mover(
+        BEAT["plate_lift"],
+        positions["input"][0],
+        positions["input"][1],
+        head=gripper_head,
+        carrying=sample,
+    )
+    # Once the plate has cleared the shuttle, retract the empty presentation
+    # tray into the input hotel instead of leaving it across the hand-off.
+    key_shuttle(input_shuttle, input_slot, BEAT["plate_lift"], hotel_extended_x, carrying=False)
+    key_shuttle(input_shuttle, input_slot, BEAT["plate_seat"], hotel_stored_x, carrying=False)
+    key_mover(
+        BEAT["plate_cross"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_mover(
+        BEAT["plate_seat"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        mover_dispense_z,
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_jaws(BEAT["plate_seat"], jaw_plate_closed)
+    key_jaws(BEAT["plate_release"], jaw_open)
+    key_mover(
+        BEAT["plate_release"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        mover_dispense_z,
+        head=gripper_head,
+    )
+    key_mover(
+        BEAT["plate_clear"], positions["dispense"][0], positions["dispense"][1], head=gripper_head
+    )
+    key_mover(
+        BEAT["transfer_in_end"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        head=gripper_head,
+    )
 
+    # ---- Head change A: gripper out, pipetting head in ----------------------
+    # The mover crosses to the gripper dock at the front row, steps back over
+    # the cradle, lowers until the collar takes on the arms, unlocks, and rises
+    # away empty.  Nothing about the head moves under its own power.
+    gripper_dock_x = HEAD_DOCK_X["Gripper"]
+    pipette_dock_x = HEAD_DOCK_X["Pipette"]
+    key_mover(BEAT["swap_a_over_gripper"], gripper_dock_x, ROW_FRONT, head=gripper_head)
+    key_mover(BEAT["swap_a_row_back"], gripper_dock_x, HEAD_DOCK_Y, head=gripper_head)
+    key_mover(BEAT["swap_a_seat"], gripper_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=gripper_head)
+    key_coupler(BEAT["swap_a_seat"], locked=True)
+    key_coupler(BEAT["swap_a_unlock"], locked=False)
+    key_head_docked(gripper_head, BEAT["swap_a_unlock"])
+    key_mover(BEAT["swap_a_lift"], gripper_dock_x, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["swap_a_lift"])
+    key_mover(BEAT["swap_a_traverse"], pipette_dock_x, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["swap_a_traverse"])
+    key_head_docked(pipette_head, BEAT["swap_a_traverse"])
+    key_mover(BEAT["swap_a_down"], pipette_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=pipette_head)
+    key_coupler(BEAT["swap_a_down"], locked=False)
+    key_coupler(BEAT["swap_a_lock"], locked=True)
+    key_mover(BEAT["swap_a_lock"], pipette_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=pipette_head)
+    key_mover(BEAT["swap_a_ready"], pipette_dock_x, HEAD_DOCK_Y, head=pipette_head)
+
+    # ---- Phase 2: dispense --------------------------------------------------
     # Real 8-channel liquid handling. Each pass picks one rack column, aspirates
     # from one reservoir lane, and dispenses A-H column-by-column across all
     # twelve plate columns. The liquid fill transforms are keyed to each touch.
     plate_offsets = [(column - 5.5) * 0.009 for column in range(12)]
-    tip_pick_x = slots["tips"][0] + plate_offsets[0]
-    key_scale(attached_tips, 1, (1.0, 1.0, 0.02))
-    key_scale(rack_tip_columns[0], 1, (1.0, 1.0, 1.0))
-    key_dispenser(164, tip_pick_x, slots["tips"][1])
-    key_dispenser(172, tip_pick_x, slots["tips"][1], TIP_PICK_Z)
-    key_scale(rack_tip_columns[0], 175, (1.0, 1.0, 1.0))
-    key_scale(rack_tip_columns[0], 178, (1.0, 1.0, 0.02))
-    key_scale(attached_tips, 175, (1.0, 1.0, 0.02))
-    key_scale(attached_tips, 178, (1.0, 1.0, 1.0))
-    key_dispenser(178, tip_pick_x, slots["tips"][1], TIP_PICK_Z)
-    key_dispenser(184, tip_pick_x, slots["tips"][1])
-    reservoir_a_x = slots["reservoir"][0] + plate_offsets[0]
-    key_dispenser(192, reservoir_a_x, slots["reservoir"][1])
-    key_dispenser(200, reservoir_a_x, slots["reservoir"][1], RESERVOIR_ASPIRATE_Z)
-    key_dispenser(203, reservoir_a_x, slots["reservoir"][1], RESERVOIR_ASPIRATE_Z)
-    key_dispenser(206, reservoir_a_x, slots["reservoir"][1])
-    for column, offset in enumerate(plate_offsets):
-        frame = 214 + column * 8
-        x = positions["dispenser"][0] + offset
-        key_dispenser(frame, x, positions["dispenser"][1])
-        key_dispenser(frame + 3, x, positions["dispenser"][1], -0.083)
-        key_scale(liquid_columns[column], frame + 3, (1.0, 1.0, 0.03))
-        key_scale(liquid_columns[column], frame + 5, (1.0, 1.0, 0.46))
-        key_dispenser(frame + 5, x, positions["dispenser"][1], -0.083)
-        key_dispenser(frame + 7, x, positions["dispenser"][1])
+    key_scale(attached_tips, BEAT["start"], (1.0, 1.0, 0.02))
+    key_scale(rack_tip_columns[0], BEAT["start"], (1.0, 1.0, 1.0))
+    key_scale(rack_tip_columns[1], BEAT["start"], (1.0, 1.0, 1.0))
+    for pass_index, (letter, column_index) in enumerate((("a", 0), ("b", 1))):
+        tip_x = slots["tips"][0] + plate_offsets[column_index]
+        reservoir_x = slots["reservoir"][0] + plate_offsets[column_index]
+        waste_x, waste_y, _ = slots["tip-waste"]
+        key_pipette(BEAT[f"tips_{letter}_approach"], tip_x, slots["tips"][1])
+        key_pipette(BEAT[f"tips_{letter}_down"], tip_x, slots["tips"][1], TIP_PICK_Z)
+        key_scale(rack_tip_columns[column_index], BEAT[f"tips_{letter}_dwell"], (1.0, 1.0, 1.0))
+        key_scale(rack_tip_columns[column_index], BEAT[f"tips_{letter}_taken"], (1.0, 1.0, 0.02))
+        key_scale(attached_tips, BEAT[f"tips_{letter}_dwell"], (1.0, 1.0, 0.02))
+        key_scale(attached_tips, BEAT[f"tips_{letter}_taken"], (1.0, 1.0, 1.0))
+        key_pipette(BEAT[f"tips_{letter}_dwell"], tip_x, slots["tips"][1], TIP_PICK_Z)
+        key_pipette(BEAT[f"tips_{letter}_taken"], tip_x, slots["tips"][1], TIP_PICK_Z)
+        key_pipette(BEAT[f"tips_{letter}_up"], tip_x, slots["tips"][1])
+        key_pipette(BEAT[f"res_{letter}_approach"], reservoir_x, slots["reservoir"][1])
+        key_pipette(
+            BEAT[f"res_{letter}_down"], reservoir_x, slots["reservoir"][1], RESERVOIR_ASPIRATE_Z
+        )
+        key_pipette(
+            BEAT[f"res_{letter}_hold"], reservoir_x, slots["reservoir"][1], RESERVOIR_ASPIRATE_Z
+        )
+        key_pipette(BEAT[f"res_{letter}_up"], reservoir_x, slots["reservoir"][1])
+        fill_from, fill_to = (0.03, 0.46) if pass_index == 0 else (0.46, 1.0)
+        for column, offset in enumerate(plate_offsets):
+            frame = BEAT[f"fill_{letter}_start"] + column * WELL_COLUMN_PITCH
+            x = positions["dispense"][0] + offset
+            key_pipette(frame, x, positions["dispense"][1])
+            key_pipette(frame + 3, x, positions["dispense"][1], WELL_ENTRY_Z)
+            key_scale(liquid_columns[column], frame + 3, (1.0, 1.0, fill_from))
+            key_scale(liquid_columns[column], frame + 5, (1.0, 1.0, fill_to))
+            key_pipette(frame + 5, x, positions["dispense"][1], WELL_ENTRY_Z)
+            key_pipette(frame + 7, x, positions["dispense"][1])
+        key_pipette(BEAT[f"waste_{letter}_approach"], waste_x, waste_y)
+        key_pipette(BEAT[f"waste_{letter}_down"], waste_x, waste_y, WASTE_ENTRY_Z)
+        key_scale(attached_tips, BEAT[f"waste_{letter}_down"], (1.0, 1.0, 1.0))
+        key_scale(attached_tips, BEAT[f"waste_{letter}_drop"], (1.0, 1.0, 0.02))
+        key_pipette(BEAT[f"waste_{letter}_drop"], waste_x, waste_y, WASTE_ENTRY_Z)
+        key_pipette(BEAT[f"waste_{letter}_up"], waste_x, waste_y)
+    key_pipette(BEAT["dispense_end"], slots["tip-waste"][0], slots["tip-waste"][1])
 
-    waste_x, waste_y, _ = slots["tip-waste"]
-    key_dispenser(318, waste_x, waste_y)
-    key_dispenser(326, waste_x, waste_y, -0.082)
-    key_scale(attached_tips, 326, (1.0, 1.0, 1.0))
-    key_scale(attached_tips, 329, (1.0, 1.0, 0.02))
-    key_dispenser(329, waste_x, waste_y, -0.082)
-    key_dispenser(334, waste_x, waste_y)
+    # ---- Head change B: pipetting head out, gripper in ----------------------
+    key_mover(BEAT["swap_b_over_pipette"], pipette_dock_x, HEAD_DOCK_Y, head=pipette_head)
+    key_mover(BEAT["swap_b_seat"], pipette_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=pipette_head)
+    key_coupler(BEAT["swap_b_seat"], locked=True)
+    key_coupler(BEAT["swap_b_unlock"], locked=False)
+    key_head_docked(pipette_head, BEAT["swap_b_unlock"])
+    key_mover(BEAT["swap_b_lift"], pipette_dock_x, HEAD_DOCK_Y)
+    key_head_docked(pipette_head, BEAT["swap_b_lift"])
+    key_mover(BEAT["swap_b_traverse"], gripper_dock_x, HEAD_DOCK_Y)
+    key_head_docked(pipette_head, BEAT["swap_b_traverse"])
+    key_head_docked(gripper_head, BEAT["swap_b_traverse"])
+    key_mover(BEAT["swap_b_down"], gripper_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=gripper_head)
+    key_coupler(BEAT["swap_b_down"], locked=False)
+    key_coupler(BEAT["swap_b_lock"], locked=True)
+    key_mover(BEAT["swap_b_lock"], gripper_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=gripper_head)
+    key_mover(BEAT["swap_b_lift2"], gripper_dock_x, HEAD_DOCK_Y, head=gripper_head)
+    key_mover(BEAT["swap_b_row_front"], gripper_dock_x, ROW_FRONT, head=gripper_head)
+    key_head_docked(pipette_head, BEAT["swap_b_row_front"])
+    key_head_docked(pipette_head, FRAME_END)
+    key_jaws(BEAT["swap_b_row_front"], jaw_open)
 
-    second_tip_x = slots["tips"][0] + plate_offsets[1]
-    key_scale(rack_tip_columns[1], 1, (1.0, 1.0, 1.0))
-    key_dispenser(342, second_tip_x, slots["tips"][1])
-    key_dispenser(350, second_tip_x, slots["tips"][1], TIP_PICK_Z)
-    key_scale(rack_tip_columns[1], 351, (1.0, 1.0, 1.0))
-    key_scale(rack_tip_columns[1], 354, (1.0, 1.0, 0.02))
-    key_scale(attached_tips, 351, (1.0, 1.0, 0.02))
-    key_scale(attached_tips, 354, (1.0, 1.0, 1.0))
-    key_dispenser(354, second_tip_x, slots["tips"][1], TIP_PICK_Z)
-    key_dispenser(358, second_tip_x, slots["tips"][1])
-    reservoir_b_x = slots["reservoir"][0] + plate_offsets[1]
-    key_dispenser(366, reservoir_b_x, slots["reservoir"][1])
-    key_dispenser(374, reservoir_b_x, slots["reservoir"][1], RESERVOIR_ASPIRATE_Z)
-    key_dispenser(377, reservoir_b_x, slots["reservoir"][1], RESERVOIR_ASPIRATE_Z)
-    key_dispenser(380, reservoir_b_x, slots["reservoir"][1])
-    for column, offset in enumerate(plate_offsets):
-        frame = 388 + column * 8
-        x = positions["dispenser"][0] + offset
-        key_dispenser(frame, x, positions["dispenser"][1])
-        key_dispenser(frame + 3, x, positions["dispenser"][1], -0.083)
-        key_scale(liquid_columns[column], frame + 3, (1.0, 1.0, 0.46))
-        key_scale(liquid_columns[column], frame + 5, (1.0, 1.0, 1.0))
-        key_dispenser(frame + 5, x, positions["dispenser"][1], -0.083)
-        key_dispenser(frame + 7, x, positions["dispenser"][1])
-    key_dispenser(492, waste_x, waste_y)
-    key_dispenser(500, waste_x, waste_y, -0.082)
-    key_scale(attached_tips, 500, (1.0, 1.0, 1.0))
-    key_scale(attached_tips, 503, (1.0, 1.0, 0.02))
-    key_dispenser(503, waste_x, waste_y, -0.082)
-    key_dispenser(508, waste_x, waste_y)
-
-    # The Heater-Shaker clamp remains open for placement, closes before the
-    # orbital cycle, and opens again before the gripper retrieves the plate.
-    key_latches(1, opened=True)
-    key_latches(552, opened=True)
-
-    # Pipetting stage -> Heater-Shaker.
-    key_gantry(516, positions["dispenser"][0], positions["dispenser"][1])
-    key_gantry(524, positions["dispenser"][0], positions["dispenser"][1], gripper_dispenser_z)
-    key_jaws(524, jaw_open)
-    key_jaws(530, jaw_plate_closed)
-    key_gantry(
-        530,
-        positions["dispenser"][0],
-        positions["dispenser"][1],
-        gripper_dispenser_z,
+    # ---- Phase 3: transfer dispense -> mix ----------------------------------
+    # The mixer clamp remains open for placement, closes before the orbital
+    # cycle, and opens again before the gripper retrieves the plate.
+    key_latches(BEAT["start"], opened=True)
+    key_latches(BEAT["mix_cross"], opened=True)
+    key_mover(
+        BEAT["mix_approach"], positions["dispense"][0], positions["dispense"][1], head=gripper_head
+    )
+    key_mover(
+        BEAT["mix_pick_down"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        mover_dispense_z,
+        head=gripper_head,
+    )
+    key_jaws(BEAT["mix_pick_down"], jaw_open)
+    key_jaws(BEAT["mix_pick_grip"], jaw_plate_closed)
+    key_mover(
+        BEAT["mix_pick_grip"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        mover_dispense_z,
+        head=gripper_head,
         carrying=sample,
     )
-    key_gantry(540, positions["dispenser"][0], positions["dispenser"][1], carrying=sample)
-    key_gantry(552, positions["mixer"][0], positions["mixer"][1], carrying=sample)
-    key_gantry(560, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z, carrying=sample)
-    key_jaws(560, jaw_plate_closed)
-    key_jaws(566, jaw_open)
-    key_gantry(566, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z)
-    key_gantry(574, positions["mixer"][0], positions["mixer"][1])
+    key_mover(
+        BEAT["mix_pick_lift"],
+        positions["dispense"][0],
+        positions["dispense"][1],
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_mover(
+        BEAT["mix_cross"],
+        positions["mix"][0],
+        positions["mix"][1],
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_mover(
+        BEAT["mix_place_down"],
+        positions["mix"][0],
+        positions["mix"][1],
+        mover_mix_z,
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_jaws(BEAT["mix_place_down"], jaw_plate_closed)
+    key_jaws(BEAT["mix_place_release"], jaw_open)
+    key_mover(
+        BEAT["mix_place_release"],
+        positions["mix"][0],
+        positions["mix"][1],
+        mover_mix_z,
+        head=gripper_head,
+    )
+    key_mover(BEAT["mix_place_clear"], positions["mix"][0], positions["mix"][1], head=gripper_head)
+
+    # ---- Phase 4: mix -------------------------------------------------------
     # The plate is now the shaker platform's payload: it is keyed from the
     # platform pose for as long as the clamp holds it.
-    key_mixer(1, 0.0, 0.0, carrying=False)
-    key_mixer(574, 0.0, 0.0, carrying=True)
-    key_latches(574, opened=True)
-    key_latches(580, opened=False)
-
-    # Heater-Shaker GEN1 uses a 2.0 mm-diameter clockwise orbital translation.
-    # At 800 rpm, sampled directly at the 24 fps video rate, the plate never
-    # yaws or spins. The demonstration compresses the real 20 second hold.
+    key_mixer(BEAT["start"], 0.0, 0.0, carrying=False)
+    key_mixer(BEAT["mix_place_clear"], 0.0, 0.0, carrying=True)
+    key_latches(BEAT["mix_place_clear"], opened=True)
+    key_latches(BEAT["mix_clamp_closed"], opened=False)
+    # A 2.0 mm-diameter clockwise orbital translation at 800 rpm, sampled
+    # directly at the 24 fps video rate, so the plate never yaws or spins.
+    # The demonstration compresses the real 20 second hold.
     orbit_radius = 0.001
-    for frame in range(580, 629):
-        revolutions = (frame - 580) / FPS * (800.0 / 60.0)
+    for frame in range(BEAT["mix_clamp_closed"] + 2, BEAT["mix_orbit_end"]):
+        revolutions = (frame - BEAT["mix_clamp_closed"] - 2) / FPS * (800.0 / 60.0)
         radians = -2.0 * math.pi * revolutions
-        dx = orbit_radius * math.cos(radians)
-        dy = orbit_radius * math.sin(radians)
-        key_mixer(frame, dx, dy, carrying=True)
-    key_mixer(630, 0.0, 0.0, carrying=True)
-    key_latches(630, opened=False)
-    key_latches(634, opened=True)
+        key_mixer(
+            frame, orbit_radius * math.cos(radians), orbit_radius * math.sin(radians), carrying=True
+        )
+    key_mixer(BEAT["mix_orbit_end"], 0.0, 0.0, carrying=True)
+    key_latches(BEAT["mix_orbit_end"], opened=False)
+    key_latches(BEAT["mix_clamp_open"], opened=True)
+    key_mover(BEAT["mix_orbit_end"], positions["mix"][0], positions["mix"][1], head=gripper_head)
 
-    # Heater-Shaker -> open reader detection bed.  The carriage waits
-    # clear of the module until the platform has stopped.
-    key_gantry(628, positions["mixer"][0], positions["mixer"][1])
-    key_gantry(634, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z)
-    key_jaws(634, jaw_open)
-    key_jaws(640, jaw_plate_closed)
-    key_gantry(640, positions["mixer"][0], positions["mixer"][1], gripper_mixer_z, carrying=sample)
-    key_latches(640, opened=True)
-    key_gantry(648, positions["mixer"][0], positions["mixer"][1], carrying=sample)
-    key_gantry(662, positions["reader"][0], positions["reader"][1], carrying=sample)
-    key_gantry(
-        670, positions["reader"][0], positions["reader"][1], gripper_reader_z, carrying=sample
+    # ---- Phase 5: transfer mix -> characterize ------------------------------
+    key_mover(BEAT["mix_settle"], positions["mix"][0], positions["mix"][1], head=gripper_head)
+    key_mover(
+        BEAT["read_pick_down"],
+        positions["mix"][0],
+        positions["mix"][1],
+        mover_mix_z,
+        head=gripper_head,
     )
-    key_jaws(670, jaw_plate_closed)
-    key_jaws(676, jaw_open)
-    key_gantry(676, positions["reader"][0], positions["reader"][1], gripper_reader_z)
-    key_gantry(684, positions["reader"][0], positions["reader"][1])
+    key_jaws(BEAT["read_pick_down"], jaw_open)
+    key_jaws(BEAT["read_pick_grip"], jaw_plate_closed)
+    key_mover(
+        BEAT["read_pick_grip"],
+        positions["mix"][0],
+        positions["mix"][1],
+        mover_mix_z,
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_latches(BEAT["read_pick_grip"], opened=True)
+    key_mover(
+        BEAT["read_pick_lift"],
+        positions["mix"][0],
+        positions["mix"][1],
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_mover(BEAT["read_cross"], reader_x, reader_y, head=gripper_head, carrying=sample)
+    key_mover(
+        BEAT["read_place_down"],
+        reader_x,
+        reader_y,
+        mover_characterize_z,
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_jaws(BEAT["read_place_down"], jaw_plate_closed)
+    key_jaws(BEAT["read_place_release"], jaw_open)
+    key_mover(
+        BEAT["read_place_release"], reader_x, reader_y, mover_characterize_z, head=gripper_head
+    )
+    key_mover(BEAT["read_place_clear"], reader_x, reader_y, head=gripper_head)
 
-    # Close the reader with the physical illumination lid from its dock, read
-    # all 96 wells, then return the lid to the reserved slot.
-    key_gantry(692, positions["lid_dock"][0], positions["lid_dock"][1])
-    key_gantry(700, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
-    key_jaws(700, jaw_open)
-    key_jaws(706, jaw_lid_closed)
-    key_gantry(
-        706,
-        positions["lid_dock"][0],
-        positions["lid_dock"][1],
-        gripper_lid_dock_z,
-        carrying=reader_lid,
+    # ---- Phase 6: characterize ---------------------------------------------
+    # Close the reader with the physical illumination door from its dock, read
+    # all 96 wells, then return the door to the reserved slot.
+    key_mover(BEAT["characterize_start"], reader_x, reader_y, head=gripper_head)
+    key_mover(BEAT["door_fetch_cross"], door_dock_x, door_dock_y, head=gripper_head)
+    key_mover(
+        BEAT["door_fetch_down"], door_dock_x, door_dock_y, mover_door_dock_z, head=gripper_head
     )
-    key_gantry(716, positions["lid_dock"][0], positions["lid_dock"][1], carrying=reader_lid)
-    key_gantry(728, positions["reader"][0], positions["reader"][1], carrying=reader_lid)
-    key_gantry(
-        736,
-        positions["reader"][0],
-        positions["reader"][1],
-        gripper_lid_closed_z,
-        carrying=reader_lid,
+    key_jaws(BEAT["door_fetch_down"], jaw_open)
+    key_jaws(BEAT["door_fetch_grip"], jaw_door_closed)
+    key_mover(
+        BEAT["door_fetch_grip"],
+        door_dock_x,
+        door_dock_y,
+        mover_door_dock_z,
+        head=gripper_head,
+        carrying=reader_door,
     )
-    key_jaws(736, jaw_lid_closed)
-    key_jaws(742, jaw_open)
-    key_gantry(742, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
-    key_gantry(750, positions["reader"][0], positions["reader"][1])
+    key_mover(
+        BEAT["door_fetch_lift"], door_dock_x, door_dock_y, head=gripper_head, carrying=reader_door
+    )
+    key_mover(BEAT["door_close_cross"], reader_x, reader_y, head=gripper_head, carrying=reader_door)
+    key_mover(
+        BEAT["door_close_down"],
+        reader_x,
+        reader_y,
+        mover_door_closed_z,
+        head=gripper_head,
+        carrying=reader_door,
+    )
+    key_jaws(BEAT["door_close_down"], jaw_door_closed)
+    key_jaws(BEAT["door_close_release"], jaw_open)
+    key_mover(
+        BEAT["door_close_release"], reader_x, reader_y, mover_door_closed_z, head=gripper_head
+    )
+    key_mover(BEAT["door_close_clear"], reader_x, reader_y, head=gripper_head)
     # Stay clear of the closed reader for the read, then descend.
-    key_gantry(790, positions["reader"][0], positions["reader"][1])
-    key_gantry(796, positions["reader"][0], positions["reader"][1], gripper_lid_closed_z)
-    key_jaws(796, jaw_open)
-    key_jaws(802, jaw_lid_closed)
-    key_gantry(
-        802,
-        positions["reader"][0],
-        positions["reader"][1],
-        gripper_lid_closed_z,
-        carrying=reader_lid,
+    key_mover(BEAT["read_hold"], reader_x, reader_y, head=gripper_head)
+    key_mover(BEAT["door_open_down"], reader_x, reader_y, mover_door_closed_z, head=gripper_head)
+    key_jaws(BEAT["door_open_down"], jaw_open)
+    key_jaws(BEAT["door_open_grip"], jaw_door_closed)
+    key_mover(
+        BEAT["door_open_grip"],
+        reader_x,
+        reader_y,
+        mover_door_closed_z,
+        head=gripper_head,
+        carrying=reader_door,
     )
-    key_gantry(810, positions["reader"][0], positions["reader"][1], carrying=reader_lid)
-    key_gantry(822, positions["lid_dock"][0], positions["lid_dock"][1], carrying=reader_lid)
-    key_gantry(
-        834,
-        positions["lid_dock"][0],
-        positions["lid_dock"][1],
-        gripper_lid_dock_z,
-        carrying=reader_lid,
+    key_mover(BEAT["door_open_lift"], reader_x, reader_y, head=gripper_head, carrying=reader_door)
+    key_mover(
+        BEAT["door_return_cross"], door_dock_x, door_dock_y, head=gripper_head, carrying=reader_door
     )
-    key_jaws(834, jaw_lid_closed)
-    key_jaws(840, jaw_open)
-    key_gantry(840, positions["lid_dock"][0], positions["lid_dock"][1], gripper_lid_dock_z)
-    key_gantry(848, positions["lid_dock"][0], positions["lid_dock"][1])
+    key_mover(
+        BEAT["door_return_down"],
+        door_dock_x,
+        door_dock_y,
+        mover_door_dock_z,
+        head=gripper_head,
+        carrying=reader_door,
+    )
+    key_jaws(BEAT["door_return_down"], jaw_door_closed)
+    key_jaws(BEAT["door_return_release"], jaw_open)
+    key_mover(
+        BEAT["door_return_release"], door_dock_x, door_dock_y, mover_door_dock_z, head=gripper_head
+    )
+    key_mover(BEAT["door_return_clear"], door_dock_x, door_dock_y, head=gripper_head)
+    key_mover(BEAT["characterize_end"], door_dock_x, reader_y, head=gripper_head)
 
-    # Reader -> output hand-off, followed by the Stacker store cycle.
-    output_slot = slots["output-tower"]
-    key_shuttle(output_shuttle, output_slot, 1, stacker_extended_x, carrying=False)
-    key_gantry(854, positions["reader"][0], positions["reader"][1])
-    key_gantry(862, positions["reader"][0], positions["reader"][1], gripper_reader_z)
-    key_jaws(862, jaw_open)
-    key_jaws(868, jaw_plate_closed)
-    key_gantry(
-        868, positions["reader"][0], positions["reader"][1], gripper_reader_z, carrying=sample
+    # ---- Phase 7: transfer characterize -> output ---------------------------
+    output_slot = slots["output-hotel"]
+    key_shuttle(output_shuttle, output_slot, BEAT["start"], hotel_extended_x, carrying=False)
+    key_mover(BEAT["out_start"], reader_x, reader_y, head=gripper_head)
+    key_mover(BEAT["out_pick_down"], reader_x, reader_y, mover_characterize_z, head=gripper_head)
+    key_jaws(BEAT["out_pick_down"], jaw_open)
+    key_jaws(BEAT["out_pick_grip"], jaw_plate_closed)
+    key_mover(
+        BEAT["out_pick_grip"],
+        reader_x,
+        reader_y,
+        mover_characterize_z,
+        head=gripper_head,
+        carrying=sample,
     )
-    key_gantry(876, positions["reader"][0], positions["reader"][1], carrying=sample)
-    key_gantry(888, positions["output"][0], positions["output"][1], carrying=sample)
-    key_gantry(
-        896, positions["output"][0], positions["output"][1], gripper_output_z, carrying=sample
+    key_mover(BEAT["out_pick_lift"], reader_x, reader_y, head=gripper_head, carrying=sample)
+    key_mover(
+        BEAT["out_cross"],
+        positions["output"][0],
+        positions["output"][1],
+        head=gripper_head,
+        carrying=sample,
     )
-    key_jaws(896, jaw_plate_closed)
-    key_jaws(902, jaw_open)
-    key_gantry(902, positions["output"][0], positions["output"][1], gripper_output_z)
-    key_gantry(910, positions["output"][0], positions["output"][1])
+    key_mover(
+        BEAT["out_place_down"],
+        positions["output"][0],
+        positions["output"][1],
+        mover_output_z,
+        head=gripper_head,
+        carrying=sample,
+    )
+    key_jaws(BEAT["out_place_down"], jaw_plate_closed)
+    key_jaws(BEAT["out_place_release"], jaw_open)
+    key_mover(
+        BEAT["out_place_release"],
+        positions["output"][0],
+        positions["output"][1],
+        mover_output_z,
+        head=gripper_head,
+    )
+    key_mover(
+        BEAT["out_place_clear"], positions["output"][0], positions["output"][1], head=gripper_head
+    )
     # The plate now belongs to the output shuttle, which withdraws it into the
-    # tower; both are keyed from the same shuttle pose.
-    key_shuttle(output_shuttle, output_slot, 918, stacker_extended_x, carrying=True)
-    key_shuttle(output_shuttle, output_slot, 948, stacker_stored_x, carrying=True)
-    key_gantry(960, GANTRY_PARK_X, ROW_FRONT)
-    key_latches(960, opened=True)
+    # hotel; both are keyed from the same shuttle pose.
+    key_shuttle(
+        output_shuttle, output_slot, BEAT["out_place_clear"], hotel_extended_x, carrying=True
+    )
+    key_shuttle(output_shuttle, output_slot, BEAT["out_stored"], hotel_stored_x, carrying=True)
+    key_mover(FRAME_END, MOVER_PARK_X, ROW_FRONT, head=gripper_head)
+    key_latches(FRAME_END, opened=True)
 
     for obj, action_name in (
-        (gantry, "cell_cycle"),
-        (dispenser, "cell_cycle"),
+        (bridge, "cell_cycle"),
+        (mover, "cell_cycle"),
+        (gripper_head, "cell_cycle"),
+        (pipette_head, "cell_cycle"),
         (attached_tips, "liquid_handling_cycle"),
-        (gripper, "cell_cycle"),
         (jaw_left, "cell_cycle"),
         (jaw_right, "cell_cycle"),
         (drag, "cell_cycle"),
         (sample, "cell_cycle"),
+        (coupler_pins[0], "head_change_cycle"),
+        (coupler_pins[1], "head_change_cycle"),
         (mixer, "mix_cycle"),
         (mixer_latches[0], "mixer_clamp_cycle"),
         (mixer_latches[1], "mixer_clamp_cycle"),
-        (reader_lid, "characterize_cycle"),
-        (input_shuttle, "input_stacker_cycle"),
-        (output_shuttle, "output_stacker_cycle"),
+        (reader_door, "characterize_cycle"),
+        (input_shuttle, "input_hotel_cycle"),
+        (output_shuttle, "output_hotel_cycle"),
     ):
         set_action_name(obj, action_name)
         set_interpolation(obj)
@@ -5113,29 +5729,31 @@ def look_at(obj: bpy.types.Object, point: Sequence[float]) -> None:
 # Named camera poses in millimetres, in the scene frame.  A composed room is
 # never auto-framed: every pose states its eye, its look point, its lens, the
 # frame it reads at, and the object-name prefixes it hides, so any consumer of
-# this scene frames it the same way.  ``animation`` is the fixed pose the
-# 960-frame render uses; it does not move or zoom.
+# this scene frames it the same way.  These are stills.  The 960-frame render is
+# shot by ``CAMERA_SHOTS`` further down, and ``still`` is the pose the published
+# preview is framed from, held apart from the edit so the two cannot fight over
+# the camera.
 #
 # Hide lists belong to poses, not to the scene.  Every pose here stands inside
 # the room, so the walls behind the camera cull themselves and a hide list is
 # only ever used to clear a near object out of a detail view.  Hiding a wall a
 # pose can see would render the void behind it.
 CAM_RIG: dict[str, dict[str, object]] = {
-    "animation": {
+    "still": {
         "eye": (2280, -3520, 1930),
         "look": (-260, 60, 1240),
         "lens": 28,
         "fstop": 16,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": (),
-        "note": "Fixed pose for the authored 40-second cycle; the whole frame stays in shot.",
+        "note": "The published preview still; the whole machine stays in shot.",
     },
     "hero": {
         "eye": (3150, -2960, 1430),
         "look": (-300, 190, 1265),
         "lens": 24,
         "fstop": 8,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": (),
         "note": (
             "The establishing view: low and wide from the front-right of the aisle, so the "
@@ -5148,7 +5766,7 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (0, 60, 1210),
         "lens": 24,
         "fstop": 11,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": (),
         "note": (
             "Raised and square to the machine so the closed loop reads left to right: "
@@ -5161,7 +5779,7 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (1440, -70, 700),
         "lens": 42,
         "fstop": 16,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": ("ProcessGuard", "Splash"),
         "note": "The rack inside the frame and the campaign state on its display.",
     },
@@ -5170,7 +5788,7 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (-1430, -180, 545),
         "lens": 42,
         "fstop": 16,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": (),
         "note": "Controls cabinet, isolator, trunking and the frame's left tower.",
     },
@@ -5179,7 +5797,7 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (860, 90, 520),
         "lens": 38,
         "fstop": 18,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": (),
         "note": "The open drive bank: DIN rail, breakers, supplies and wiring duct.",
     },
@@ -5188,34 +5806,34 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (-1560, 40, 1210),
         "lens": 44,
         "fstop": 22,
-        "frame": 96,
-        "hide": ("GantryCrossbeam", "GantryFrontCover", "GantryLinearTrack", "DragTrough"),
+        "frame": BEAT["plate_approach"],
+        "hide": ("MoverBridgeBeam", "MoverBridgeCover", "MoverBridgeTrack", "MoverTrough"),
         "note": "Input hotel queue and the shuttle presenting a plate at the hand-off.",
     },
-    "station-dispenser": {
+    "station-dispense": {
         "eye": (-260, -1080, 1745),
         "look": (-780, 10, 1290),
         "lens": 44,
         "fstop": 22,
-        "frame": 300,
+        "frame": BEAT["fill_a_start"] + 40,
         "hide": (),
         "note": "Eight-channel head dispensing into the plate on the staging slot.",
     },
-    "station-mixer": {
+    "station-mix": {
         "eye": (580, -1090, 1680),
         "look": (0, 0, 1230),
         "lens": 44,
         "fstop": 22,
-        "frame": 600,
+        "frame": BEAT["mix_orbit_end"] - 12,
         "hide": (),
         "note": "Heater-Shaker clamped on the plate during the orbital hold.",
     },
-    "station-characterizer": {
+    "station-characterize": {
         "eye": (1360, -1030, 1840),
         "look": (780, 20, 1215),
         "lens": 44,
         "fstop": 22,
-        "frame": 690,
+        "frame": BEAT["door_close_clear"],
         "hide": (),
         "note": "Absorbance reader loaded and open, its lid parked on the caddy behind it.",
     },
@@ -5224,8 +5842,8 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (1560, 40, 1210),
         "lens": 44,
         "fstop": 22,
-        "frame": 930,
-        "hide": ("GantryCrossbeam", "GantryFrontCover", "GantryLinearTrack", "DragTrough"),
+        "frame": BEAT["out_place_clear"],
+        "hide": ("MoverBridgeBeam", "MoverBridgeCover", "MoverBridgeTrack", "MoverTrough"),
         "note": "Output hotel taking the finished plate back into the magazine.",
     },
     "transfer-port": {
@@ -5233,7 +5851,7 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (-1560, -300, 1170),
         "lens": 44,
         "fstop": 18,
-        "frame": 548,
+        "frame": BEAT["mix_cross"],
         "hide": (),
         "note": "The one human touchpoint: the interlocked load and unload nest.",
     },
@@ -5242,18 +5860,55 @@ CAM_RIG: dict[str, dict[str, object]] = {
         "look": (0, -60, 1258),
         "lens": 62,
         "fstop": 32,
-        "frame": 560,
+        "frame": BEAT["mix_place_down"],
         "hide": (),
-        "note": "Jaws closed on the plate at the Heater-Shaker; the mechanism is loaded.",
+        "note": "Jaws closed on the plate at the mixer; the mechanism is loaded.",
     },
     "gripper-open": {
         "eye": (330, -520, 1420),
         "look": (0, -60, 1300),
         "lens": 62,
         "fstop": 32,
-        "frame": 574,
+        "frame": BEAT["mix_place_clear"],
         "hide": (),
         "note": "Jaws at full open width, both carriers still on the cross-rail.",
+    },
+    "head-change-release": {
+        "eye": (927, -836, 1560),
+        "look": (300, 54, 1356),
+        "lens": 55,
+        "fstop": 22,
+        "frame": BEAT["swap_a_lift"],
+        "hide": (),
+        "note": (
+            "The mover rising away from the gripper head it has just left hanging in "
+            "HeadDock_Gripper: the changer is open, the collar is on the arms, and "
+            "nothing is floating."
+        ),
+    },
+    "head-change-couple": {
+        "eye": (200, -700, 1540),
+        "look": (-300, 54, 1330),
+        "lens": 55,
+        "fstop": 22,
+        "frame": BEAT["swap_a_lock"],
+        "hide": (),
+        "note": (
+            "The same mover twelve frames later, locked onto the pipetting head in "
+            "HeadDock_Pipette.  One carriage, two heads, one at a time."
+        ),
+    },
+    "head-docks": {
+        "eye": (60, -1180, 1720),
+        "look": (0, 54, 1250),
+        "lens": 34,
+        "fstop": 22,
+        "frame": BEAT["fill_a_start"] + 40,
+        "hide": (),
+        "note": (
+            "Both docks in one frame during the dispense pass: the gripper head "
+            "waiting on the right, the pipetting head away on the mover."
+        ),
     },
 }
 
@@ -5269,14 +5924,580 @@ def apply_camera_pose(camera: bpy.types.Object, pose: dict[str, object]) -> None
     camera.data.dof.aperture_fstop = float(pose.get("fstop", 16))  # type: ignore[arg-type]
 
 
+# ---------------------------------------------------------------------------
+# The edit.
+#
+# The still poses above frame the machine.  This is the film: the 40-second
+# cycle cut into six moving takes.  Two standards decide where a cut may fall,
+# and both of them are measured rather than judged by eye.
+#
+# Shot length.  Architectural-visualisation practice is five to eight seconds a
+# shot.  An earlier cut of this sequence ran thirteen shots in forty seconds, an
+# average of 3.1 s, and the note on it was that the cutting read as jittery
+# while the moves themselves were fine.  So the moves stayed and the edit was
+# rebuilt at six shots averaging 6.7 s, every one of them inside the band.
+#
+# Cut quality.  A cut between two shots of the same subject has to change the
+# camera angle by at least thirty degrees, or it reads as a jump cut, and it has
+# to change the framing as well: about two steps of the shot-size ladder, or at
+# least 20 mm of focal length.  ``validate_camera_shots`` computes both numbers
+# for every cut and refuses to build if either fails.  Where a cut could not
+# have satisfied them, the two shots were merged into one moving take instead.
+# That is why a transfer and the operation that follows it share a shot here,
+# and it is also what gets the camera close to the work without spending a cut.
+SHOT_MIN_SECONDS = 5.0
+SHOT_MAX_SECONDS = 8.0
+CUT_MIN_ANGLE_DEGREES = 30.0
+CUT_MIN_SIZE_STEPS = 2
+CUT_MIN_LENS_CHANGE_MM = 20.0
+# The camera stays in the front aisle.  The machine's front-most body is the
+# transfer-port guard handle at y = -829 mm and the frame feet reach y = -613 mm,
+# both measured from the built scene, so an eye behind this plane is authoring a
+# camera inside the machine.
+CAMERA_AISLE_Y = -880.0
+# The aisle plane is a coarse rule on authored keys.  The built path is then
+# flown against the real bodies, because a path can respect one plane and still
+# take the camera through a frame member between two keys.  222 mm is the
+# clearance the previous edit reported and the standard this one has to match.
+CAMERA_MIN_CLEARANCE = 0.222
+CAMERA_SENSOR_WIDTH = 36.0
+CAMERA_TARGET_NAME = "CameraTarget"
+# Shot-size ladder, as the horizontal field width in millimetres at the look
+# point.  Each step is a factor of about 1.6, which is what makes "two steps" the
+# same claim a director makes when they say a cut goes from a medium to a
+# close-up.
+SHOT_SIZES: tuple[tuple[str, float], ...] = (
+    ("extreme close", 250.0),
+    ("close", 400.0),
+    ("medium close", 640.0),
+    ("medium", 1020.0),
+    ("medium long", 1640.0),
+    ("long", 2620.0),
+    ("extreme long", float("inf")),
+)
+# Aperture follows shot size rather than being authored per key, so "mild depth
+# of field on the close beats only" is true by construction instead of being a
+# number that drifts.  A wide frame of a machine wants everything sharp.
+SHOT_APERTURES: tuple[tuple[float, float], ...] = ((1020.0, 11.0), (1640.0, 16.0))
+SHOT_APERTURE_DEEP = 22.0
+# Shot-boundary keys are flattened over this many frames on both sides, which is
+# what makes a take start and end at zero camera velocity so the cut lands on a
+# settled frame.
+CAMERA_HANDLE_SPAN = 8.0
+
+# One authored camera key: the frame it lands on, the eye and the look point in
+# millimetres in the scene frame, and the focal length.
+CameraKey = tuple[int, tuple[float, float, float], tuple[float, float, float], float]
+
+
+class Shot(TypedDict):
+    """One take.  ``keys[0]`` is at ``start`` and ``keys[-1]`` is at ``end``."""
+
+    name: str
+    start: int
+    end: int
+    note: str
+    keys: tuple[CameraKey, ...]
+
+
+# Six shots, in millimetres, tiling frames 1-960 exactly.  A shot's first and
+# last key sit on its first and last frame, which is what lets the validator
+# measure a cut from the authored data rather than from a rendered frame.
+CAMERA_SHOTS: tuple[Shot, ...] = (
+    {
+        "name": "establish-and-load",
+        "start": 1,
+        "end": 150,
+        "note": (
+            "The establishing take.  Wide from the front right of the aisle, then a "
+            "slow dolly in and left across the machine, arriving on the input end as "
+            "the mover lifts the plate out of the hotel and carries it to the "
+            "dispense stage."
+        ),
+        "keys": (
+            (1, (2950, -4200, 2260), (150, 60, 1300), 26),
+            (60, (1900, -3760, 2200), (-500, 55, 1290), 28),
+            (110, (700, -3350, 2130), (-1150, 30, 1250), 38),
+            (150, (-500, -3000, 2050), (-1250, 20, 1240), 52),
+        ),
+    },
+    {
+        "name": "head-change-and-tips",
+        "start": 151,
+        "end": 330,
+        "note": (
+            "Head change A, close.  The take opens tight on the gripper dock and the "
+            "mover flies into it, seats the gripper head, rises away empty and "
+            "crosses left; the camera tracks it to the pipette dock, watches the "
+            "coupling, then follows the pipetting head on to the tip rack, the "
+            "reservoir and the first fill pass."
+        ),
+        "keys": (
+            (151, (900, -1500, 1600), (300, 45, 1265), 62),
+            (183, (700, -1400, 1580), (300, 45, 1275), 58),
+            (208, (60, -1300, 1560), (-300, 45, 1270), 58),
+            (256, (-620, -1300, 1580), (-980, 40, 1245), 52),
+            (330, (-1000, -1300, 1600), (-800, -30, 1200), 52),
+        ),
+    },
+    {
+        "name": "reverse-and-fill",
+        "start": 331,
+        "end": 498,
+        "note": (
+            "The reverse angle, looking down the length of the machine from the "
+            "output end.  It opens wide enough that the pipetting head working and "
+            "the gripper head waiting in its dock are in the same frame, which is "
+            "the whole one-mover-two-heads claim in one image, then travels the "
+            "length of the aisle and pushes in through the tip drop and the second "
+            "tip pickup until the nozzles entering the wells fill the frame."
+        ),
+        "keys": (
+            (331, (1400, -2600, 1980), (-500, 20, 1250), 34),
+            (384, (600, -2300, 1860), (-700, 30, 1240), 42),
+            (440, (-400, -1900, 1740), (-800, 20, 1225), 55),
+            (498, (-1180, -1180, 1560), (-800, -40, 1190), 75),
+        ),
+    },
+    {
+        "name": "head-change-b-and-to-mix",
+        "start": 499,
+        "end": 672,
+        "note": (
+            "Head change B and the transfer that follows it, in one travelling take "
+            "from the right.  The camera holds the end of the second fill, moves with "
+            "the mover as it parks the pipetting head and picks the gripper back up, "
+            "pulls back to catch the plate leaving the dispense stage, and settles as "
+            "it lands on the mixer."
+        ),
+        "keys": (
+            (499, (760, -2000, 1700), (-500, 20, 1250), 34),
+            (552, (900, -1460, 1560), (-320, 40, 1275), 42),
+            (600, (940, -1120, 1480), (300, 45, 1265), 50),
+            (634, (420, -1700, 1620), (-680, -20, 1215), 34),
+            (672, (560, -1500, 1520), (0, -45, 1230), 38),
+        ),
+    },
+    {
+        "name": "mix-and-cross",
+        "start": 673,
+        "end": 800,
+        "note": (
+            "Tight on the Heater-Shaker from the left through the clamp close and the "
+            "orbit, arcing right as it runs, then travelling one station along with "
+            "the plate and settling on the reader as the mover goes for its door."
+        ),
+        "keys": (
+            (673, (-700, -880, 1400), (0, -50, 1235), 66),
+            (714, (-520, -930, 1390), (0, -50, 1235), 66),
+            (760, (0, -1080, 1450), (600, -45, 1245), 48),
+            (800, (100, -900, 1420), (760, -30, 1235), 58),
+        ),
+    },
+    {
+        "name": "read-and-out",
+        "start": 801,
+        "end": 960,
+        "note": (
+            "The closing take, from the right.  Wide while the door crosses between "
+            "the two reader rows, in to the longest lens in the film while the reader "
+            "indicates, out again as the plate is picked and carried to the output "
+            "hotel, then a rise and a pull back to the closing wide."
+        ),
+        "keys": (
+            (801, (2100, -3000, 2100), (850, -20, 1255), 38),
+            (848, (1700, -1200, 1560), (800, -40, 1230), 62),
+            (892, (1500, -1750, 1660), (900, -35, 1250), 46),
+            (927, (1100, -2450, 1800), (1300, -40, 1270), 42),
+            (960, (400, -4150, 2320), (0, 60, 1330), 28),
+        ),
+    },
+)
+
+
+def frame_width(eye: Sequence[float], look: Sequence[float], lens: float) -> float:
+    """Horizontal field width in mm at the look point.  This is the shot size."""
+    distance = math.dist(tuple(eye), tuple(look))
+    return distance * CAMERA_SENSOR_WIDTH / float(lens)
+
+
+def shot_size(width: float) -> tuple[int, str]:
+    for index, (name, limit) in enumerate(SHOT_SIZES):
+        if width < limit:
+            return index, name
+    return len(SHOT_SIZES) - 1, SHOT_SIZES[-1][0]
+
+
+def shot_aperture(width: float) -> float:
+    for limit, fstop in SHOT_APERTURES:
+        if width < limit:
+            return fstop
+    return SHOT_APERTURE_DEEP
+
+
+def cut_metrics(before: CameraKey, after: CameraKey) -> dict[str, object]:
+    """Measure one cut: the angle swung around the subject, and the size change.
+
+    The angle is the thirty-degree rule read literally, as the angle the two
+    eyes subtend at the subject rather than the angle between the two view axes,
+    which a pair of parallel cameras a metre apart would pass.  The subject is
+    the midpoint of the two look points, so a cut that also changes subject
+    still gets a number instead of an exemption.
+    """
+    _, eye_before, look_before, lens_before = before
+    _, eye_after, look_after, lens_after = after
+    subject = Vector(tuple((a + b) / 2.0 for a, b in zip(look_before, look_after)))
+    first = Vector(tuple(eye_before)) - subject
+    second = Vector(tuple(eye_after)) - subject
+    angle = math.degrees(first.angle(second)) if first.length and second.length else 0.0
+    width_before = frame_width(eye_before, look_before, lens_before)
+    width_after = frame_width(eye_after, look_after, lens_after)
+    index_before, name_before = shot_size(width_before)
+    index_after, name_after = shot_size(width_after)
+    return {
+        "angle": round(angle, 1),
+        "sizeBefore": name_before,
+        "sizeAfter": name_after,
+        "sizeSteps": abs(index_after - index_before),
+        "widthBefore": round(width_before),
+        "widthAfter": round(width_after),
+        "lensBefore": float(lens_before),
+        "lensAfter": float(lens_after),
+        "lensChange": round(abs(float(lens_after) - float(lens_before)), 1),
+    }
+
+
+def validate_camera_shots() -> dict[str, object]:
+    """Refuse to build an edit that breaks the two standards it claims to meet.
+
+    This runs before anything is built, because a shot list that does not tile
+    the timeline, or that cuts every three seconds, is a defect in the edit and
+    not something to discover at the end of a forty-minute render.
+    """
+    failures: list[str] = []
+    shots: list[dict[str, object]] = []
+    seconds_total = 0.0
+    expected_start = 1
+    for index, shot in enumerate(CAMERA_SHOTS):
+        name = shot["name"]
+        start = shot["start"]
+        end = shot["end"]
+        keys = shot["keys"]
+        if start != expected_start:
+            failures.append(f"{name}: starts at {start}, expected {expected_start}")
+        if end < start:
+            failures.append(f"{name}: ends at {end} before it starts at {start}")
+        expected_start = end + 1
+        seconds = (end - start + 1) / FPS
+        seconds_total += seconds
+        if not SHOT_MIN_SECONDS <= seconds <= SHOT_MAX_SECONDS:
+            failures.append(
+                f"{name}: {seconds:.2f} s is outside the "
+                f"{SHOT_MIN_SECONDS:.0f}-{SHOT_MAX_SECONDS:.0f} s band"
+            )
+        frames = [key[0] for key in keys]
+        if len(frames) < 2:
+            failures.append(f"{name}: a shot needs at least two keys, it has {len(frames)}")
+        elif frames[0] != start or frames[-1] != end:
+            failures.append(f"{name}: keys run {frames[0]}-{frames[-1]}, not {start}-{end}")
+        if any(later <= earlier for earlier, later in zip(frames, frames[1:])):
+            failures.append(f"{name}: key frames are not strictly increasing: {frames}")
+        for frame, eye, _look, lens in keys:
+            if eye[1] > CAMERA_AISLE_Y:
+                failures.append(
+                    f"{name} frame {frame}: eye y={eye[1]:.0f} mm is behind the aisle "
+                    f"plane at {CAMERA_AISLE_Y:.0f} mm"
+                )
+            if lens <= 0.0:
+                failures.append(f"{name} frame {frame}: lens {lens} is not a focal length")
+        opens_on = frame_width(keys[0][1], keys[0][2], keys[0][3])
+        ends_on = frame_width(keys[-1][1], keys[-1][2], keys[-1][3])
+        shots.append(
+            {
+                "index": index,
+                "name": name,
+                "start": start,
+                "end": end,
+                "frames": end - start + 1,
+                "seconds": round(seconds, 2),
+                "opensOn": shot_size(opens_on)[1],
+                "endsOn": shot_size(ends_on)[1],
+                "lensRange": [min(key[3] for key in keys), max(key[3] for key in keys)],
+                "note": shot["note"],
+            }
+        )
+    if expected_start != FRAME_END + 1:
+        failures.append(f"The shot list ends at frame {expected_start - 1}, not {FRAME_END}")
+
+    cuts: list[dict[str, object]] = []
+    for before, after in zip(CAMERA_SHOTS, CAMERA_SHOTS[1:]):
+        metrics = cut_metrics(before["keys"][-1], after["keys"][0])
+        metrics["from"] = before["name"]
+        metrics["to"] = after["name"]
+        metrics["frame"] = before["end"]
+        steps = int(metrics["sizeSteps"])  # type: ignore[call-overload]
+        lens_change = float(metrics["lensChange"])  # type: ignore[arg-type]
+        angle = float(metrics["angle"])  # type: ignore[arg-type]
+        framing_ok = steps >= CUT_MIN_SIZE_STEPS or lens_change >= CUT_MIN_LENS_CHANGE_MM
+        angle_ok = angle >= CUT_MIN_ANGLE_DEGREES
+        metrics["passed"] = angle_ok and framing_ok
+        cuts.append(metrics)
+        if not angle_ok:
+            failures.append(
+                f"cut {before['name']} -> {after['name']}: {angle} deg is under the "
+                f"{CUT_MIN_ANGLE_DEGREES:.0f} deg rule"
+            )
+        if not framing_ok:
+            failures.append(
+                f"cut {before['name']} -> {after['name']}: {steps} size step(s) and "
+                f"{lens_change} mm of lens change is neither {CUT_MIN_SIZE_STEPS} steps "
+                f"nor {CUT_MIN_LENS_CHANGE_MM:.0f} mm"
+            )
+
+    report: dict[str, object] = {
+        "shots": shots,
+        "cuts": cuts,
+        "meanSeconds": round(seconds_total / len(CAMERA_SHOTS), 2),
+    }
+    if failures:
+        raise RuntimeError("Camera edit validation failed:\n- " + "\n- ".join(failures))
+    print("CAMERA EDIT: " + json.dumps(report))
+    return report
+
+
+def action_fcurves(holder: object) -> list[bpy.types.FCurve]:
+    """Every f-curve on one datablock's action, on either Action storage model."""
+    animation = getattr(holder, "animation_data", None)
+    action = getattr(animation, "action", None)
+    if action is None:
+        return []
+    curves = list(getattr(action, "fcurves", ()))
+    if curves:
+        return curves
+    # Blender 5 stores curves in layered Action channel bags.
+    for layer in action.layers:
+        for strip in layer.strips:
+            for channelbag in strip.channelbags:
+                curves.extend(channelbag.fcurves)
+    return curves
+
+
+def cut_fcurve(curve: bpy.types.FCurve, boundaries: set[int], cuts: set[int]) -> None:
+    """Ease every shot boundary to zero velocity, and make every cut a cut.
+
+    Interior keys keep automatic handles so a multi-leg travel reads as one
+    continuous move.  A boundary key gets flat handles, which is what makes a
+    take start and stop rather than arrive at speed.  The key that ends a shot
+    is CONSTANT, so its value holds to the last frame of the shot and changes on
+    the next one; that discontinuity is the cut.
+    """
+    for point in curve.keyframe_points:
+        point.interpolation = "BEZIER"
+        point.handle_left_type = "AUTO_CLAMPED"
+        point.handle_right_type = "AUTO_CLAMPED"
+    for point in curve.keyframe_points:
+        frame = int(round(point.co.x))
+        if frame in boundaries:
+            point.handle_left_type = "FREE"
+            point.handle_right_type = "FREE"
+            point.handle_left = (point.co.x - CAMERA_HANDLE_SPAN, point.co.y)
+            point.handle_right = (point.co.x + CAMERA_HANDLE_SPAN, point.co.y)
+        if frame in cuts:
+            point.interpolation = "CONSTANT"
+    curve.update()
+
+
+def build_camera_choreography(camera: bpy.types.Object) -> bpy.types.Object:
+    """Key the edit onto the camera and its look target.
+
+    Aim is a tracked empty rather than a keyed rotation.  Euler interpolation
+    flips and gimbals on an arcing move and a TRACK_TO constraint cannot, and
+    the same empty is the depth-of-field focus object, so focus sits on the
+    subject by construction instead of on a second animated number that can
+    drift away from it.  Neither object is exported.
+
+    It clears whatever it finds first, so the edit can be re-applied to a file
+    that is already built without rebuilding the geometry to see a camera change.
+    """
+    scene = bpy.context.scene
+    rig = COLLECTIONS.get("RenderRig") or bpy.data.collections.get("RenderRig")
+    target = bpy.data.objects.get(CAMERA_TARGET_NAME)
+    if target is None:
+        target = empty(
+            CAMERA_TARGET_NAME,
+            target=rig if rig is not None else scene.collection,
+            export=False,
+        )
+        target.empty_display_type = "PLAIN_AXES"
+        target.empty_display_size = 0.05
+    camera.animation_data_clear()
+    camera.data.animation_data_clear()
+    target.animation_data_clear()
+    camera.constraints.clear()
+    camera.rotation_euler = (0.0, 0.0, 0.0)
+
+    boundaries: set[int] = set()
+    cuts: set[int] = set()
+    for shot in CAMERA_SHOTS:
+        boundaries.add(shot["start"])
+        boundaries.add(shot["end"])
+        cuts.add(shot["end"])
+        for frame, eye, look, lens in shot["keys"]:
+            key_location(camera, frame, [value / 1000.0 for value in eye])
+            key_location(target, frame, [value / 1000.0 for value in look])
+            camera.data.lens = lens
+            camera.data.keyframe_insert(data_path="lens", frame=frame)
+            camera.data.dof.aperture_fstop = shot_aperture(frame_width(eye, look, lens))
+            camera.data.keyframe_insert(data_path="dof.aperture_fstop", frame=frame)
+
+    track = camera.constraints.new("TRACK_TO")
+    track.target = target
+    track.track_axis = "TRACK_NEGATIVE_Z"
+    track.up_axis = "UP_Y"
+    camera.data.dof.use_dof = True
+    camera.data.dof.focus_object = target
+    camera.data.sensor_width = CAMERA_SENSOR_WIDTH
+
+    for holder in (camera, target, camera.data):
+        for curve in action_fcurves(holder):
+            cut_fcurve(curve, boundaries, cuts)
+    set_action_name(camera, "CameraEdit")
+    set_action_name(target, "CameraTargetEdit")
+    scene.frame_set(scene.frame_current)
+    return target
+
+
+def suspend_camera_choreography(camera: bpy.types.Object) -> dict[str, object]:
+    """Detach the edit so a named still pose can own the camera instead."""
+    actions: list[tuple[object, bpy.types.Action, object]] = []
+    constraints = [(constraint, constraint.mute) for constraint in camera.constraints]
+    for holder in (camera, camera.data):
+        animation = getattr(holder, "animation_data", None)
+        action = getattr(animation, "action", None)
+        if animation is None or action is None:
+            continue
+        action.use_fake_user = True
+        actions.append((holder, action, getattr(animation, "action_slot", None)))
+        animation.action = None
+    for constraint, _ in constraints:
+        constraint.mute = True
+    state: dict[str, object] = {
+        "actions": actions,
+        "constraints": constraints,
+        "focus": camera.data.dof.focus_object,
+    }
+    camera.data.dof.focus_object = None
+    return state
+
+
+def resume_camera_choreography(camera: bpy.types.Object, state: dict[str, object]) -> None:
+    for holder, action, slot in state["actions"]:  # type: ignore[union-attr]
+        animation = holder.animation_data or holder.animation_data_create()
+        animation.action = action
+        if slot is not None:
+            try:
+                animation.action_slot = slot
+            except (AttributeError, TypeError, RuntimeError):
+                pass
+    for constraint, muted in state["constraints"]:  # type: ignore[union-attr]
+        constraint.mute = muted
+    camera.data.dof.focus_object = state["focus"]
+
+
+def validate_camera_path(camera: bpy.types.Object, *, step: int = 1) -> dict[str, object]:
+    """Fly the built path and measure how close the camera gets to the machine.
+
+    The shot list is checked against one aisle plane, which is a coarse rule; a
+    path can respect it and still take the camera through a frame member, the
+    bridge or a hotel between two keys.  This walks every frame and measures the
+    eye against the world bounds of every static body plus the bridge, which is
+    the only moving body big enough to come to the camera.
+    """
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    import check_scene
+
+    scene = bpy.context.scene
+    original_frame = scene.frame_current
+
+    def body_boxes(root_name: str) -> list[tuple[str, tuple[float, ...]]]:
+        root = bpy.data.objects.get(root_name)
+        if root is None:
+            return []
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        boxes: list[tuple[str, tuple[float, ...]]] = []
+        for obj in (root, *root.children_recursive):
+            if obj.type != "MESH":
+                continue
+            evaluated = obj.evaluated_get(depsgraph)
+            corners = [evaluated.matrix_world @ Vector(corner) for corner in evaluated.bound_box]
+            boxes.append(
+                (
+                    obj.name,
+                    (
+                        min(point.x for point in corners),
+                        min(point.y for point in corners),
+                        min(point.z for point in corners),
+                        max(point.x for point in corners),
+                        max(point.y for point in corners),
+                        max(point.z for point in corners),
+                    ),
+                )
+            )
+        return boxes
+
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+    static_boxes: list[tuple[str, tuple[float, ...]]] = []
+    for name in check_scene.STATICS:
+        static_boxes.extend(body_boxes(name))
+
+    path: list[tuple[int, Vector, list[tuple[str, tuple[float, ...]]]]] = []
+    for frame in range(1, FRAME_END + 1, step):
+        scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        path.append((frame, camera.matrix_world.translation.copy(), body_boxes("MoverBridge")))
+
+    closest = float("inf")
+    closest_frame = 0
+    closest_body = ""
+    for frame, eye, bridge in path:
+        for name, box in (*static_boxes, *bridge):
+            gap_x = max(box[0] - eye.x, 0.0, eye.x - box[3])
+            gap_y = max(box[1] - eye.y, 0.0, eye.y - box[4])
+            gap_z = max(box[2] - eye.z, 0.0, eye.z - box[5])
+            squared = gap_x * gap_x + gap_y * gap_y + gap_z * gap_z
+            if squared < closest:
+                closest = squared
+                closest_frame = frame
+                closest_body = name
+    closest = math.sqrt(closest)
+    scene.frame_set(original_frame)
+    report = {
+        "bodies": len(static_boxes) + len(path[0][2]),
+        "frames": len(path),
+        "closestApproach": round(closest, 4),
+        "closestFrame": closest_frame,
+        "closestBody": closest_body,
+        "required": CAMERA_MIN_CLEARANCE,
+    }
+    print("CAMERA PATH: " + json.dumps(report))
+    if closest < CAMERA_MIN_CLEARANCE:
+        raise RuntimeError(
+            f"Camera path passes {closest * 1000:.0f} mm from {closest_body} at frame "
+            f"{closest_frame}; {CAMERA_MIN_CLEARANCE * 1000:.0f} mm is the minimum"
+        )
+    return report
+
+
 def build_camera_and_lighting() -> bpy.types.Object:
     target = COLLECTIONS["RenderRig"]
     camera_data = bpy.data.cameras.new("Camera")
     camera = bpy.data.objects.new("Camera", camera_data)
     target.objects.link(camera)
-    camera_data.sensor_width = 36
+    camera_data.sensor_width = CAMERA_SENSOR_WIDTH
     camera_data.dof.use_dof = True
-    apply_camera_pose(camera, CAM_RIG["animation"])
+    apply_camera_pose(camera, CAM_RIG["still"])
     bpy.context.scene.camera = camera
     mark_export(camera, False)
 
@@ -5323,7 +6544,7 @@ def build_camera_and_lighting() -> bpy.types.Object:
         hotel_x = STATION_X[hotel]
         area(
             f"HotelStripLamp_{hotel}",
-            (hotel_x, ROW_FRONT + STACKER_PRESENT_Y + 0.205, BENCH_Z + 0.520),
+            (hotel_x, ROW_FRONT + HOTEL_PRESENT_Y + 0.205, BENCH_Z + 0.520),
             7.0,
             (0.14, 0.74),
             (0.80, 0.92, 1.0),
@@ -5450,6 +6671,12 @@ def configure_eevee(scene: bpy.types.Scene) -> None:
         ("use_shadows", True),
         ("shadow_ray_count", 2),
         ("shadow_step_count", 8),
+        # Twenty area lights over a 2300-node scene overflow the default shadow
+        # pool on the close shots. EEVEE then drops shadow maps and only says so
+        # on stderr, so a render can look finished and be wrong. Measured on the
+        # previous build: frame 75 reported 2252/2048 at the 512 default and was
+        # clean at 2048, and a full pass went from 5568 overflow lines to 0.
+        ("shadow_pool_size", "2048"),
         # Indirect light is clamped hard for the same reason: a room whose
         # bounce is uncapped fills its own recesses and loses every true dark.
         ("clamp_surface_indirect", 2.2),
@@ -5574,11 +6801,13 @@ def export_glb() -> None:
 def validate_motion(
     slots: dict[str, tuple[float, float, float]],
     *,
-    gripper: bpy.types.Object,
+    mover: bpy.types.Object,
+    gripper_head: bpy.types.Object,
+    pipette_head: bpy.types.Object,
     sample: bpy.types.Object,
     mixer: bpy.types.Object,
     mixer_latches: Sequence[bpy.types.Object],
-    reader_lid: bpy.types.Object,
+    reader_door: bpy.types.Object,
     attached_tips: bpy.types.Object,
     liquid_columns: Sequence[bpy.types.Object],
     input_shuttle: bpy.types.Object,
@@ -5631,29 +6860,71 @@ def validate_motion(
     record("liquid column count", len(liquid_columns) == 12, len(liquid_columns), 12)
 
     expected_sample_positions = {
-        92: [slots["input-handoff"][0], slots["input-handoff"][1], STACKER_PLATE_Z],
-        148: [slots["stage"][0], slots["stage"][1], DIRECT_DECK_PLATE_Z],
-        560: [slots["shaker"][0], slots["shaker"][1], MIXER_PLATE_Z],
-        670: [slots["reader"][0], slots["reader"][1], READER_PLATE_Z],
-        896: [slots["output-handoff"][0], slots["output-handoff"][1], STACKER_PLATE_Z],
-        948: [slots["output-tower"][0], slots["output-tower"][1] + 0.2075, STACKER_PLATE_Z],
+        BEAT["plate_approach"]: [
+            slots["input-handoff"][0],
+            slots["input-handoff"][1],
+            HOTEL_PLATE_Z,
+        ],
+        BEAT["plate_seat"]: [slots["stage"][0], slots["stage"][1], DIRECT_DECK_PLATE_Z],
+        BEAT["mix_place_down"]: [slots["mixer"][0], slots["mixer"][1], MIXER_PLATE_Z],
+        BEAT["read_place_down"]: [
+            slots["reader"][0],
+            slots["reader"][1],
+            CHARACTERIZER_PLATE_Z,
+        ],
+        BEAT["out_place_down"]: [
+            slots["output-handoff"][0],
+            slots["output-handoff"][1],
+            HOTEL_PLATE_Z,
+        ],
+        BEAT["out_stored"]: [
+            slots["output-hotel"][0],
+            slots["output-hotel"][1] + 0.2075,
+            HOTEL_PLATE_Z,
+        ],
     }
     for frame, expected in expected_sample_positions.items():
         actual = vector_at(sample, frame)
         record(f"sample checkpoint frame {frame}", near(actual, expected), actual, expected)
 
-    for frame in (124, 138, 540, 552, 648, 662, 876, 888):
+    carried_frames = tuple(
+        BEAT[name]
+        for name in (
+            "plate_lift",
+            "plate_cross",
+            "mix_pick_lift",
+            "mix_cross",
+            "read_pick_lift",
+            "read_cross",
+            "out_pick_lift",
+            "out_cross",
+        )
+    )
+    for frame in carried_frames:
         scene.frame_set(frame)
-        relative_z = round(float(sample.location.z - gripper.location.z), 6)
+        relative_z = round(float(sample.location.z - mover.location.z), 6)
         record(
-            f"plate follows gripper frame {frame}",
+            f"plate follows the mover frame {frame}",
             abs(relative_z - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             relative_z,
             PLATE_GRIP_LOCAL_Z,
         )
-    for frame in (114, 148, 530, 560, 640, 670, 868, 896):
+    gripped_frames = tuple(
+        BEAT[name]
+        for name in (
+            "plate_grip",
+            "plate_seat",
+            "mix_pick_grip",
+            "mix_place_down",
+            "read_pick_grip",
+            "read_place_down",
+            "out_pick_grip",
+            "out_place_down",
+        )
+    )
+    for frame in gripped_frames:
         scene.frame_set(frame)
-        grip_center_z = round(float(sample.location.z - gripper.location.z), 6)
+        grip_center_z = round(float(sample.location.z - mover.location.z), 6)
         record(
             f"plate aligns with jaw center frame {frame}",
             abs(grip_center_z - PLATE_GRIP_LOCAL_Z) <= 1e-5,
@@ -5661,41 +6932,63 @@ def validate_motion(
             PLATE_GRIP_LOCAL_Z,
         )
 
-    expected_lid_positions = {
-        1: [slots["reader"][0], slots["reader"][1], READER_LID_CLOSED_Z],
-        68: [slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z],
-        736: [slots["reader"][0], slots["reader"][1], READER_LID_CLOSED_Z],
-        834: [slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z],
+    expected_door_positions = {
+        BEAT["start"]: [slots["reader"][0], slots["reader"][1], DOOR_CLOSED_Z],
+        BEAT["door_seat"]: [slots[DOOR_DOCK_SLOT][0], slots[DOOR_DOCK_SLOT][1], DOOR_DOCK_Z],
+        BEAT["door_close_down"]: [slots["reader"][0], slots["reader"][1], DOOR_CLOSED_Z],
+        BEAT["door_return_down"]: [
+            slots[DOOR_DOCK_SLOT][0],
+            slots[DOOR_DOCK_SLOT][1],
+            DOOR_DOCK_Z,
+        ],
     }
-    for frame, expected in expected_lid_positions.items():
-        actual = vector_at(reader_lid, frame)
-        record(f"reader lid checkpoint frame {frame}", near(actual, expected), actual, expected)
-    for frame in (46, 58, 716, 728, 810, 822):
-        scene.frame_set(frame)
-        grip_alignment = round(
-            float(reader_lid.location.z + READER_LID_GRIP_Z - gripper.location.z), 6
+    for frame, expected in expected_door_positions.items():
+        actual = vector_at(reader_door, frame)
+        record(f"reader door checkpoint frame {frame}", near(actual, expected), actual, expected)
+    door_carried = tuple(
+        BEAT[name]
+        for name in (
+            "door_lift",
+            "door_cross",
+            "door_fetch_lift",
+            "door_close_cross",
+            "door_open_lift",
+            "door_return_cross",
         )
+    )
+    for frame in door_carried:
+        scene.frame_set(frame)
+        grip_alignment = round(float(reader_door.location.z + DOOR_GRIP_Z - mover.location.z), 6)
         record(
-            f"lid follows gripper frame {frame}",
+            f"door follows the mover frame {frame}",
             abs(grip_alignment - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             grip_alignment,
             PLATE_GRIP_LOCAL_Z,
         )
-    for frame in (36, 68, 706, 736, 802, 834):
-        scene.frame_set(frame)
-        grip_alignment = round(
-            float(reader_lid.location.z + READER_LID_GRIP_Z - gripper.location.z), 6
+    door_gripped = tuple(
+        BEAT[name]
+        for name in (
+            "door_grip",
+            "door_seat",
+            "door_fetch_grip",
+            "door_close_down",
+            "door_open_grip",
+            "door_return_down",
         )
+    )
+    for frame in door_gripped:
+        scene.frame_set(frame)
+        grip_alignment = round(float(reader_door.location.z + DOOR_GRIP_Z - mover.location.z), 6)
         record(
-            f"lid aligns with jaw center frame {frame}",
+            f"door aligns with jaw center frame {frame}",
             abs(grip_alignment - PLATE_GRIP_LOCAL_Z) <= 1e-5,
             grip_alignment,
             PLATE_GRIP_LOCAL_Z,
         )
 
-    input_extended = vector_at(input_shuttle, 92)
-    input_stored = vector_at(input_shuttle, 144)
-    output_stored = vector_at(output_shuttle, 948)
+    input_extended = vector_at(input_shuttle, BEAT["plate_approach"])
+    input_stored = vector_at(input_shuttle, BEAT["plate_seat"])
+    output_stored = vector_at(output_shuttle, BEAT["out_stored"])
     record(
         "input shuttle extends to the hand-off",
         near(input_extended, [-0.164, 0.0, 0.228]),
@@ -5716,12 +7009,12 @@ def validate_motion(
     )
 
     direct_deck_gap = round(DIRECT_DECK_PLATE_Z - PLATE_HALF_HEIGHT - DECK_SLOT_TOP_Z, 6)
-    stacker_gap = round(STACKER_PLATE_Z - PLATE_HALF_HEIGHT - STACKER_NEST_TOP_Z, 6)
-    reader_height = round(READER_LID_CLOSED_Z + READER_LID_HEIGHT - READER_ROOT_Z, 6)
+    stacker_gap = round(HOTEL_PLATE_Z - PLATE_HALF_HEIGHT - HOTEL_NEST_TOP_Z, 6)
+    reader_height = round(DOOR_CLOSED_Z + DOOR_HEIGHT_M - CHARACTERIZER_ROOT_Z, 6)
     record(
         "direct-deck plate seats without gap", abs(direct_deck_gap) <= 1e-6, direct_deck_gap, 0.0
     )
-    record("Stacker plate seats without gap", abs(stacker_gap) <= 1e-6, stacker_gap, 0.0)
+    record("hotel plate seats without gap", abs(stacker_gap) <= 1e-6, stacker_gap, 0.0)
     record(
         "closed reader stays within published envelope",
         0.057 <= reader_height <= 0.060,
@@ -5729,7 +7022,13 @@ def validate_motion(
         "0.057 to 0.060 m",
     )
 
-    for frame, opened in ((574, True), (580, False), (628, False), (634, True), (640, True)):
+    for frame, opened in (
+        (BEAT["mix_place_clear"], True),
+        (BEAT["mix_clamp_closed"], False),
+        (BEAT["mix_orbit_end"], False),
+        (BEAT["mix_clamp_open"], True),
+        (BEAT["read_pick_grip"], True),
+    ):
         for index, latch in enumerate(mixer_latches):
             location = vector_at(latch, frame)
             rotation = vector_at(latch, frame, attribute="rotation_euler")
@@ -5750,7 +7049,13 @@ def validate_motion(
         f"0 to 0.002 m outside the {PLATE_DEPTH} m plate",
     )
 
-    for frame, expected_scale in ((1, 0.02), (178, 1.0), (329, 0.02), (354, 1.0), (503, 0.02)):
+    for frame, expected_scale in (
+        (BEAT["start"], 0.02),
+        (BEAT["tips_a_taken"], 1.0),
+        (BEAT["waste_a_drop"], 0.02),
+        (BEAT["tips_b_taken"], 1.0),
+        (BEAT["waste_b_drop"], 0.02),
+    ):
         actual = vector_at(attached_tips, frame, attribute="scale")
         record(
             f"tip state frame {frame}",
@@ -5758,7 +7063,12 @@ def validate_motion(
             actual[2],
             expected_scale,
         )
-    for frame, expected_scale in ((217, 0.03), (219, 0.46), (391, 0.46), (393, 1.0)):
+    for frame, expected_scale in (
+        (BEAT["fill_a_start"] + 3, 0.03),
+        (BEAT["fill_a_start"] + 5, 0.46),
+        (BEAT["fill_b_start"] + 3, 0.46),
+        (BEAT["fill_b_start"] + 5, 1.0),
+    ):
         actual = vector_at(liquid_columns[0], frame, attribute="scale")
         record(
             f"column 1 fill frame {frame}",
@@ -5769,7 +7079,7 @@ def validate_motion(
 
     radii: list[float] = []
     yaw_values: list[float] = []
-    for frame in range(580, 629):
+    for frame in range(BEAT["mix_clamp_closed"] + 2, BEAT["mix_orbit_end"]):
         scene.frame_set(frame)
         radii.append(math.hypot(float(mixer.location.x), float(mixer.location.y)))
         yaw_values.append(abs(float(sample.rotation_euler.z)))
@@ -5780,6 +7090,49 @@ def validate_motion(
         0.001,
     )
     record("plate does not yaw", max(yaw_values) <= 1e-9, max(yaw_values), 0.0)
+
+    # One mover, two heads.  These are the scalar half of that claim: each head
+    # is exactly at its own dock pose while the other one is working, and a
+    # coupled head is at the mover pose to the last micron because it is written
+    # from it.  check_scene proves the geometric half.
+    for head, label in ((gripper_head, "Gripper"), (pipette_head, "Pipette")):
+        dock_pose = [HEAD_DOCK_X[label], HEAD_DOCK_Y, HEAD_DOCK_Z]
+        idle_frames = (
+            (BEAT["swap_a_lift"], BEAT["fill_a_start"], BEAT["swap_b_lift"])
+            if label == "Gripper"
+            else (BEAT["start"], BEAT["read_hold"], FRAME_END)
+        )
+        for frame in idle_frames:
+            actual = vector_at(head, frame)
+            record(
+                f"{label} head rests in its dock frame {frame}",
+                near(actual, dock_pose),
+                actual,
+                dock_pose,
+            )
+        coupled_frames = (
+            (BEAT["plate_cross"], BEAT["mix_cross"], BEAT["out_cross"])
+            if label == "Gripper"
+            else (BEAT["res_a_down"], BEAT["fill_b_start"], BEAT["waste_b_up"])
+        )
+        for frame in coupled_frames:
+            scene.frame_set(frame)
+            offset = [
+                round(float(head.location[axis] - mover.location[axis]), 6) for axis in (0, 2)
+            ]
+            record(
+                f"{label} head tracks the mover frame {frame}",
+                near(offset, [0.0, 0.0]),
+                offset,
+                [0.0, 0.0],
+            )
+    dock_separation = round(abs(HEAD_DOCK_X["Gripper"] - HEAD_DOCK_X["Pipette"]), 6)
+    record(
+        "head docks stand clear of each other",
+        dock_separation >= 0.30,
+        dock_separation,
+        ">= 0.30 m apart",
+    )
 
     scene.frame_set(original_frame)
     if failures:
@@ -5814,18 +7167,22 @@ def write_validation(checks: Sequence[dict[str, object]]) -> None:
 
 
 def write_inventory() -> None:
+    # The nodes ../twin.yaml binds: one per entity, one per anchor.  The
+    # vocabulary they carry across the twin boundary is cell, mover, head, dock,
+    # station, slot, hotel, carrier, anchor.
     required = (
         "CellRoot",
         "SampleCarrier",
-        "RobotCarriage",
-        "DispenserHead",
+        "Mover",
+        "GripperHead",
+        "PipetteHead",
         "MixerRotor",
-        "ColorimeterHousing",
-        "ColorimeterDoor",
+        "CharacterizerHousing",
+        "CharacterizerDoor",
         "Anchor_Input",
-        "Anchor_Dispenser",
-        "Anchor_Mixer",
-        "Anchor_Colorimeter",
+        "Anchor_Dispense",
+        "Anchor_Mix",
+        "Anchor_Characterize",
         "Anchor_Output",
     )
     missing = [name for name in required if bpy.data.objects.get(name) is None]
@@ -5854,15 +7211,29 @@ def write_inventory() -> None:
 
 
 def write_camera_rig() -> None:
-    """Publish the named poses so every consumer frames the line the same way."""
+    """Publish the still poses and the edit so every consumer frames it the same."""
     CAMERA_RIG_PATH.write_text(
         json.dumps(
             {
                 "unit": "mm",
-                "sensorWidth": 36,
+                "sensorWidth": CAMERA_SENSOR_WIDTH,
                 "resolution": [1280, 720],
-                "animationPose": "animation",
+                "stillPose": "still",
                 "poses": CAM_RIG,
+                "shots": [
+                    {
+                        "name": shot["name"],
+                        "start": shot["start"],
+                        "end": shot["end"],
+                        "seconds": round((shot["end"] - shot["start"] + 1) / FPS, 2),
+                        "note": shot["note"],
+                        "keys": [
+                            {"frame": frame, "eye": eye, "look": look, "lens": lens}
+                            for frame, eye, look, lens in shot["keys"]
+                        ],
+                    }
+                    for shot in CAMERA_SHOTS
+                ],
             },
             indent=2,
         )
@@ -5879,6 +7250,7 @@ def render_poses(options: argparse.Namespace) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     selected = [name.strip() for name in options.poses.split(",") if name.strip()] or list(CAM_RIG)
     original_frame = scene.frame_current
+    suspended = suspend_camera_choreography(camera)
     for name in selected:
         pose = CAM_RIG[name]
         hidden: list[bpy.types.Object] = []
@@ -5894,7 +7266,7 @@ def render_poses(options: argparse.Namespace) -> None:
         for obj in hidden:
             obj.hide_render = False
         print(f"POSE RENDERED: {name} -> {out_dir / f'pose-{name}.png'}")
-    apply_camera_pose(camera, CAM_RIG["animation"])
+    resume_camera_choreography(camera, suspended)
     scene.frame_set(original_frame)
     scene.render.filepath = str(PREVIEW_PATH)
 
@@ -5904,10 +7276,16 @@ def render_outputs(options: argparse.Namespace) -> None:
     if options.render_poses:
         render_poses(options)
     if options.render_still:
+        # The preview is a portrait of the machine rather than a frame of the
+        # film, so it is shot from the ``still`` pose with the edit suspended.
+        camera = scene.camera
+        suspended = suspend_camera_choreography(camera)
+        apply_camera_pose(camera, CAM_RIG["still"])
         scene.frame_set(max(1, min(FRAME_END, options.frame)))
         scene.render.image_settings.file_format = "PNG"
         scene.render.filepath = str(PREVIEW_PATH)
         bpy.ops.render.render(write_still=True)
+        resume_camera_choreography(camera, suspended)
     if options.render_animation:
         scene.frame_set(1)
         FRAME_DIR.mkdir(parents=True, exist_ok=True)
@@ -5946,6 +7324,10 @@ def render_outputs(options: argparse.Namespace) -> None:
 
 
 def build_scene(options: argparse.Namespace) -> None:
+    # The edit is checked before any geometry exists.  A shot list that does not
+    # tile the timeline, or that cuts faster than the standard allows, is a
+    # defect worth refusing in a second rather than at the end of a render.
+    validate_camera_shots()
     reset_scene()
     init_materials()
     for name in (
@@ -5965,23 +7347,32 @@ def build_scene(options: argparse.Namespace) -> None:
     cell_root["opensdlEntityId"] = "cell"
     build_frame(cell_root)
     slots = build_stations(cell_root)
-    gantry, dispenser, attached_tips, gripper, jaw_left, jaw_right, drag = build_gantry(cell_root)
+    (
+        bridge,
+        mover,
+        gripper_head,
+        pipette_head,
+        attached_tips,
+        jaw_left,
+        jaw_right,
+        drag,
+    ) = build_transport(cell_root)
 
     build_reservoir((slots["reservoir"][0], slots["reservoir"][1], DECK_Z + 0.008), cell_root)
     rack_tip_columns = build_tip_rack(
         (slots["tips"][0], slots["tips"][1], DECK_Z + 0.008), cell_root
     )
-    mixer, mixer_latches, _mixer_status = build_heater_shaker(
-        (slots["shaker"][0], slots["shaker"][1], DECK_Z + 0.008), cell_root
+    mixer, mixer_latches, _mixer_status = build_mixer(
+        (slots["mixer"][0], slots["mixer"][1], DECK_Z + 0.008), cell_root
     )
-    _reader, reader_lid, reader_status = build_plate_reader(
-        (slots["reader"][0], slots["reader"][1], READER_ROOT_Z),
-        (slots[LID_DOCK_SLOT][0], slots[LID_DOCK_SLOT][1], READER_LID_DOCK_Z),
+    _reader, reader_door, reader_status = build_characterizer(
+        (slots["reader"][0], slots["reader"][1], CHARACTERIZER_ROOT_Z),
+        (slots[DOOR_DOCK_SLOT][0], slots[DOOR_DOCK_SLOT][1], DOOR_DOCK_Z),
         cell_root,
     )
     build_waste((slots["tip-waste"][0], slots["tip-waste"][1], DECK_Z + 0.008), cell_root)
-    input_shuttle = build_stacker("InputStacker", slots["input-tower"], cell_root, role="input")
-    output_shuttle = build_stacker("OutputStacker", slots["output-tower"], cell_root, role="output")
+    input_shuttle = build_hotel("Hotel_Input", slots["input-hotel"], cell_root, role="input")
+    output_shuttle = build_hotel("Hotel_Output", slots["output-hotel"], cell_root, role="output")
     build_service_deck(cell_root)
     build_controls(cell_root)
     build_compute(cell_root)
@@ -5992,26 +7383,27 @@ def build_scene(options: argparse.Namespace) -> None:
 
     sample, liquid_columns = build_plate(
         "SampleCarrier",
-        (slots["input-handoff"][0], slots["input-handoff"][1], STACKER_PLATE_Z),
+        (slots["input-handoff"][0], slots["input-handoff"][1], HOTEL_PLATE_Z),
         target=COLLECTIONS["Labware"],
         parent=cell_root,
     )
 
-    for anchor_name, slot_id, height in (
-        ("Anchor_Input", "input-handoff", STACKER_PLATE_Z),
-        ("Anchor_Dispenser", "stage", DIRECT_DECK_PLATE_Z),
-        ("Anchor_Mixer", "shaker", MIXER_PLATE_Z),
-        ("Anchor_Colorimeter", "reader", READER_PLATE_Z),
-        ("Anchor_Output", "output-handoff", STACKER_PLATE_Z),
+    for anchor_id, slot_id, height in (
+        ("input", "input-handoff", HOTEL_PLATE_Z),
+        ("dispense", "stage", DIRECT_DECK_PLATE_Z),
+        ("mix", "mixer", MIXER_PLATE_Z),
+        ("characterize", "reader", CHARACTERIZER_PLATE_Z),
+        ("output", "output-handoff", HOTEL_PLATE_Z),
     ):
-        anchor(anchor_name, (slots[slot_id][0], slots[slot_id][1], height), cell_root)
+        anchor(anchor_id, (slots[slot_id][0], slots[slot_id][1], height), cell_root)
 
-    build_camera_and_lighting()
+    camera = build_camera_and_lighting()
     animate_scene(
-        gantry,
-        dispenser,
+        bridge,
+        mover,
+        gripper_head,
+        pipette_head,
         attached_tips,
-        gripper,
         jaw_left,
         jaw_right,
         drag,
@@ -6019,21 +7411,25 @@ def build_scene(options: argparse.Namespace) -> None:
         liquid_columns,
         mixer,
         mixer_latches,
-        reader_lid,
+        reader_door,
         reader_status,
         rack_tip_columns,
         input_shuttle,
         output_shuttle,
         slots,
     )
+    build_camera_choreography(camera)
+    validate_camera_path(camera)
     configure_render(options)
     motion_checks = validate_motion(
         slots,
-        gripper=gripper,
+        mover=mover,
+        gripper_head=gripper_head,
+        pipette_head=pipette_head,
         sample=sample,
         mixer=mixer,
         mixer_latches=mixer_latches,
-        reader_lid=reader_lid,
+        reader_door=reader_door,
         attached_tips=attached_tips,
         liquid_columns=liquid_columns,
         input_shuttle=input_shuttle,

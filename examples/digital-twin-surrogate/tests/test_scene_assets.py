@@ -36,7 +36,7 @@ def test_scene_asset_matches_the_declared_twin_and_build_reports() -> None:
     assert scene_digest == inventory["sha256"]
     assert scene_digest == motion["sha256"]
     assert motion["passed"] is True
-    assert len(motion["checks"]) == 85
+    assert len(motion["checks"]) == 103
     assert all(check["passed"] for check in motion["checks"])
 
 
@@ -47,7 +47,7 @@ def test_scene_contains_every_required_node_and_the_full_authored_timeline() -> 
     animations = document.get("animations", [])
 
     assert set(inventory["requiredNodes"]) <= node_names
-    assert len(animations) == 28
+    assert len(animations) == 31
     assert inventory["frameRange"] == {"start": 1, "end": 960, "fps": 24}
 
     max_animation_time = max(

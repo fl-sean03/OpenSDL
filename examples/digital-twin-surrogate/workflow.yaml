@@ -34,55 +34,55 @@ input_schema:
       maximum: 3600
   additionalProperties: false
 steps:
-  - id: input_to_dispenser
+  - id: input_to_dispense
     capability: cell.transfer_labware
     inputs:
       labware_id: ${inputs.labware_id}
       source: input
-      destination: dispenser
+      destination: dispense
   - id: dispense
     capability: cell.dispense
-    depends_on: [input_to_dispenser]
+    depends_on: [input_to_dispense]
     inputs:
-      labware_id: ${steps.input_to_dispenser.output.labware_id}
+      labware_id: ${steps.input_to_dispense.output.labware_id}
       additions: ${inputs.additions}
-  - id: dispenser_to_mixer
+  - id: dispense_to_mix
     capability: cell.transfer_labware
     depends_on: [dispense]
     inputs:
       labware_id: ${steps.dispense.output.labware_id}
-      source: dispenser
-      destination: mixer
+      source: dispense
+      destination: mix
   - id: mix
     capability: cell.mix
-    depends_on: [dispenser_to_mixer]
+    depends_on: [dispense_to_mix]
     inputs:
-      labware_id: ${steps.dispenser_to_mixer.output.labware_id}
+      labware_id: ${steps.dispense_to_mix.output.labware_id}
       speed_rpm: ${inputs.mix_speed_rpm}
       duration_seconds: ${inputs.mix_duration_seconds}
-  - id: mixer_to_characterizer
+  - id: mix_to_characterize
     capability: cell.transfer_labware
     depends_on: [mix]
     inputs:
       labware_id: ${steps.mix.output.labware_id}
-      source: mixer
-      destination: characterizer
+      source: mix
+      destination: characterize
   - id: characterize
     capability: cell.characterize
-    depends_on: [mixer_to_characterizer]
+    depends_on: [mix_to_characterize]
     inputs:
-      labware_id: ${steps.mixer_to_characterizer.output.labware_id}
+      labware_id: ${steps.mix_to_characterize.output.labware_id}
       method: normalized-response
-  - id: characterizer_to_output
+  - id: characterize_to_output
     capability: cell.transfer_labware
     depends_on: [characterize]
     inputs:
       labware_id: ${steps.characterize.output.labware_id}
-      source: characterizer
+      source: characterize
       destination: output
 outputs:
-  labware_id: ${steps.characterizer_to_output.output.labware_id}
-  location: ${steps.characterizer_to_output.output.destination}
+  labware_id: ${steps.characterize_to_output.output.labware_id}
+  location: ${steps.characterize_to_output.output.destination}
   well_count: ${steps.dispense.output.well_count}
   volume_per_well_ul: ${steps.dispense.output.volume_per_well_ul}
   aggregate_volume_ul: ${steps.dispense.output.aggregate_volume_ul}

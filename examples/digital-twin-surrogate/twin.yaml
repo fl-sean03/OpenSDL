@@ -9,39 +9,42 @@ coordinateFrame:
   origin: [0.0, 0.0, 0.0]
 scene:
   path: scene/assets/surrogate-cell.glb
-  sha256: 480da6d8bf368e0151b94f34855ca68e4ffa6696886627fa386f04e95b89248b
+  sha256: d9a1fae5d345b92a6c1bb79e7d7043e3ad899580fa3c5df092a3dd450d2a64f0
 entities:
   - id: cell
     node: CellRoot
   - id: sample
     node: SampleCarrier
-  - id: robot
-    node: RobotCarriage
+  - id: mover
+    node: Mover
     resources: [cell-transport]
-  - id: dispenser-head
-    node: DispenserHead
+  - id: gripper-head
+    node: GripperHead
+    resources: [cell-transport]
+  - id: pipette-head
+    node: PipetteHead
     resources: [cell-dispenser]
   - id: mixer-rotor
     node: MixerRotor
     resources: [cell-mixer]
-  - id: plate-reader
-    node: ColorimeterHousing
+  - id: characterizer
+    node: CharacterizerHousing
     resources: [cell-characterizer]
   - id: characterizer-door
-    node: ColorimeterDoor
+    node: CharacterizerDoor
     resources: [cell-characterizer]
 anchors:
   - id: input
     node: Anchor_Input
     position: [-1.56, -0.0535, 1.16865]
-  - id: dispenser
-    node: Anchor_Dispenser
+  - id: dispense
+    node: Anchor_Dispense
     position: [-0.78, -0.0535, 1.14965]
-  - id: mixer
-    node: Anchor_Mixer
+  - id: mix
+    node: Anchor_Mix
     position: [0.0, -0.0535, 1.22615]
-  - id: characterizer
-    node: Anchor_Colorimeter
+  - id: characterize
+    node: Anchor_Characterize
     position: [0.78, -0.0535, 1.17065]
   - id: output
     node: Anchor_Output
@@ -50,41 +53,44 @@ animationTimeline:
   frameRate: 24
   frameStart: 1
   frameEnd: 960
+  # The gaps between phases are the cell's own housekeeping.  The two long
+  # ones, 150-208 and 552-612, are head changes: the mover parks one head in
+  # its dock and couples the other before the next commanded operation starts.
   bindings:
-    - id: input-to-dispenser
+    - id: input-to-dispense
       action: transfer
-      parameterMatch: {source: input, destination: dispenser}
+      parameterMatch: {source: input, destination: dispense}
       frameStart: 1
-      frameEnd: 160
+      frameEnd: 150
     - id: dispense-cycle
       action: play_clip
       parameterMatch: {clip: dispense_cycle}
-      frameStart: 164
-      frameEnd: 508
-    - id: dispenser-to-mixer
+      frameStart: 208
+      frameEnd: 552
+    - id: dispense-to-mix
       action: transfer
-      parameterMatch: {source: dispenser, destination: mixer}
-      frameStart: 516
-      frameEnd: 574
+      parameterMatch: {source: dispense, destination: mix}
+      frameStart: 612
+      frameEnd: 672
     - id: mix-cycle
       action: play_clip
       parameterMatch: {clip: mix_cycle}
-      frameStart: 574
-      frameEnd: 634
-    - id: mixer-to-characterizer
+      frameStart: 672
+      frameEnd: 724
+    - id: mix-to-characterize
       action: transfer
-      parameterMatch: {source: mixer, destination: characterizer}
-      frameStart: 634
-      frameEnd: 684
+      parameterMatch: {source: mix, destination: characterize}
+      frameStart: 724
+      frameEnd: 770
     - id: characterize-cycle
       action: play_clip
       parameterMatch: {clip: characterize_cycle}
-      frameStart: 692
-      frameEnd: 848
-    - id: characterizer-to-output
+      frameStart: 776
+      frameEnd: 892
+    - id: characterize-to-output
       action: transfer
-      parameterMatch: {source: characterizer, destination: output}
-      frameStart: 854
+      parameterMatch: {source: characterize, destination: output}
+      frameStart: 898
       frameEnd: 960
 projectionRules:
   - id: transfer-started
@@ -93,7 +99,7 @@ projectionRules:
       capability: cell.transfer_labware
       phase: started
     action: highlight
-    target: robot
+    target: mover
     parameters:
       active: true
       tone: cyan
@@ -114,7 +120,7 @@ projectionRules:
       capability: cell.transfer_labware
       phase: succeeded
     action: highlight
-    target: robot
+    target: mover
     parameters:
       active: false
       tone: cyan
@@ -124,7 +130,7 @@ projectionRules:
       capability: cell.dispense
       phase: started
     action: highlight
-    target: dispenser-head
+    target: pipette-head
     parameters:
       active: true
       tone: violet
@@ -134,7 +140,7 @@ projectionRules:
       capability: cell.dispense
       phase: succeeded
     action: play_clip
-    target: dispenser-head
+    target: pipette-head
     parameters:
       clip: dispense_cycle
   - id: dispense-confirmed
@@ -154,7 +160,7 @@ projectionRules:
       capability: cell.dispense
       phase: succeeded
     action: highlight
-    target: dispenser-head
+    target: pipette-head
     parameters:
       active: false
       tone: violet
@@ -203,7 +209,7 @@ projectionRules:
       capability: cell.transfer_labware
       phase: failed
     action: highlight
-    target: robot
+    target: mover
     parameters: {active: true, tone: red, status: failed}
   - id: dispense-failed
     match:
@@ -211,7 +217,7 @@ projectionRules:
       capability: cell.dispense
       phase: failed
     action: highlight
-    target: dispenser-head
+    target: pipette-head
     parameters: {active: true, tone: red, status: failed}
   - id: mix-failed
     match:
@@ -235,7 +241,7 @@ projectionRules:
       capability: cell.transfer_labware
       phase: cancelled
     action: highlight
-    target: robot
+    target: mover
     parameters: {active: true, tone: amber, status: cancelled}
   - id: dispense-cancelled
     match:
@@ -243,7 +249,7 @@ projectionRules:
       capability: cell.dispense
       phase: cancelled
     action: highlight
-    target: dispenser-head
+    target: pipette-head
     parameters: {active: true, tone: amber, status: cancelled}
   - id: mix-cancelled
     match:
@@ -267,7 +273,7 @@ projectionRules:
       capability: cell.transfer_labware
       phase: intervention_required
     action: highlight
-    target: robot
+    target: mover
     parameters: {active: true, tone: amber, status: intervention_required}
   - id: dispense-intervention
     match:
@@ -275,7 +281,7 @@ projectionRules:
       capability: cell.dispense
       phase: intervention_required
     action: highlight
-    target: dispenser-head
+    target: pipette-head
     parameters: {active: true, tone: amber, status: intervention_required}
   - id: mix-intervention
     match:
@@ -299,7 +305,7 @@ projectionRules:
       capability: cell.transfer_labware
       phase: intervention_required
     action: highlight
-    target: robot
+    target: mover
     parameters: {active: true, tone: amber, status: recovery_required}
   - id: dispense-recovery
     match:
@@ -307,7 +313,7 @@ projectionRules:
       capability: cell.dispense
       phase: intervention_required
     action: highlight
-    target: dispenser-head
+    target: pipette-head
     parameters: {active: true, tone: amber, status: recovery_required}
   - id: mix-recovery
     match:

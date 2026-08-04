@@ -6,3 +6,4 @@ __pycache__/
 scene/assets/*.blend1
 scene/assets/preview-*.png
 scene/renders/frames/
+scene/renders/poses/

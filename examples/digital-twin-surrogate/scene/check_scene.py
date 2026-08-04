@@ -3,12 +3,13 @@
 ``validate_motion`` in ``build_scene.py`` checks scalars: deck pitch, object
 counts, keyframe values, orbit radius.  A scalar check cannot see a plate that
 slides out of the gripper, jaws that close on empty air, or a carriage that
-travels through the enclosure glazing, because none of those facts belong to a
-single object.  This module checks relationships between bodies.
+travels through the bench it is supposed to work over, because none of those
+facts belong to a single object.  This module checks relationships between
+bodies.
 
 Invariant A - carry rigidity
     Whenever a payload moves it moves rigidly with the body carrying it.  The
-    supports are the gripper carriage, the shaker rotor, and the two Stacker
+    supports are the gripper carriage, the shaker rotor, and the two hotel
     shuttles; nothing else in the cell can move labware.
 
 Invariant B - grip contact
@@ -19,6 +20,14 @@ Invariant B - grip contact
 Invariant C - interpenetration
     No moving assembly pushes into a fixed assembly deeper than the contact
     margin, except for the documented contacts in ``ALLOWED_CONTACTS``.
+
+Invariant D - gripper mechanism continuity
+    Every jaw reaches the carriage through an unbroken mechanism: paddle to
+    finger to carrier to cross-rail.  Each link stays in contact at every
+    frame and therefore at every authored jaw width, and neither carrier ever
+    runs off the end of the rail it rides.  A jaw can be parented perfectly and
+    track its carriage exactly while still reading as a bar floating in space,
+    because nothing spans the gap; only this check sees that.
 
 Run standalone against a built file::
 
@@ -71,20 +80,48 @@ JAW_RIGHT = "GripperJawRight"
 SUPPORTS = (CARRIAGE, "MixerRotor", "InputStacker_Shuttle", "OutputStacker_Shuttle")
 
 MOVERS = (PLATE, CARRIAGE, JAW_LEFT, JAW_RIGHT, "DispenserHead")
+# The line is open, so there is no enclosure to test against.  What a mover can
+# run into instead is the machine frame it is built into, the process deck, the
+# service assemblies packed under that deck, the runway that carries it, and the
+# modules and labware on the deck.
 STATICS = (
-    "LeftWindow",
-    "RightWindow",
-    "RearPanel",
-    "AccessDoorLeftGlazing",
-    "AccessDoorRightGlazing",
+    "Frame",
+    "Workstation",
+    "ServiceDeck",
+    "Controls",
+    "ComputeRack",
+    "Fluidics",
+    "WasteColumn",
+    "TransferPort",
+    "MachineServices",
+    "GantryPortal",
+    "Station_input",
+    "Station_dispenser",
+    "Station_mixer",
+    "Station_characterizer",
+    "Station_output",
     "HeaterShaker",
     "ColorimeterHousing",
     "ReaderLidCaddy",
     "InputStacker",
     "OutputStacker",
-    "TipRack_A2",
-    "ReagentReservoir_A1",
+    "TipRack",
+    "ReagentReservoir",
 )
+
+# Invariant D.  Each side of the gripper is a chain of bodies from the paddle
+# that touches the payload up to the carrier that rides the cross-rail.  Every
+# consecutive pair has to stay in contact, at every jaw width, or the paddle is
+# hanging in the air.
+JAW_MECHANISM: dict[str, tuple[str, ...]] = {
+    "left": ("GripperPadLeft", "GripperPaddleLeft", "GripperFingerLeft", JAW_LEFT),
+    "right": ("GripperPadRight", "GripperPaddleRight", "GripperFingerRight", JAW_RIGHT),
+}
+# The rail members the carriers ride.  Their combined X span bounds jaw travel.
+JAW_RAIL_MEMBERS = ("GripperCrossRailFront", "GripperCrossRailRear", "GripperLeadScrew")
+# Two bodies count as coupled when their world bounds overlap on every axis.
+# A positive gap on any axis is a visible seam.
+MECHANISM_GAP = 0.0
 
 # Fluid volumes are not rigid obstacles.  A pipette tip that enters a reagent
 # lane or a filled well is working, not colliding.
@@ -102,7 +139,7 @@ ABSENT_SCALE = 0.05
 ALLOWED_CONTACTS: tuple[dict[str, object], ...] = (
     {
         "mover": "DispenserHead",
-        "static": "TipRack_A2",
+        "static": "TipRack",
         "frames": (164, 186),
         "bodies": (("PipetteNozzle_*", "RackTip_*"), ("AttachedTip_*", "RackTip_*")),
         "reason": (
@@ -113,7 +150,7 @@ ALLOWED_CONTACTS: tuple[dict[str, object], ...] = (
     },
     {
         "mover": "DispenserHead",
-        "static": "TipRack_A2",
+        "static": "TipRack",
         "frames": (342, 360),
         "bodies": (("PipetteNozzle_*", "RackTip_*"), ("AttachedTip_*", "RackTip_*")),
         "reason": "Second tip pickup; same nozzle-in-tip contact as the first.",
@@ -512,6 +549,83 @@ def _grip_contact(
     return checks
 
 
+def _jaw_mechanism(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[str, object]]:
+    """Invariant D.  The paddle reaches the carriage through real geometry.
+
+    ``_carry_rigidity`` and ``_grip_contact`` both pass for a gripper whose
+    paddles are correctly parented to the carriage and correctly placed on the
+    payload while nothing at all spans the distance between the two.  That is
+    the state this scene shipped in, and it read as two bars floating beside
+    the arm.  This walks the mechanism instead: paddle, finger, carrier, rail.
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    rail = [_object(name) for name in JAW_RAIL_MEMBERS]
+    checks: list[dict[str, object]] = []
+    for side, chain in JAW_MECHANISM.items():
+        members = {name: _object(name) for name in chain}
+        links = list(zip(chain, chain[1:], strict=False))
+        worst_link: dict[str, tuple[float, int]] = {f"{a} - {b}": (0.0, 0) for a, b in links}
+        worst_rail = (0.0, 0)
+        worst_overrun = (-1.0, 0)
+        widths: set[float] = set()
+        for frame in frames:
+            scene.frame_set(frame)
+            depsgraph.update()
+            bounds = {name: _world_bounds([obj], depsgraph) for name, obj in members.items()}
+            if any(value is None for value in bounds.values()):
+                continue
+            widths.add(round(abs(float(members[chain[-1]].location.x)), 5))
+            for first, second in links:
+                gap = max(_axis_gap(bounds[first], bounds[second]))  # type: ignore[arg-type]
+                key = f"{first} - {second}"
+                if gap > worst_link[key][0]:
+                    worst_link[key] = (gap, frame)
+            rail_bounds = _world_bounds(rail, depsgraph)
+            carrier_bounds = bounds[chain[-1]]
+            if rail_bounds is None or carrier_bounds is None:
+                continue
+            gap = max(_axis_gap(carrier_bounds, rail_bounds))
+            if gap > worst_rail[0]:
+                worst_rail = (gap, frame)
+            overrun = max(
+                rail_bounds[0].x - carrier_bounds[0].x,
+                carrier_bounds[1].x - rail_bounds[1].x,
+            )
+            if overrun > worst_overrun[0]:
+                worst_overrun = (overrun, frame)
+
+        coupled = max(value[0] for value in worst_link.values())
+        checks.append(
+            {
+                "name": f"{side} jaw stays coupled to the gripper mechanism",
+                "passed": coupled <= MECHANISM_GAP,
+                "actual": {
+                    "authoredWidths": len(widths),
+                    "worstGapMm": _round(coupled * 1000.0, 3),
+                    "links": {
+                        key: {"gapMm": _round(value[0] * 1000.0, 3), "frame": value[1]}
+                        for key, value in worst_link.items()
+                    },
+                },
+                "expected": {"worstGapMm": 0.0},
+            }
+        )
+        checks.append(
+            {
+                "name": f"{side} jaw carrier stays on the cross-rail",
+                "passed": worst_rail[0] <= MECHANISM_GAP and worst_overrun[0] <= 0.0,
+                "actual": {
+                    "worstRailGapMm": _round(worst_rail[0] * 1000.0, 3),
+                    "worstRailGapFrame": worst_rail[1],
+                    "worstOverrunMm": _round(worst_overrun[0] * 1000.0, 3),
+                    "worstOverrunFrame": worst_overrun[1],
+                },
+                "expected": {"worstRailGapMm": 0.0, "worstOverrunMm": "<= 0"},
+            }
+        )
+    return checks
+
+
 def _interpenetration(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[str, object]]:
     """Invariant C.  Movers may touch fixed bodies but never enter them."""
     depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -624,6 +738,7 @@ def spatial_checks(*, step: int = 2, frame_end: int | None = None) -> list[dict[
 
     checks, ridden = _carry_rigidity(scene, every_frame)
     checks.extend(_grip_contact(scene, every_frame, ridden))
+    checks.extend(_jaw_mechanism(scene, every_frame))
     checks.extend(_interpenetration(scene, sampled))
     scene.frame_set(original)
     return checks

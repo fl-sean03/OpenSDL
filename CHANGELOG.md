@@ -44,6 +44,22 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Fixed
 
+- the reference scene depicted lab automation placed in a human room rather than a self-driving
+  laboratory. It was first an enclosed cell that hid the work, then an open bench with standing-height
+  casework, a chair, a desktop workstation, waste bins and dispensers — a space whose every dimension
+  served a person. A self-driving laboratory is a closed loop whose plant is designed around that
+  loop, so the scene is now a purpose-built 45-series T-slot machine frame on levelling feet: five
+  tied working planes, the transport runway carried on the frame's own end towers, plate hotels
+  holding a visible queue rather than one ceremonial plate, and a rack-mounted compute node whose
+  display shows the campaign as state — a parameter space converging, a flattening residual, the last
+  measured responses. The human layer is gone apart from one interlocked load port. Slot identifiers
+  are named for their role rather than borrowed from a vendor deck grid, and the build emits a named
+  camera rig with per-pose hide lists, so stills and the animation frame the work deliberately
+  instead of auto-framing;
+- the gripper jaws had no geometry connecting them to the wrist, so they read as floating bars even
+  though they tracked the carriage exactly and gripped the plate correctly. There is now a
+  continuous actuator, cross-rail, finger-carrier and paddle chain, and a jaw-mechanism invariant
+  requires each consecutive link to stay in contact at every authored jaw width;
 - the reference scene was not physically plausible. The gripper carriage passed through the
   enclosure glazing because the reader-lid dock stood in a deck column the carriage cannot reach;
   the jaw paddles hung below the payload and intersected the deck, the shaker, the reader and the

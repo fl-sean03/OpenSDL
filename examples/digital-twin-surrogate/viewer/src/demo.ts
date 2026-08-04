@@ -6,7 +6,7 @@ export const DEMO_DEFINITION: TwinDefinition = {
   apiVersion: "opensdl.dev/v0alpha1",
   kind: "DigitalTwin",
   version: "0.1.0",
-  revision: "flex-class-surrogate-cell-2026-08-03",
+  revision: "open-frame-self-driving-cell-2026-08-04",
   coordinateFrame: {
     unit: "m",
     handedness: "right",
@@ -15,7 +15,7 @@ export const DEMO_DEFINITION: TwinDefinition = {
   },
   scene: {
     path: "scene/assets/surrogate-cell.glb",
-    sha256: "5b8dfe8eda6c8e41fc9c9d16bf3fb8327ba86ca3206deb270327eb69da4429ac",
+    sha256: "480da6d8bf368e0151b94f34855ca68e4ffa6696886627fa386f04e95b89248b",
   },
   entities: [
     { id: "cell", node: "CellRoot", resources: [] },
@@ -35,15 +35,15 @@ export const DEMO_DEFINITION: TwinDefinition = {
     },
   ],
   anchors: [
-    { id: "input", node: "Anchor_Input", position: [0.164, 0.1605, 1.16865] },
-    { id: "dispenser", node: "Anchor_Dispenser", position: [-0.164, 0.0535, 1.14965] },
-    { id: "mixer", node: "Anchor_Mixer", position: [-0.164, -0.0535, 1.22615] },
+    { id: "input", node: "Anchor_Input", position: [-1.56, -0.0535, 1.16865] },
+    { id: "dispenser", node: "Anchor_Dispenser", position: [-0.78, -0.0535, 1.14965] },
+    { id: "mixer", node: "Anchor_Mixer", position: [0.0, -0.0535, 1.22615] },
     {
       id: "characterizer",
       node: "Anchor_Colorimeter",
-      position: [0.164, -0.1605, 1.17065],
+      position: [0.78, -0.0535, 1.17065],
     },
-    { id: "output", node: "Anchor_Output", position: [0.164, 0.0535, 1.16865] },
+    { id: "output", node: "Anchor_Output", position: [1.56, -0.0535, 1.16865] },
   ],
   animationTimeline: {
     frameRate: 24,

@@ -41,7 +41,9 @@ focused checks on the source workspace:
   **15 tests**;
 - a headless Blender 5.2.0 rebuild in a temporary directory reproduced `surrogate-cell.glb`, the
   node inventory, and the motion report byte for byte, and a 0.1 mm change to a source constant was
-  confirmed to break that comparison;
+  confirmed to break that comparison. The current scene is a purpose-built self-driving-laboratory
+  frame: **2283 exported nodes**, 28 authored animations, digest
+  `480da6d8bf368e0151b94f34855ca68e4ffa6696886627fa386f04e95b89248b`;
 - `opensdl twin validate` loaded the example definition and matched its declared scene digest;
 - targeted package, CLI, and API tests covered model validation, safe scene loading, deterministic
   projection, run-to-twin binding pins, stable run identifiers, twin routes, and viewer-path
@@ -52,17 +54,23 @@ focused checks on the source workspace:
   and received no issues from the Khronos validator;
 - viewer tests covered browser-side scene-digest verification, missing-binding failure, authored-motion
   synchronization, and exact-reference demo selection; and
-- the generated motion report marked all **81** checks as passed. Seventy-one are scalar checks on
-  deck, labware, gripper, tip, liquid, lid, door, Stacker, and Heater-Shaker values; the remaining
-  ten compare bodies to each other — carry rigidity, grip contact, and mesh interpenetration against
-  the enclosure, modules, and labware — and run before the export.
+- the generated motion report marked all **85** checks as passed. Seventy-one are scalar checks on
+  deck, labware, gripper, tip, liquid, lid, Stacker, and Heater-Shaker values; the remaining
+  fourteen compare bodies to each other — carry rigidity, grip contact, mesh interpenetration
+  against the modules and labware, and jaw-mechanism continuity — and run before the export.
 
 Those relational checks are new. The previous seventy validated scalars only, which is why a scene
 with the carriage passing through the enclosure glazing, jaw paddles intersecting seating surfaces,
 and the pipette dispensing between well rows passed every check and shipped. Interpenetration
-measured against the same independent harness fell from 134 records across 20 object pairs to 60
-across 5, and every remaining pair is either a declared allowlist entry or resting contact within
-the 0.25 mm margin.
+measured against an independent harness fell from 134 records across 20 object pairs to 60 across 5,
+and every remaining pair is either a declared allowlist entry or resting contact within the 0.25 mm
+margin.
+
+The jaw-mechanism checks were added after a defect that even the relational checks missed: the jaw
+paddles tracked the carriage exactly and gripped the plate correctly, but no geometry connected them
+to the wrist, so they read as floating bars. Carry rigidity and grip contact both passed on that
+scene. Only a render showed it. The checks now walk the wrist-to-pad chain and require each
+consecutive pair to overlap on all three axes at every authored jaw width.
 
 The GLB digest in `twin.yaml` matched both the generated node inventory and the scene file. This is
 contract and visualization evidence. It does not add physical, kinematic, collision, performance,

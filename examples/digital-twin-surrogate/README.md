@@ -2,14 +2,22 @@
 
 This is OpenSDL's complete digital-twin reference example. A deterministic simulation adapter runs
 one formulation workflow, persisted events become visual cues, and a read-only viewer applies those
-cues to a detailed 3D laboratory cell.
+cues to a detailed 3D laboratory line.
 
-![OpenSDL Flex-class surrogate cell](scene/assets/preview.png)
+![OpenSDL open workflow line](scene/assets/preview.png)
 
-The scene is a full-scale, original reconstruction of a real Flex-class liquid-handling setup. It
-uses published dimensions and operating behavior for the robot, gripper, 8-channel pipette,
-Stackers, Heater-Shaker, plate reader, and labware. It includes no manufacturer CAD, product images,
-textures, logos, or copied meshes. See [scene/SOURCES.md](scene/SOURCES.md) for provenance.
+The scene is a self-driving cell: a 3.6 x 1.12 x 2.2 m aluminium-extrusion machine frame standing
+on levelling feet through anchored floor plates, in a plant space rather than in a laboratory room.
+There is no casework, no worktop and no operator position. The frame carries the transport runway on
+its own end towers, a hard-anodised process plate at 1135 mm, two plate hotels holding the queue of
+work, and - packed into the volume under the deck - the controls cabinet, the open drive bank, the
+bulk reagent supply, the waste column, and the rack running the campaign with its state on one
+display. Material crosses the boundary at exactly one interlocked load and unload port. Nothing is
+enclosed, so every stage of the workflow can be seen while it runs. Each machine is a full-scale,
+original reconstruction that uses published dimensions and operating behavior for the gripper,
+8-channel pipette, plate hotels, Heater-Shaker, plate reader, and labware. It includes no
+manufacturer CAD, product images, textures, logos, or copied meshes. See
+[scene/SOURCES.md](scene/SOURCES.md) for provenance.
 
 This is the framework's only complete scene. It proves the public contracts and viewer path; it is
 not the first entry in an equipment-model catalog. Each laboratory builds its own tailored scene in
@@ -27,34 +35,45 @@ The adapter-neutral workflow uses four semantic capabilities:
 6. `cell.characterize` returns a deterministic normalized response.
 7. `cell.transfer_labware` moves the plate to output.
 
-The 40-second scene animation expands those tasks into visible equipment actions. The input Stacker
-presents the plate, the gripper transfers it, and the 8-channel head illustrates two pipetting
-passes. The Heater-Shaker uses a 2 mm-diameter orbital translation with no plate yaw. The gripper
-moves the reader lid between the reader and its caddy in D2, then sends the plate to the output
-Stacker.
+The 40-second scene animation expands those tasks into visible equipment actions. The input hotel's
+shuttle presents a plate at the front of its station, the gripper carries it along the bridge, and
+the 8-channel head illustrates two pipetting passes. The Heater-Shaker uses a 2 mm-diameter orbital
+translation with no plate yaw. The gripper moves the reader lid between the reader and the lid caddy
+behind it, then sends the plate to the output hotel.
 
 The animation timing illustrates the sequence. It does not reproduce device cycle times.
 
-## Deck layout
+## Frame and station layout
 
-Rows run from A at the rear to D at the front. Columns 1–3 form the working deck. Column 4 sits
-outside the gantry crossbeam and the side glazing, so only the Stacker shuttles reach it.
+The machine frame is 3.6 m along the transport axis, 1.12 m deep and 2.2 m tall, in 45-series
+T-slot profile: four corner towers, three rear intermediates and two front intermediates, standing
+on levelling feet through anchor plates bolted to the slab. Horizontal members tie them at five
+working planes - a base tie at 85 mm, the fluid service plane at 720 mm, the hotel mounting plane at
+890 mm, the deck carriers at 1095 mm, and the top tie at 2178 mm that the work-light bars hang from.
+The plant space around it is 6.6 x 5.6 x 3.1 m with a sealed resin floor, plain panel walls, and an
+exposed soffit carrying linear battens, a cable ladder and a duct run.
 
-| Slot | Reference-scene use |
-|---|---|
-| A1 | 12-well reagent reservoir |
-| A2 | 200 µL tip rack |
-| A3 | Input presentation position |
-| A4 | Input Stacker and shuttle |
-| B1 | 96-well formulation plate during dispensing |
-| B3 | Output presentation position |
-| B4 | Output Stacker and shuttle |
-| C1 | Heater-Shaker GEN1 with flat-plate adapter |
-| D1 | Movable trash bin |
-| D2 | Plate-reader lid caddy |
-| D3 | Absorbance plate reader |
+Every height is set by the transport. The process plate sits at 1135 mm because that is where the
+bridge can put a plate down, and the mounting plane exists only so the tall hotels present their
+nests level with it. Five stations stand along the transport axis at 780 mm pitch; each owns a world
+X offset and every slot inside it is placed relative to that offset. The two runway beams land
+directly on the frame's end towers, so the transport is part of the machine rather than four posts
+bolted to a bench.
 
-The scene uses 164 mm horizontal slot pitch, 107 mm vertical pitch, and ANSI/SLAS labware scale.
+| Station | X offset | Slots |
+|---|---|---|
+| 01 Input hotel | -1.56 m | `input-tower` (magazine), `input-handoff` (shuttle presentation) |
+| 02 Liquid handling | -0.78 m | `reservoir`, `tips`, `tip-waste` (rear row), `stage` (front row) |
+| 03 Heater-Shaker | 0.00 m | `shaker` |
+| 04 Absorbance read | +0.78 m | `reader` (front row), `lid-dock` (rear row) |
+| 05 Output hotel | +1.56 m | `output-tower` (magazine), `output-handoff` (shuttle presentation) |
+
+The three in-line process stations are positions on one 2.32 m hard-anodised tooling plate on an M6
+fixing grid, not three machines on three pedestals. The two hotels stand outside that plate on the
+mounting plane, which puts the input at one end of the machine and the output at the other; both are
+open magazines, so the queue of plates waiting to run and the measured plates coming back are
+visible without opening anything. Within a station the scene keeps 164 mm horizontal slot pitch,
+107 mm row pitch, and ANSI/SLAS labware scale.
 
 ## Prerequisites
 
@@ -80,7 +99,7 @@ blender -b --factory-startup -noaudio \
   -P examples/digital-twin-surrogate/scene/build_scene.py
 ```
 
-The script checks required nodes and 70 motion, placement, labware, tip, liquid, lid, and Stacker
+The script checks required nodes and 70 motion, placement, labware, tip, liquid, lid, and hotel
 conditions before it writes the final outputs. Read [scene/README.md](scene/README.md) for render
 options and file details.
 

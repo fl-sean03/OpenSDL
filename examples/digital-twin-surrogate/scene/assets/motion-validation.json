@@ -1,5 +1,5 @@
 {
-  "sha256": "5b8dfe8eda6c8e41fc9c9d16bf3fb8327ba86ca3206deb270327eb69da4429ac",
+  "sha256": "480da6d8bf368e0151b94f34855ca68e4ffa6696886627fa386f04e95b89248b",
   "passed": true,
   "frameRange": {
     "start": 1,
@@ -10,13 +10,13 @@
     {
       "name": "deck horizontal pitch",
       "passed": true,
-      "actual": 0.164,
+      "actual": 0.16400000000000003,
       "expected": 0.164
     },
     {
       "name": "deck vertical pitch",
       "passed": true,
-      "actual": 0.10700000000000001,
+      "actual": 0.107,
       "expected": 0.107
     },
     {
@@ -41,13 +41,13 @@
       "name": "sample checkpoint frame 92",
       "passed": true,
       "actual": [
-        0.164,
-        0.1605,
+        -1.56,
+        -0.0535,
         1.16865
       ],
       "expected": [
-        0.164,
-        0.1605,
+        -1.56,
+        -0.0535,
         1.16865
       ]
     },
@@ -55,13 +55,13 @@
       "name": "sample checkpoint frame 148",
       "passed": true,
       "actual": [
-        -0.164,
-        0.0535,
+        -0.78,
+        -0.0535,
         1.14965
       ],
       "expected": [
-        -0.164,
-        0.0535,
+        -0.78,
+        -0.0535,
         1.14965
       ]
     },
@@ -69,12 +69,12 @@
       "name": "sample checkpoint frame 560",
       "passed": true,
       "actual": [
-        -0.164,
+        0.0,
         -0.0535,
         1.22615
       ],
       "expected": [
-        -0.164,
+        0.0,
         -0.0535,
         1.2261499999999999
       ]
@@ -83,13 +83,13 @@
       "name": "sample checkpoint frame 670",
       "passed": true,
       "actual": [
-        0.164,
-        -0.1605,
+        0.78,
+        -0.0535,
         1.17065
       ],
       "expected": [
-        0.164,
-        -0.1605,
+        0.78,
+        -0.0535,
         1.17065
       ]
     },
@@ -97,13 +97,13 @@
       "name": "sample checkpoint frame 896",
       "passed": true,
       "actual": [
-        0.164,
-        0.0535,
+        1.56,
+        -0.0535,
         1.16865
       ],
       "expected": [
-        0.164,
-        0.0535,
+        1.56,
+        -0.0535,
         1.16865
       ]
     },
@@ -111,13 +111,13 @@
       "name": "sample checkpoint frame 948",
       "passed": true,
       "actual": [
-        0.5355,
-        0.0535,
+        1.56,
+        0.318,
         1.16865
       ],
       "expected": [
-        0.5355,
-        0.0535,
+        1.56,
+        0.318,
         1.16865
       ]
     },
@@ -221,13 +221,13 @@
       "name": "reader lid checkpoint frame 1",
       "passed": true,
       "actual": [
-        0.164,
-        -0.1605,
+        0.78,
+        -0.0535,
         1.178
       ],
       "expected": [
-        0.164,
-        -0.1605,
+        0.78,
+        -0.0535,
         1.178
       ]
     },
@@ -235,13 +235,13 @@
       "name": "reader lid checkpoint frame 68",
       "passed": true,
       "actual": [
-        0.0,
-        -0.1605,
+        0.78,
+        0.0535,
         1.1725
       ],
       "expected": [
-        0.0,
-        -0.1605,
+        0.78,
+        0.0535,
         1.1725
       ]
     },
@@ -249,13 +249,13 @@
       "name": "reader lid checkpoint frame 736",
       "passed": true,
       "actual": [
-        0.164,
-        -0.1605,
+        0.78,
+        -0.0535,
         1.178
       ],
       "expected": [
-        0.164,
-        -0.1605,
+        0.78,
+        -0.0535,
         1.178
       ]
     },
@@ -263,13 +263,13 @@
       "name": "reader lid checkpoint frame 834",
       "passed": true,
       "actual": [
-        0.0,
-        -0.1605,
+        0.78,
+        0.0535,
         1.1725
       ],
       "expected": [
-        0.0,
-        -0.1605,
+        0.78,
+        0.0535,
         1.1725
       ]
     },
@@ -346,7 +346,7 @@
       "expected": 1.267
     },
     {
-      "name": "input shuttle extends to A3",
+      "name": "input shuttle extends to the hand-off",
       "passed": true,
       "actual": [
         -0.164,
@@ -607,9 +607,9 @@
         "worstSlipMm": 0.0,
         "worstFrame": 0,
         "carriageOnlySlipFrames": 106,
-        "carriageOnlyWorstSlipMm": 36.0727,
-        "carriageOnlyWorstFrame": 88,
-        "carriageOnlyTotalSlipMm": 1173.4
+        "carriageOnlyWorstSlipMm": 194.3114,
+        "carriageOnlyWorstFrame": 92,
+        "carriageOnlyTotalSlipMm": 2718.7
       },
       "expected": {
         "unsupportedFrames": 0,
@@ -666,8 +666,8 @@
       "passed": true,
       "actual": {
         "grippedFrames": 126,
-        "worstSeparationMm": 0.02,
-        "worstFrame": 114,
+        "worstSeparationMm": 0.0,
+        "worstFrame": 0,
         "jawOnWrongSideFrames": 0
       },
       "expected": {
@@ -681,7 +681,7 @@
       "actual": {
         "grippedFrames": 97,
         "worstSeparationMm": 0.0,
-        "worstFrame": 47,
+        "worstFrame": 0,
         "jawOnWrongSideFrames": 0
       },
       "expected": {
@@ -714,6 +714,84 @@
       }
     },
     {
+      "name": "left jaw stays coupled to the gripper mechanism",
+      "passed": true,
+      "actual": {
+        "authoredWidths": 13,
+        "worstGapMm": 0.0,
+        "links": {
+          "GripperPadLeft - GripperPaddleLeft": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "GripperPaddleLeft - GripperFingerLeft": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "GripperFingerLeft - GripperJawLeft": {
+            "gapMm": 0.0,
+            "frame": 0
+          }
+        }
+      },
+      "expected": {
+        "worstGapMm": 0.0
+      }
+    },
+    {
+      "name": "left jaw carrier stays on the cross-rail",
+      "passed": true,
+      "actual": {
+        "worstRailGapMm": 0.0,
+        "worstRailGapFrame": 0,
+        "worstOverrunMm": -10.0,
+        "worstOverrunFrame": 1
+      },
+      "expected": {
+        "worstRailGapMm": 0.0,
+        "worstOverrunMm": "<= 0"
+      }
+    },
+    {
+      "name": "right jaw stays coupled to the gripper mechanism",
+      "passed": true,
+      "actual": {
+        "authoredWidths": 13,
+        "worstGapMm": 0.0,
+        "links": {
+          "GripperPadRight - GripperPaddleRight": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "GripperPaddleRight - GripperFingerRight": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "GripperFingerRight - GripperJawRight": {
+            "gapMm": 0.0,
+            "frame": 0
+          }
+        }
+      },
+      "expected": {
+        "worstGapMm": 0.0
+      }
+    },
+    {
+      "name": "right jaw carrier stays on the cross-rail",
+      "passed": true,
+      "actual": {
+        "worstRailGapMm": 0.0,
+        "worstRailGapFrame": 0,
+        "worstOverrunMm": -10.0,
+        "worstOverrunFrame": 1
+      },
+      "expected": {
+        "worstRailGapMm": 0.0,
+        "worstOverrunMm": "<= 0"
+      }
+    },
+    {
       "name": "movers stay clear of fixed bodies",
       "passed": true,
       "actual": {
@@ -730,7 +808,7 @@
       "passed": true,
       "actual": [
         {
-          "pair": "DispenserHead x TipRack_A2",
+          "pair": "DispenserHead x TipRack",
           "frames": [
             164,
             186
@@ -739,7 +817,7 @@
           "reason": "Mounting a disposable tip puts the nozzle inside the tip bore, and the racked tip and the mounted tip are the same physical body during the handover.  Contact with the rack frame itself is not allowed."
         },
         {
-          "pair": "DispenserHead x TipRack_A2",
+          "pair": "DispenserHead x TipRack",
           "frames": [
             342,
             360
@@ -753,7 +831,7 @@
             1,
             110
           ],
-          "sampledHits": 5,
+          "sampledHits": 40,
           "reason": "The input plate starts inside the storage tower and rides the shuttle out through it.  The tower is modelled as a closed shell standing in for a magazine, so the stored and hand-off positions are inside that shell by construction."
         },
         {
@@ -762,7 +840,7 @@
             900,
             960
           ],
-          "sampledHits": 6,
+          "sampledHits": 13,
           "reason": "The finished plate rides the output shuttle back into the storage tower. Same closed-shell simplification as the input tower."
         }
       ],

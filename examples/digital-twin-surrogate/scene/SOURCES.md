@@ -14,7 +14,7 @@ Sources were reviewed on 2026-08-03.
 
 | Source | Scene use |
 |---|---|
-| [Opentrons Flex system specifications](https://docs.opentrons.com/flex/system-description/specs/) | 870 × 690 × 840 mm robot envelope; 12 working slots; four staging slots; steel/aluminum frame; polycarbonate windows |
+| [Opentrons Flex system specifications](https://docs.opentrons.com/flex/system-description/specs/) | Deck slot geometry, gantry-served working slots, and machine scale. The reference scene lays those slots out along an open bench line instead of inside the enclosed workstation envelope, so no enclosure, glazing, or hood is reproduced |
 | [Flex pipettes](https://docs.opentrons.com/flex/system-description/pipettes/) | 8-channel 5–1000 µL instrument class and eight-tip operation |
 | [Flex gripper](https://docs.opentrons.com/flex/system-description/gripper/) | Independent gantry-mounted gripper and parallel-jaw labware handling |
 | [Flex Stacker](https://docs.opentrons.com/flex/modules/stacker/) | 385.5 × 106 × 955.5 mm tower-and-track envelope and side-mounted shuttle arrangement |

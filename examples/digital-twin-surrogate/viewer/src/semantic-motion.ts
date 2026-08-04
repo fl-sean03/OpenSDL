@@ -19,11 +19,19 @@ export function mixerOffset(progress: number): MotionOffset {
   };
 }
 
+/**
+ * Excursion of the reader lid from its parked pose on the caddy to the closed
+ * pose on the reader and back.
+ *
+ * On the open line the caddy sits one row behind the reader at the same station
+ * rather than one deck column beside it, so the travel is 107 mm along the
+ * GLB's Z axis (the source scene's -Y) with a lift on the way across.
+ */
 export function readerLidOffset(progress: number): MotionOffset {
   const travel = Math.sin(bounded(progress) * Math.PI);
   return {
-    x: 0.164 * travel,
+    x: 0,
     y: 0.052 * travel,
-    z: 0,
+    z: 0.107 * travel,
   };
 }

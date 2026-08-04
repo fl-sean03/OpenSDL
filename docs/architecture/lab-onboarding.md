@@ -152,6 +152,7 @@ Do not perform a physical action through the onboarding procedure.
 |---|---|
 | Create a separate laboratory repository | `create-lab` |
 | Inspect declared state in an existing lab | `orient-lab` |
+| Scope the physical and interface design | `design-lab` |
 | Define a new semantic operation | `add-capability` |
 | Connect or simulate an executor | `add-adapter` |
 | Build and test the first workflow | `develop-workflow` |

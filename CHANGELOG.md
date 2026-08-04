@@ -20,6 +20,10 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   checks, required-binding failures, and projected sample properties; and
 - lab onboarding guidance and a `start-here` skill for durable shared context and simulator-first
   setup planning;
+- a laboratory design guide and a `design-lab` skill covering how to decompose a laboratory, find the
+  requirement that actually drives a design, judge whether a pattern borrowed from another field
+  transfers to a given material system, separate reversible decisions from irreversible ones, and
+  keep safety functions outside the orchestration layer;
 - generated JSON Schemas for the twin definition and cue contracts, produced by a single composed
   generator that both `scripts/generate-schemas.py` and `opensdl schema generate` consume; and
 - an enforced Ruff formatting gate in `make lint` and CI.

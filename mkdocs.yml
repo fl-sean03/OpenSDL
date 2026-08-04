@@ -25,6 +25,7 @@ nav:
       - Lab-specific digital twins: architecture/digital-twin.md
       - Package boundaries: architecture/packages.md
   - Guides:
+      - Design a laboratory: guides/design-a-lab.md
       - Add an adapter: guides/add-adapter.md
       - Closed-loop campaign: guides/closed-loop-campaign.md
   - Development:

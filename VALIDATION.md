@@ -20,7 +20,7 @@ CPython 3.12.3:
   collision checks, and rejection of an unused physical adapter before its lifecycle starts;
 - Ruff, Pyright, package boundaries, schema freshness, repository validation, release-version
   consistency, the five-iteration simulation example, and a strict documentation build;
-- all ten canonical skills through the Agent Skills validator;
+- all eleven canonical skills through the Agent Skills validator;
 - a wheelhouse-installed generated lab with manifest and workflow validation, doctor, two tests,
   and a completed simulator workflow;
 - a pre-twin, isolated `0.1.0a1` release rehearsal that built 21 wheels and 21 source archives,
@@ -107,7 +107,7 @@ The following checks also passed:
 - strict MkDocs build;
 - Python bytecode compilation;
 - shell syntax for project scripts and skill helpers;
-- all ten repository skills with the Agent Skills validator;
+- all eleven repository skills with the Agent Skills validator;
 - the three reference-adapter conformance cases;
 - the five-iteration simulated color campaign; and
 - reruns after the example created persistent local state.

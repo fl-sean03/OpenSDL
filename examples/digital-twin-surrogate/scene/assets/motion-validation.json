@@ -1,5 +1,5 @@
 {
-  "sha256": "098fc4fd05e86282b95e05b24927042b7ef008ce0587aa20a325999c0a6b39a8",
+  "sha256": "e658aef4f1df9c18c279b4f16270bd56281c57602eacf92f678c60a472e7bb4a",
   "passed": true,
   "frameRange": {
     "start": 1,
@@ -760,24 +760,7 @@
       "expected": ">= 0.30 m apart"
     },
     {
-      "name": "cut establish-load-and-first-dispense -> head-change-b-and-to-mix lands on a still machine",
-      "passed": true,
-      "actual": {
-        "frame": 560,
-        "beat": "dispense_end",
-        "stillFramesBefore": 12,
-        "stillFramesAfter": 48,
-        "firstMotionBeforeMm": 8.53,
-        "firstMotionAfterMm": 8.85
-      },
-      "expected": {
-        "stillFramesBefore": 12,
-        "stillFramesAfter": 6,
-        "toleranceMm": 1.0
-      }
-    },
-    {
-      "name": "cut head-change-b-and-to-mix -> mix-read-out-and-rest lands on a still machine",
+      "name": "cut establish-load-dispense-and-to-mix -> mix-read-out-and-rest lands on a still machine",
       "passed": true,
       "actual": {
         "frame": 752,

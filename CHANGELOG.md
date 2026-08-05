@@ -65,7 +65,7 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   are named for their role rather than borrowed from a vendor deck grid, and the build emits a named
   camera rig with per-pose hide lists, so stills frame the work deliberately instead of auto-framing;
 - the animation held one fixed wide pose for all 960 frames, so no component was ever seen closely
-  and nothing read as active. It is now a three-shot edit with two cuts, and the standards that
+  and nothing read as active. It is now a two-shot edit with one cut, and the standards that
   place those cuts are measured by the build rather than judged by eye. A cut may land only where an
   action completes, which is derived from the beat table rather than written down, so re-timing the
   workflow moves the cuts with it. That proved necessary and not sufficient: a beat boundary marks
@@ -91,6 +91,38 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   when idle, with three head changes in the sequence. A coupled head's pose is written from the mover's,
   so a head cannot move under its own power, and a new invariant asserts that at every frame each head
   is either coupled or docked — never both, never neither — with no two heads coupled at once;
+- the drive train stood between the camera and the arm. The rail, bearing truck, vertical way, slide
+  and bracket were all carried on the front face of the bridge beam, so the mechanism that moves the
+  arm occluded the arm in every front-aisle framing — which is every framing the film uses. The whole
+  X drive now sits on the rear face behind one sign, both ends of the slide bracket are derived from
+  the bodies they join rather than one being a literal that stops meaning what its name says when the
+  assembly reverses, and the way and slide were widened so the mechanism still reads through the slot
+  that opens as the arm descends instead of disappearing behind the carriage;
+- the camera chased the machine. It followed every approach, lift and traverse, so a competent
+  machine read as frantic and the pans that mattered were indistinguishable from the ones that did
+  not. The rule is now that the camera moves when the subject changes location and holds while the
+  machine works inside one area, however much it moves in there. Applying it removed the second cut
+  as a side effect: the machine either side of `dispense_end` is the same machine at the same deck, so
+  the camera repositions across the two-second hold instead, arriving at the new framing while nothing
+  is moving;
+- a cut is not the only way to strain a viewer. At the end the plate was placed at the output hotel on
+  frame right and the arm then parked and rested on frame left, while the camera simultaneously
+  retreated rightward and widened, so three motions compounded and drove the point of interest to the
+  edge of the frame. `validate_eye_trace` now projects the active subject through the camera every
+  frame and requires that it stays out of the frame edges, that the camera does not drag the frame on
+  its own faster than a threshold — isolated by re-projecting the previous frame's world point through
+  this frame's camera, so a subject hopping a well column does not score against a stationary camera —
+  that a frame never adds to a subject's crossing instead of absorbing it, and that consecutive
+  subjects hand off close together. The subject is resolved from a beat-prefix table rather than a
+  hardcoded chain, which is the generalisation the jaw-mechanism check failed to make twice. The film
+  gives up its bookend to satisfy this: the opening pose was composed for a machine-wide establish and
+  cannot also serve one arm at the centre of the deck;
+- the long-take ceiling was a wall at a number of seconds, justified only by catching an accidental
+  thirty-second shot. Moving the wall would have protected nothing once a take legitimately ran past
+  it, so it is replaced by what it was aiming at: past twenty-four seconds a declared take must never
+  coast between authored keys and must resolve by at least the framing change a cut would have had to
+  deliver, with a share of the timeline rather than a duration as the wall nothing opens. Both tests
+  were confirmed to reject a merge accident and a busy camera that ends framed as it opened;
 - the mover had no vertical axis. Its carriage was a fixed-height body whose top sat 45.5 mm inside
   the bridge beam and passed through the rail at travel height, and at the bottom of its stroke the
   nearest bridge body was 66.5 mm above it with no geometry in between, so the same missing part read

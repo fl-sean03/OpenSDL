@@ -38,7 +38,7 @@ def test_scene_asset_matches_the_declared_twin_and_build_reports() -> None:
     assert scene_digest == inventory["sha256"]
     assert scene_digest == motion["sha256"]
     assert motion["passed"] is True
-    assert len(motion["checks"]) == 108
+    assert len(motion["checks"]) == 107
     assert all(check["passed"] for check in motion["checks"])
 
 

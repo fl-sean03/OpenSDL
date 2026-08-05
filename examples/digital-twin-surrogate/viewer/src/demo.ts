@@ -15,7 +15,7 @@ export const DEMO_DEFINITION: TwinDefinition = {
   },
   scene: {
     path: "scene/assets/surrogate-cell.glb",
-    sha256: "098fc4fd05e86282b95e05b24927042b7ef008ce0587aa20a325999c0a6b39a8",
+    sha256: "e658aef4f1df9c18c279b4f16270bd56281c57602eacf92f678c60a472e7bb4a",
   },
   entities: [
     { id: "cell", node: "CellRoot", resources: [] },

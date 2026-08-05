@@ -48,7 +48,7 @@ The build has four layers, in this order:
 |---|---|---|
 | Plant space | `build_room`, `build_service_door` | Sealed resin floor with saw-cut movement joints, four plain panel walls, an exposed soffit carrying linear battens, a cable ladder and a duct run, a wall panel board, and one flush steel service door |
 | Frame | `build_frame`, `build_decks`, `build_service_deck` | The machine itself: nine 45-series T-slot uprights on levelling feet through anchored floor plates, five tied working planes, corner gussets and end-tower diagonals, the hard-anodised process plate at 1135 mm on its own carriers, the fluid service plate with its bund, and the work-light bars on the top tie |
-| Cell | `build_stations`, `build_transport`, the module builders | The transport runway landed straight on the end towers, the bridge, the one mover and its changer, the two interchangeable heads and the two docks they wait in, the drag chain that follows the mover, and the plate hotels, mixer, reader, tip rack, reservoir and labware on the deck |
+| Cell | `build_stations`, `build_transport`, the module builders | The transport runway landed straight on the end towers, the bridge, the one mover and its changer, the two interchangeable heads and the two docks they wait in, the drag chain that follows the mover, and the plate hotels, mixer, reader, tip rack, reservoir and labware on the deck. The X drive — rail, bearing truck, vertical way, slide and bracket — is carried on the **rear** face of the bridge beam, behind `MOVER_DRIVE_SIDE`, so nothing in the drive train stands between the front aisle and the arm it carries |
 | Machine services | `build_controls`, `build_compute`, `build_fluidics`, `build_waste_column`, `build_transfer_port`, `build_machine_services` | Everything packed into the volume under the deck: the controls cabinet with its louvred door and main isolator, the open drive bank on galvanised backplate, the rack running the campaign with its state on one display, bulk reagent supply and pump, the tip chute and waste column, the single interlocked load and unload port, and the trunking, conduit, beacon and emergency stops |
 
 There is no casework, no worktop, no operator position and no room dressing. Every height in the
@@ -124,11 +124,11 @@ The default build uses Eevee render settings, saves frame 548 in the Blender fil
 GLB. A failed motion check stops the build before any of that. Both reports are written after the
 export, so each one records the digest of the GLB it describes.
 
-The current validation covers 108 conditions. Eighty-four of them are scalar checks in
+The current validation covers 107 conditions. Eighty-four of them are scalar checks in
 `build_scene.py`: slot pitch, required labware counts, plate and reader-door checkpoints, grip
 alignment, head dock poses and head-to-mover tracking, tip attachment, liquid fill state, hotel
-shuttles, clamp clearance, a 1 mm mixer orbit radius, and zero plate yaw. Two more measure the
-machine's stillness either side of each cut, off the built animation. The remaining twenty-two come
+shuttles, clamp clearance, a 1 mm mixer orbit radius, and zero plate yaw. One more measures the
+machine's stillness either side of the single cut, off the built animation. The remaining twenty-two come
 from `check_scene.py` and compare bodies to each other rather than to a number.
 
 ## Render a still
@@ -197,34 +197,43 @@ Use `--no-export` during render-only iteration when the checked GLB must remain 
 
 ## Camera choreography
 
-The 49-second cycle is shot rather than watched. `CAMERA_SHOTS` in `build_scene.py` is three moving
-takes that tile frames 1–1176 exactly. Every one of them develops continuously inside itself, so no
-framing is ever a held still, and the two cuts between them land where the machine both finishes
-something and has stopped moving:
+The 49-second cycle is shot rather than watched. `CAMERA_SHOTS` in `build_scene.py` is two moving
+takes that tile frames 1–1176 exactly, and the single cut between them lands where the machine both
+finishes something and has stopped moving:
 
 | Frames | Length | Ends on | Shot | What it is |
 |---|---|---|---|---|
-| 1–560 | 23.33 s | `dispense_end` | `establish-load-and-first-dispense` | Wide from the front right of the aisle, then straight to the station the gripper is working: left and in as the plate comes out of the hotel and lands on the dispense stage, a slight pan right to take in both head docks through head change A, then back left with the pipetting head for tips, reservoir, the first fill, the tip change and the second fill |
-| 561–752 | 8.00 s | `mix_place_settle` | `head-change-b-and-to-mix` | Opens on a stopped machine and holds there for two seconds, then head change B and the transfer after it in one travelling take from the right: the mover parks the pipetting head, picks the gripper back up, lifts the plate off the dispense stage, lands it on the mixer, and eases to a stop on it |
-| 753–1176 | 17.67 s | `rest_hold` | `mix-read-out-and-rest` | Tight on the Heater-Shaker from the left through the clamp close and the orbit, arcing right and travelling a station along with the plate; the whole characterization on one developing arc around the reader — door off the caddy, lowered home, the read, lifted away, returned — then right with the plate to the output hotel, and out through the park and the travel home to the wide the film opened on |
+| 1–752 | 31.33 s | `mix_place_settle` | `establish-load-dispense-and-to-mix` | Wide from the front right of the aisle, then straight to the station the gripper is working: left and in as the plate comes out of the hotel and lands on the dispense stage, a frame that holds both head docks through head change A, back left with the pipetting head for tips, reservoir, both fills and the tip change between them — and then, across the two-second hold the machine takes at `dispense_end`, a continuous reposition out to a wider framing that carries head change B and the transfer to the mixer without a cut |
+| 753–1176 | 17.67 s | `rest_hold` | `mix-read-out-and-rest` | Tight on the Heater-Shaker from the left through the clamp close and the orbit, arcing right and travelling a station along with the plate; the whole characterization on one developing arc around the reader — door off the caddy, lowered home, the read, lifted away, returned — then right with the plate to the output hotel, and out through the park and the travel home to a closing wide centred on the machine |
+
+The camera moves when the **subject** changes location, and holds while the machine works inside one
+area even when it is moving a great deal in there. A camera that tracks every approach, lift and
+traverse reads as nervous and makes a competent machine look frantic; a frame that contains the work
+and lets the machine move through it reads as deliberate, and it is what makes the pans that remain
+mean something.
 
 ### Cut where the work moves, not where a beat ends
 
-The edit began with thirteen cuts, went to five, and is now two. Each reduction came from the same
-observation: a legal cut frame is permission, not an obligation. Cuts at `transfer_in_end` and
-`fill_a_end` were on completions and still wrong, because the machine went straight on working the
-same end of the deck through both; the cut at `door_close_clear` was on a completion in the middle
-of one continuous characterization. Removing them turned three shots into one 23-second take and two
-into one 17-second take. What survives is the stronger rule: **when the work continues in the same
-place, the camera continues too, and a cut is earned only when something genuinely changes.** Both
-remaining cuts coincide with the carrier physically leaving one station for another.
+The edit began with thirteen cuts, went to five, then to two, and is now one. Each reduction came
+from the same observation: a legal cut frame is permission, not an obligation. Cuts at
+`transfer_in_end` and `fill_a_end` were on completions and still wrong, because the machine went
+straight on working the same end of the deck through both; the cut at `door_close_clear` was on a
+completion in the middle of one continuous characterization. The last to go was the cut at
+`dispense_end`, which was legal by every measure and still read as a jolt, because the machine on
+both sides of it is the same machine at the same deck — so the camera now repositions across the
+two-second hold instead, arriving at the new framing while nothing is moving. What survives is the
+stronger rule: **when the work continues in the same place, the camera continues too, and a cut is
+earned only when something genuinely changes.** The one remaining cut coincides with the plate
+leaving one station for another.
 
 ### What makes a cut legal here
 
-Three standards decide where a cut may fall, and `validate_camera_shots` computes all three from the
-authored data before any geometry is built. It refuses the build on any failure, because a shot list
-that cuts in the middle of a dispense is a defect in the edit rather than something to discover at
-the end of a forty-minute render.
+Four standards decide where a cut may fall. `validate_camera_shots` computes three of them from the
+authored data before any geometry is built, and `validate_cut_stillness` measures the fourth off the
+built animation. They refuse the build on any failure, because a shot list that cuts in the middle of
+a dispense is a defect in the edit rather than something to discover at the end of a forty-minute
+render. A fifth check, `validate_eye_trace`, governs the frame between the cuts rather than the cuts
+themselves and is described below.
 
 **Stillness, which is the governing constraint.** A cut may only land on a frame where the machine
 has actually stopped: `validate_cut_stillness` walks the built animation and requires the mover, the
@@ -263,8 +272,18 @@ both clear the floor, which the validator checks by trying every legal frame. A 
 legal cut frames passes it only by declaring `sustains`, and a declared long take is then held to
 more, not less:
 
-- a hard **24-second** absolute ceiling that no declaration opens, so an accidental 30-second shot
-  still fails the build; and
+- past **24 seconds** (`SHOT_DECLARED_MAX_SECONDS`) a declared take has to show it was *composed*
+  rather than merely long. It must never coast — no gap between authored keys wider than one
+  development window — and it must *resolve*, delivering end to end at least the framing change a cut
+  would have had to deliver: two steps of shot size or 20 mm of lens. The 30° half of the cut rule is
+  deliberately not applied, because thirty degrees exists to stop a jump cut and nothing is being cut
+  here. A wall at a fixed number of seconds would have protected nothing once a take legitimately ran
+  past it; these two tests catch what the wall was aiming at, which is a take that sprawls without
+  going anywhere. The merge accident — two shots joined by deleting the boundary between them — fails
+  the first test, and a busy camera that ends framed exactly as it opened fails the second;
+- a **share** ceiling instead of a second count: `SHOT_MAX_TIMELINE_SHARE` of 0.70 is the wall nothing
+  opens. A share does not go stale when the workflow is re-timed, and the property actually worth
+  guaranteeing is that this is still an edit; and
 - a **development rate**: over every rolling 48-frame window inside the take, the authored camera has
   to travel at least 150 mm along its path or change at least 4 mm of lens. Both figures are measured
   along the path rather than end to end, because an arc that goes out and comes back has developed
@@ -283,14 +302,47 @@ cameras a metre apart would pass. Shot size is the horizontal field width at the
 on a seven-step ladder from extreme close to extreme long at a ratio of about 1.6 a step, so "two
 steps" is the same claim a director makes when they say a cut goes from a medium to a close-up.
 
-The two cuts as built. Both are on a completion, both are where the plate leaves one station for
-another, and both are measured still on the animation itself. All of it is printed with the edit
-report at build time:
+The cut as built. It is on a completion, it is where the plate leaves one station for another, and it
+is measured still on the animation itself. Both sides look at the mixer, so the point of interest
+does not move across it either. All of it is printed with the edit report at build time:
 
 | Cut | Lands on | Angle | Lens | Shot size | Still before | Still after |
 |---|---|---|---|---|---|---|
-| 560 → 561 | `dispense_end` — tips dropped, head empty, plate about to leave the dispense stage | 52.7° | 55 → 40 mm (15) | medium → long (2 steps) | 12 frames | 48 frames |
-| 752 → 753 | `mix_place_settle` — plate down on the mixer, jaws away, carriage stopped | 64.3° | 44 → 66 mm (22) | medium long → medium close (2 steps) | 24 frames | 8 frames |
+| 752 → 753 | `mix_place_settle` — plate down on the mixer, jaws away, carriage stopped | 54.4° | 44 → 66 mm (22) | medium long → medium close (2 steps) | 24 frames | 8 frames |
+
+### Where the viewer is looking
+
+A cut is not the only way to strain an audience. When the subject of interest jumps from one side of
+the frame to the other, the eye has to cross the whole screen, and it registers as effort even inside
+one continuous take. The ending had exactly this: the plate was placed at the output hotel on frame
+right, and the arm then parked and came to rest on frame left, while the camera simultaneously
+retreated rightward and widened. Three motions compounded and drove the point of interest from centre
+frame to the edge.
+
+`validate_eye_trace` measures it rather than leaving it to taste. `EYE_TRACE_SUBJECTS` maps a beat
+prefix to the body the viewer should be watching — longest prefix wins, so `door_` is the reader door
+while `door_row_front` is the empty mover — and every frame the subject's centre is projected through
+the camera into normalized screen coordinates. Four things are then required:
+
+- the subject stays inside a **safe region** and is never pinned to an edge;
+- the camera does not **drag** the frame faster than a threshold *on its own* — isolated by
+  re-projecting the previous frame's world point through this frame's camera, so a subject hopping a
+  well column does not score against a stationary camera. The rule that falls out is the useful one:
+  the camera may move as fast as it likes while carrying the subject, and no faster than this without
+  it;
+- over any rolling window the frame must not **work against** the subject: if the subject crosses a
+  large fraction of the frame, the camera has to have absorbed that crossing rather than added to it.
+  This is the compound that produced the strained ending, and stating it this way permits both a held
+  frame with a machine moving through it and a camera panning with a transit; and
+- at a **handoff** from one subject to the next, the outgoing and incoming screen positions must be
+  close.
+
+Fixing the ending meant giving up the bookend. Returning to the exact opening pose was a nice idea
+that could not work: that pose was composed for a machine-wide establish from the front right, where
+the subject is the whole machine, and the closing subject is one arm at the centre of the deck. The
+film now closes on a wide centred on the machine instead, the pull-back finishes before the mover
+starts for home, and the aim then follows the carriage in. The point of interest ends at 0.50 across
+the frame and holds there, dead centre, for the last two seconds.
 
 Where a cut could not have passed, or was not earned, the shots were merged into one moving take
 instead of being forced. That is why a transfer and the operation after it share a shot here: the
@@ -322,8 +374,10 @@ across a held beat puts the motion back into the frame and hides the thing the b
 | `read_hold` | 907–928 | movement | 342 mm | 6.0 mm |
 | `rest_hold` | 1129–1176 | stillness | 0 mm | 0.0 mm |
 
-The two beats that sit against a cut still allow a drift, because a frozen frame is not the same
-claim as a still machine. `rest_hold` allows none: the closing take's last two keys are identical, so
+The two beats that carry a picture change still allow a drift, because a frozen frame is not the
+same claim as a still machine. `dispense_hold` is where the camera makes its one large reposition,
+and it does it across a stopped machine precisely so the move reads as composition rather than as
+the machine being chased. `rest_hold` allows none: the closing take's last two keys are identical, so
 the film ends on a genuinely settled frame — machine at rest, camera at rest — for two full seconds.
 
 The dispensing itself is not static either: the head steps twelve columns across the plate, dipping
@@ -430,10 +484,10 @@ window follows, and the table refuses to build unless the durations still total 
 | 1-150 | transfer input to dispense | `input-to-dispense` |
 | 150-208 | **head change: gripper out, pipetting head in** | none |
 | 208-560 | dispense | `dispense-cycle` |
-| 560-608 | **held: the machine is stopped either side of the first cut** | none |
+| 560-608 | **held: the machine is stopped while the camera repositions** | none |
 | 608-668 | **head change: pipetting head out, gripper in** | none |
 | 668-728 | transfer dispense to mix | `dispense-to-mix` |
-| 728-752 | **held: the machine is stopped either side of the second cut** | none |
+| 728-752 | **held: the machine is stopped either side of the cut** | none |
 | 728-804 | mix | `mix-cycle` |
 | 804-850 | transfer mix to characterize | `mix-to-characterize` |
 | 856-972 | characterize | `characterize-cycle` |

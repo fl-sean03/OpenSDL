@@ -24,7 +24,7 @@ import json
 import math
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -343,20 +343,39 @@ PLATE_GRIP_LOCAL_Z = 1.267
 # lowest grip line in the workflow.  Every other authored z is shallower, so
 # this is the stroke the vertical way has to hold the slide over.
 MOVER_STROKE = PLATE_GRIP_LOCAL_Z - DIRECT_DECK_PLATE_Z
+# Which face of the bridge beam the X drive is mounted on.  It was the aisle
+# face, and that put the rail, the bearing blocks, the truck plate, the vertical
+# way and the slide that runs on it all between the lens and the arm: from the
+# front aisle - which is where every shot in this film is taken from - a 36 mm
+# way ran straight down the middle of a 105 mm carriage and on down across the
+# head under it.  Mounting the same drive on the far face of the same beam moves
+# every one of those bodies behind the arm without changing what any of them is
+# or how any of them works, and the carriage, its front panel, the camera, the
+# badge and the coupler are then the only mover bodies the lens can see.  The
+# energy chain was already routed along the back of the bridge, so the umbilical
+# run gets shorter rather than longer.
+#
+# It is a sign rather than a set of re-typed coordinates because every body in
+# the assembly has to agree about which way it faces.  One number moves the whole
+# drive to the other face, and nothing below has to remember the answer.
+MOVER_DRIVE_SIDE = 1.0
 # The rail the truck rides: MoverBridgeTrack, 20 mm deep and 24 mm tall, its
-# front face 60 mm in front of the beam centreline.  Every truck number below is
-# derived from these, so the joint cannot go stale if the bridge is re-sized.
+# outer face 60 mm out from the beam centreline on the drive side.  Every truck
+# number below is derived from these, so the joint cannot go stale if the bridge
+# is re-sized or the drive is put back on the other face.
 MOVER_TRACK_Z = MOVER_BRIDGE_Z - 0.030
-MOVER_TRACK_FRONT_Y = -0.060
-# Bearing blocks wrap the rail: they reach 8 mm past its front face, which is
+MOVER_TRACK_DEPTH = 0.020
+MOVER_TRACK_OUTER_Y = MOVER_DRIVE_SIDE * 0.060
+MOVER_TRACK_Y = MOVER_TRACK_OUTER_Y - MOVER_DRIVE_SIDE * MOVER_TRACK_DEPTH / 2.0
+# Bearing blocks wrap the rail: they reach 8 mm past its outer face, which is
 # what "engaged" means to the carriage-on-rail invariant, and they clear the
-# cover and the beam behind it entirely.
+# cover and the beam beside it entirely.
 MOVER_BLOCK_DEPTH = 0.046
-MOVER_BLOCK_Y = MOVER_TRACK_FRONT_Y - MOVER_BLOCK_DEPTH / 2.0 + 0.008
+MOVER_BLOCK_Y = MOVER_TRACK_OUTER_Y + MOVER_DRIVE_SIDE * (MOVER_BLOCK_DEPTH / 2.0 - 0.008)
 MOVER_BLOCK_HEIGHT = 0.052
 MOVER_BLOCK_PITCH = 0.052
 MOVER_BLOCK_WIDTH = 0.058
-MOVER_TRUCK_PLATE_Y = MOVER_BLOCK_Y - MOVER_BLOCK_DEPTH / 2.0 - 0.004
+MOVER_TRUCK_PLATE_Y = MOVER_BLOCK_Y + MOVER_DRIVE_SIDE * (MOVER_BLOCK_DEPTH / 2.0 + 0.004)
 MOVER_TRUCK_TOP_Z = MOVER_TRACK_Z + MOVER_BLOCK_HEIGHT / 2.0 + 0.002
 # The vertical way and the slide that runs on it.  The way is long enough to
 # carry the slide over the whole stroke without the slide overrunning either
@@ -364,18 +383,35 @@ MOVER_TRUCK_TOP_Z = MOVER_TRACK_Z + MOVER_BLOCK_HEIGHT / 2.0 + 0.002
 MOVER_SLIDE_TOP_Z = MOVER_CARRIAGE_TOP_Z - 0.010
 MOVER_SLIDE_HEIGHT = 0.062
 MOVER_SLIDE_DEPTH = 0.040
-MOVER_SLIDE_WIDTH = 0.052
+# The way and the slide are wider than they were.  Behind the carriage they are
+# only visible through the gap that opens between the carriage and the beam as
+# the arm goes down, and a 36 mm way seen through that slot read as a shadow
+# rather than as the thing holding the arm up.  Both stay narrower than the
+# 105 mm carriage, so widening them buys legibility without putting either back
+# in front of the tool.
+MOVER_SLIDE_WIDTH = 0.066
 MOVER_COLUMN_DEPTH = 0.028
-MOVER_COLUMN_WIDTH = 0.036
-MOVER_COLUMN_Y = MOVER_BLOCK_Y - 0.009
+MOVER_COLUMN_WIDTH = 0.050
+MOVER_COLUMN_Y = MOVER_BLOCK_Y + MOVER_DRIVE_SIDE * 0.009
 MOVER_COLUMN_TOP_Z = MOVER_TRACK_Z - MOVER_BLOCK_HEIGHT / 2.0 + 0.038
 MOVER_COLUMN_BOTTOM_Z = MOVER_SLIDE_TOP_Z - MOVER_SLIDE_HEIGHT - MOVER_STROKE - 0.005
-# The bracket that carries the body off the slide.  It stops one running gap
-# short of the way, so the only thing touching the way is the slide.
+# The carriage the tool hangs from, and the bracket that carries it off the
+# slide.  Both ends of the bracket are derived: it stops one running gap short of
+# the way, so the only thing touching the way is the slide, and it reaches into
+# the carriage far enough that the two overlap on every axis, which is what the
+# mover-mechanism invariant reads as a joint rather than a seam.  Both ends have
+# to be derived rather than typed, because moving the drive to the other face of
+# the beam reverses which end is which: the bracket used to reach backwards from
+# a column in front of the carriage and now reaches forwards from one behind it,
+# and a literal named ``BACK`` would have quietly stopped meaning back.
+MOVER_CARRIAGE_Y = -0.012
+MOVER_CARRIAGE_DEPTH = 0.075
 MOVER_BRACKET_HEIGHT = 0.048
-MOVER_BRACKET_WIDTH = 0.070
-MOVER_BRACKET_BACK_Y = -0.047
-MOVER_BRACKET_FRONT_Y = MOVER_COLUMN_Y + MOVER_COLUMN_DEPTH / 2.0 + 0.001
+MOVER_BRACKET_WIDTH = 0.078
+MOVER_BRACKET_COLUMN_Y = MOVER_COLUMN_Y - MOVER_DRIVE_SIDE * (MOVER_COLUMN_DEPTH / 2.0 + 0.001)
+MOVER_BRACKET_CARRIAGE_Y = MOVER_CARRIAGE_Y + MOVER_DRIVE_SIDE * (
+    MOVER_CARRIAGE_DEPTH / 2.0 - 0.008
+)
 # The gripper is a mechanism, not two bars.  Reading down from the collar:
 # a socket block, the actuator housing that drives the jaws, a cross-rail
 # spanning the whole jaw travel, a finger carrier per side that rides that
@@ -3820,7 +3856,7 @@ def build_transport(
     rounded_box(
         "MoverBridgeCover",
         (beam_length - 0.10, 0.012, 0.070),
-        (0.0, -0.041, MOVER_BRIDGE_Z),
+        (0.0, MOVER_DRIVE_SIDE * 0.041, MOVER_BRIDGE_Z),
         "PowderCoatGraphite",
         target=target,
         parent=gantry,
@@ -3828,8 +3864,8 @@ def build_transport(
     )
     rounded_box(
         "MoverBridgeTrack",
-        (beam_length - 0.14, 0.020, 0.024),
-        (0.0, -0.050, MOVER_BRIDGE_Z - 0.030),
+        (beam_length - 0.14, MOVER_TRACK_DEPTH, 0.024),
+        (0.0, MOVER_TRACK_Y, MOVER_TRACK_Z),
         "BrushedStainless",
         target=target,
         parent=gantry,
@@ -3847,7 +3883,7 @@ def build_transport(
         )
         screw(
             f"MoverBridgeScrew_{x:+.3f}",
-            (x, -0.059, MOVER_BRIDGE_Z + 0.010),
+            (x, MOVER_DRIVE_SIDE * 0.059, MOVER_BRIDGE_Z + 0.010),
             target=target,
             parent=gantry,
             axis="Y",
@@ -3950,7 +3986,11 @@ def build_transport(
     for screw_x in (-MOVER_BLOCK_PITCH, MOVER_BLOCK_PITCH):
         screw(
             f"MoverTruckScrew_{screw_x:+.3f}",
-            (screw_x, MOVER_TRUCK_PLATE_Y - 0.006, MOVER_TRACK_Z + 0.010),
+            (
+                screw_x,
+                MOVER_TRUCK_PLATE_Y + MOVER_DRIVE_SIDE * 0.006,
+                MOVER_TRACK_Z + 0.010,
+            ),
             target=target,
             parent=truck,
             axis="Y",
@@ -3990,8 +4030,8 @@ def build_transport(
     mover["opensdlEntityId"] = "mover"
     rounded_box(
         "MoverCarriage",
-        (0.105, 0.075, MOVER_CARRIAGE_HEIGHT),
-        (0.0, -0.012, MOVER_CARRIAGE_LOCAL_Z),
+        (0.105, MOVER_CARRIAGE_DEPTH, MOVER_CARRIAGE_HEIGHT),
+        (0.0, MOVER_CARRIAGE_Y, MOVER_CARRIAGE_LOCAL_Z),
         "PowderCoatGraphite",
         target=target,
         parent=mover,
@@ -4059,12 +4099,12 @@ def build_transport(
         "MoverSlideBracket",
         (
             MOVER_BRACKET_WIDTH,
-            MOVER_BRACKET_BACK_Y - MOVER_BRACKET_FRONT_Y,
+            abs(MOVER_BRACKET_COLUMN_Y - MOVER_BRACKET_CARRIAGE_Y),
             MOVER_BRACKET_HEIGHT,
         ),
         (
             0.0,
-            (MOVER_BRACKET_BACK_Y + MOVER_BRACKET_FRONT_Y) / 2.0,
+            (MOVER_BRACKET_COLUMN_Y + MOVER_BRACKET_CARRIAGE_Y) / 2.0,
             MOVER_SLIDE_TOP_Z - MOVER_SLIDE_HEIGHT / 2.0,
         ),
         "AnodizedAluminum",
@@ -4424,11 +4464,18 @@ def build_transport(
         "MoverChainUmbilical",
         (
             (-0.010, 0.050, trough_z + 0.138),
-            (0.006, 0.010, trough_z + 0.106),
+            # The middle of the run is interpolated between the two ends rather
+            # than typed, so it follows the drive to whichever face of the beam it
+            # is mounted on instead of bending back across the beam.
+            (
+                0.006,
+                (0.050 + MOVER_TRUCK_PLATE_Y - MOVER_DRIVE_SIDE * 0.010) / 2.0,
+                trough_z + 0.106,
+            ),
             # The umbilical lands on the truck, not on the body: the truck is the
             # part that keeps a constant height, so this is the only terminus
             # that stays plugged in over the whole stroke.
-            (0.006, MOVER_TRUCK_PLATE_Y + 0.010, MOVER_TRUCK_TOP_Z + 0.004),
+            (0.006, MOVER_TRUCK_PLATE_Y - MOVER_DRIVE_SIDE * 0.010, MOVER_TRUCK_TOP_Z + 0.004),
         ),
         0.0072,
         "CableBlack",
@@ -6272,14 +6319,46 @@ def apply_camera_pose(camera: bpy.types.Object, pose: dict[str, object]) -> None
 # and it is also what gets the camera close to the work without spending a cut.
 SHOT_MIN_SECONDS = 5.0
 SHOT_MAX_SECONDS = 8.0
-# The two doors through the ceiling.  ``SHOT_ABSOLUTE_MAX_SECONDS`` is the one
-# nothing opens: a declared long take that crosses it is an authoring accident,
-# not an edit.  The development numbers are what a declared long take has to
-# keep earning - over every rolling window of ``SHOT_DEVELOPMENT_WINDOW`` frames
-# the authored camera has to travel this far along its path, or change this much
-# lens, so a take cannot buy its length and then sit still inside it.
-SHOT_ABSOLUTE_MAX_SECONDS = 24.0
+# The ceiling a declaration buys outright.  This was a wall that nothing opened,
+# set at twenty-four seconds so that "an accidental thirty-second shot still
+# fails the build".  The opening take is now a deliberate thirty-one seconds -
+# the cut at ``dispense_end`` was replaced by a camera move across the held beat
+# that follows it - so the wall had to be answered rather than nudged, because
+# moving a wall to just past whatever the current edit needs protects nothing.
+#
+# What the wall was actually protecting against is named in the sentence that
+# justified it: an authoring accident, a take that sprawls without developing.
+# The rolling-window rate below already refuses half of that - a take that stops
+# moving fails at the first dead window and is told which frames it is.  What it
+# cannot see is a take that is busy everywhere and going nowhere overall, or a
+# take that was never composed at all: two shots joined by deleting the boundary
+# between them, with one long interpolation across the join.
+#
+# So past this ceiling a declared take is not refused, it is asked to show it was
+# composed, and both questions are answered with instruments this file already
+# owns:
+#
+#   * it never coasts - no gap between authored keys is longer than one
+#     development window, which is the rate rule read on the authored data
+#     rather than on the interpolated path, and which is exactly what a merge
+#     accident fails; and
+#   * it resolves - end to end it delivers at least the framing change a cut
+#     would have had to deliver, two steps of the shot-size ladder or twenty
+#     millimetres of lens.  A take that runs half a minute and ends framed the
+#     way it started is a setup that should have been cut, however busy the
+#     camera was inside it.  The angle half of the cut rule is deliberately not
+#     applied: thirty degrees exists to stop a jump cut, and nothing is being
+#     cut here.
+#
+# ``SHOT_MAX_TIMELINE_SHARE`` is the wall that replaces the second count.  It is
+# a share of the film rather than a duration because a duration goes stale the
+# moment the workflow is re-timed, and because the thing worth guaranteeing is
+# not "no take is longer than N" but "this is still an edit": whatever else
+# happens, some other take is a real presence in the film.
+SHOT_DECLARED_MAX_SECONDS = 24.0
+SHOT_MAX_TIMELINE_SHARE = 0.70
 SHOT_DEVELOPMENT_WINDOW = 48
+SHOT_LONG_MAX_KEY_GAP = SHOT_DEVELOPMENT_WINDOW
 SHOT_DEVELOPMENT_MIN_TRAVEL_MM = 150.0
 SHOT_DEVELOPMENT_MIN_LENS_CHANGE_MM = 4.0
 CUT_MIN_ANGLE_DEGREES = 30.0
@@ -6346,6 +6425,109 @@ CUT_STILL_AFTER = 6
 CUT_STILL_SCAN = 72
 CUT_STILL_TOLERANCE = 0.001
 CUT_STILL_BODIES = ("Mover", "MoverBridge", "GripperHead", "PipetteHead", "SampleCarrier")
+# Eye trace.  Every other camera rule here is about the machine: where a cut may
+# land, how far the camera travels, how close it gets to a frame member.  This
+# one is about the audience.  A viewer watches one thing at a time, and where
+# that thing sits in the frame is a composition the edit is responsible for.
+# When the point of interest leaves frame right and reappears frame left the
+# viewer has to sweep the whole screen to find it again, and that reads as strain
+# whether or not they can name it.  Editors call the practice eye trace and
+# animation houses storyboard it explicitly; here it is measured, because a
+# number is what stops it regressing.
+#
+# So the active subject is projected through the camera on every frame and three
+# things are checked: it stays out of the edges, it never crosses the screen
+# faster than the eye can follow, and when the subject changes the incoming one
+# appears near where the outgoing one was.
+#
+# Which body is the subject is derived from the beat name rather than written
+# down as a frame chain, for the same reason cut motivation is: re-timing the
+# workflow has to carry it.  The longest matching prefix wins, so a phase can
+# name its own exception without restating the phase - ``door_`` is the reader
+# door being carried, but ``door_row_front`` is the empty mover coming back to
+# the front row, and the eye is on the mover for that one.
+EYE_TRACE_SUBJECTS: tuple[tuple[str, str], ...] = (
+    # The default: the arm is what moves, so the arm is what is watched.
+    ("", "Mover"),
+    ("plate_", "SampleCarrier"),
+    ("transfer_in_", "SampleCarrier"),
+    ("door_", "CharacterizerDoor"),
+    ("door_row_", "Mover"),
+    ("swap_", "Mover"),
+    ("tips_", "PipetteHead"),
+    ("res_", "PipetteHead"),
+    ("fill_", "PipetteHead"),
+    ("waste_", "PipetteHead"),
+    ("dispense_", "PipetteHead"),
+    ("mix_", "SampleCarrier"),
+    # The plate is on the dispense stage doing nothing while the mover travels
+    # to it, so the eye is on the mover until it is over the plate.  Naming the
+    # plate here instead would score a handoff across the whole deck against an
+    # edit that never asked the audience to look away.
+    ("mix_approach", "Mover"),
+    ("read_", "SampleCarrier"),
+    ("characterize_", "SampleCarrier"),
+    ("out_", "SampleCarrier"),
+    ("cycle_", "SampleCarrier"),
+    # The park is the mover throughout: until it unlocks, the head it is
+    # carrying is in the same place it is, and after it unlocks the head is
+    # parked and the mover is the thing still moving.
+    ("park_", "Mover"),
+    ("home_", "Mover"),
+    ("rest_", "Mover"),
+)
+# The safe region, in normalised frame coordinates.  A subject inside this box
+# is somewhere a viewer reads as composed - centre, or on a third.  Outside it
+# the subject is against an edge, which is where the closing pull-back used to
+# drive the parked arm and which is what this check exists to refuse.  The band
+# is wider vertically than horizontally because this machine is long and low:
+# the deck line legitimately sits high or low in a wide frame, and it is
+# horizontal placement that the eye pays for.
+EYE_TRACE_SAFE_X = (0.15, 0.85)
+EYE_TRACE_SAFE_Y = (0.10, 0.90)
+# How far the frame may drag the picture in one frame, as a fraction of frame
+# width.  This is the camera's own contribution and not the machine's: the same
+# world point is projected through the camera on two consecutive frames, so a
+# pipetting head hopping a column across the plate does not count against a
+# camera that is holding still.  0.012 is a screen width in about three seconds.
+#
+# The limit is on *unmotivated* speed, not on speed.  A camera tracking a plate
+# that crosses a station in half a second has to move faster than this and is
+# right to, because the thing the viewer is watching stays where it was in the
+# frame; the eye never moves and only the world does.  So a frame over the limit
+# is refused only when the camera is adding to the subject's screen motion rather
+# than absorbing it.  The rule that comes out is the one worth stating: the
+# camera may move as fast as it likes while it is carrying the subject, and no
+# faster than this on its own.  Never measured across a cut, which is a
+# discontinuity by design.
+EYE_TRACE_MAX_STEP = 0.012
+# The camera step above holds the machine still and asks what the camera did.
+# This one asks the opposite question: over a second, how far does the point of
+# interest actually travel across the screen, and did the camera help or make it
+# worse.  Only the second half can be a rule.  A subject crossing the frame is
+# not by itself a defect - a machine that whips a metre across a held wide frame
+# is a fast machine in a stable picture, and a camera that panned with it instead
+# would be the nervous one - so the limit below is a trigger rather than a
+# verdict.  What is refused is the compound: a subject already crossing a third
+# of the screen inside a second *and* a camera adding to that crossing instead
+# of absorbing it.  Only one of the two should be moving at a time, and when
+# both do, the frame has to be the one giving way.
+#
+# It is measurable because the camera's contribution separates cleanly.  The
+# actual sweep is the static-camera sweep plus the camera's own drag, so
+# subtracting the drag recovers what the sweep would have been from a locked
+# camera; if removing the camera makes the sweep smaller, the camera was working
+# against the subject.  That is exactly what the closing transit did - the plate
+# finished frame right, the mover then ran left to the middle of the changer, and
+# the camera retreated right and widened while it did.
+EYE_TRACE_SWEEP_WINDOW = 24
+EYE_TRACE_MAX_SWEEP = 0.30
+EYE_TRACE_MAX_ADDED = 0.03
+# When the subject changes, both bodies are projected on the handoff frame and
+# the distance between them is the saccade the edit is asking for.  A third of
+# the frame is a glance; more than that is a search.
+EYE_TRACE_MAX_HANDOFF = 0.34
+EYE_TRACE_SAMPLE = 8
 CAMERA_SENSOR_WIDTH = 36.0
 CAMERA_TARGET_NAME = "CameraTarget"
 # Shot-size ladder, as the horizontal field width in millimetres at the look
@@ -6393,95 +6575,147 @@ class Shot(TypedDict):
     sustains: NotRequired[str]
 
 
-# Three shots, in millimetres, tiling frames 1-1176 exactly.  A shot's first and
+# Two shots, in millimetres, tiling frames 1-1176 exactly.  A shot's first and
 # last key sit on its first and last frame, which is what lets the validator
 # measure a cut from the authored data rather than from a rendered frame.
 #
-# Both cuts land on the frame an operation completes on, both land where the
-# carrier physically leaves one station for another, and both land inside a
-# beat authored so that the machine is stopped either side of them: 560
-# ``dispense_end``, with the plate about to leave the dispense stage, and 752
+# The one cut lands on the frame an operation completes on, it lands where the
+# carrier physically leaves one station for another, and it lands inside a beat
+# authored so that the machine is stopped either side of it: 752
 # ``mix_place_settle``, with the plate down on the mixer.  Every other legal
 # frame was declined, because the machine went on working the same station
 # through it and a cut there would announce a change that had not happened.
+#
+# The edit began with thirteen cuts, went to five, then two, and is now one.  The
+# cut at 560 was legal on every measure - it landed on ``dispense_end``, on a
+# machine measurably stopped for twelve frames before and forty-eight after, at
+# 52.7 degrees and two steps of shot size - and it was still the wrong call,
+# because nothing had changed: the plate was on the dispense stage before it and
+# on the dispense stage after it.  A cut has to be earned by a change, and the
+# forty-eight frames of ``dispense_hold`` that were added to let that cut land
+# turned out to be a better place to move the camera than to cut it.
+#
+# Which is the rule the rest of this list now follows, and it is one rule rather
+# than three: **the camera moves when the subject changes location, and holds
+# when the machine is working inside one area, however much the machine is moving
+# in there.**  A camera that re-aims for every approach, lift and traverse reads
+# as nervous and makes a competent machine look frantic; a camera that frames an
+# area and lets the machine work inside it reads as deliberate, and it is what
+# makes the pan that does come mean something.  Three stretches were re-authored
+# for it - the tip change between the two fills, the whole of head change B and
+# the pick after it, and the reader and output transfers - and one more, the
+# closing pull-back, for the viewer's side of the same rule at
+# ``validate_eye_trace``.
 CAMERA_SHOTS: tuple[Shot, ...] = (
     {
-        "name": "establish-load-and-first-dispense",
+        "name": "establish-load-dispense-and-to-mix",
         "start": 1,
-        "end": 560,
+        "end": 752,
         "note": (
-            "The opening take, twenty-three seconds in one continuous developing "
-            "move.  It opens wide from the front right of the aisle on the whole "
-            "machine, then goes straight to the station the gripper is working - no "
-            "detour - trucking left and in as the mover lifts the plate out of the "
-            "input hotel and lands it on the dispense stage.  With the plate seated "
-            "it pans slightly right, only far enough to take in both head docks, and "
-            "watches the gripper head seated, released and left hanging while the "
-            "mover crosses to the pipetting head and couples to it.  Then it comes "
-            "back left with the new head and stays with it: tips, reservoir, the "
-            "twelve columns of the first fill on an arc that closes from the left, "
-            "the tip drop at the waste chute, the second set of tips, and the twelve "
-            "columns of the second fill on an arc that closes back the other way.  It "
-            "ends on dispense_end, with the tips dropped, the head empty and the "
-            "carriage measurably stopped - the first frame at which the work actually "
-            "leaves the dispense station."
+            "The opening take, thirty-one seconds in one continuous developing "
+            "move, and everything that happens at the dispense end of the deck.  "
+            "It opens wide from the front right of the aisle on the whole machine, "
+            "then goes straight to the station the gripper is working - no detour - "
+            "trucking left and in as the mover lifts the plate out of the input "
+            "hotel and lands it on the dispense stage.  With the plate seated it "
+            "opens out to hold the dispense stage and both head docks in one frame "
+            "and stops there, so head change A happens inside a still picture "
+            "instead of being chased across it.  Then it comes back left with the "
+            "new head and pushes in for the work: tips, reservoir, the twelve "
+            "columns of the first fill on an arc that closes from the left.  The "
+            "tip drop, the second set of tips and the second reservoir dip are all "
+            "inside the dispense station, so the camera stays on the station and "
+            "only breathes out and back in while the head goes and returns.  Then "
+            "the twelve columns of the second fill on an arc that closes back the "
+            "other way, the tips into the chute, and the machine stops.  The two "
+            "seconds of dispense_hold are where the take changes position rather "
+            "than where the edit used to change shot: the camera eases out to the "
+            "framing that holds both docks and the dispense stage at once, and "
+            "holds it through the whole of head change B and the pick that follows "
+            "- the mover parks the pipetting head, crosses, picks the gripper back "
+            "up, comes back for the plate and lifts it, all inside one still "
+            "frame.  The only pan in that stretch is the one that means something: "
+            "mix_cross, the plate actually travelling to the mixer.  It ends on "
+            "mix_place_settle, eased to a stop on a machine that has already "
+            "stopped."
         ),
         "sustains": (
-            "One station's work, unbroken.  The plate is delivered to the dispense "
-            "stage, the tool that fills it is changed onto the mover, and the same "
-            "head then fills the same plate twice on the same slot.  Nothing moves "
-            "off the dispense end of the deck between frame 89 and frame 552, so "
-            "every legal cut frame inside this take - transfer_in_end at 150, "
-            "swap_a_ready at 208, fill_a_end at 358, the tip-change completions - "
-            "would have announced a change that had not happened."
+            "One end of the deck, unbroken.  The plate is delivered to the "
+            "dispense stage, the tool that fills it is changed onto the mover, the "
+            "same head fills the same plate twice on the same slot, the tool is "
+            "changed back, and only then does the plate leave.  Nothing moves off "
+            "the dispense end of the deck between frame 89 and frame 700, so every "
+            "legal cut frame inside this take - transfer_in_end at 150, "
+            "swap_a_ready at 208, fill_a_end at 358, fill_b_end at 528, "
+            "dispense_end at 560, swap_b_lock at 655 - would have announced a "
+            "change that had not happened."
         ),
         "keys": (
+            # Wide from the front right, on the whole machine, while the mover
+            # stages the reader door.
             (1, (3060, -4320, 2330), (260, 60, 1310), 26),
+            (28, (2670, -4160, 2300), (30, 57, 1305), 26.5),
             (52, (2320, -4020, 2270), (-180, 55, 1300), 27),
+            # Straight to the work: left and in with the plate coming out of the
+            # input hotel and onto the dispense stage.
             (100, (1180, -3500, 2160), (-900, 40, 1290), 32),
-            (129, (-120, -2760, 1900), (-870, 10, 1270), 40),
-            (150, (-1020, -1980, 1700), (-800, -20, 1255), 48),
-            (173, (-780, -2020, 1720), (-120, 30, 1300), 44),
-            (192, (-700, -1900, 1700), (0, 40, 1310), 46),
-            (208, (-560, -1820, 1690), (-300, 35, 1300), 46),
-            (235, (-600, -1720, 1660), (-800, 40, 1280), 50),
-            (256, (-660, -1650, 1640), (-960, 35, 1268), 54),
+            (112, (380, -3120, 2020), (-860, 25, 1282), 35),
+            # The truck-in is spent while the plate is crossing and is over on the
+            # frame the plate lands.  From there the camera is a settle rather
+            # than a swing, because a fast move over a machine that has stopped is
+            # the camera moving for its own sake.
+            (122, (-560, -2560, 1840), (-700, 5, 1270), 41),
+            (134, (-720, -2400, 1790), (-630, 0, 1266), 44),
+            (150, (-770, -2345, 1776), (-600, -2, 1265), 44.5),
+            # Head change A.  The pan right is spent while the mover is crossing
+            # to the gripper dock and is over when it arrives; from there the
+            # frame holds the dispense stage and both docks together and only
+            # drifts, so the seat, the unlock, the traverse of the whole dock row
+            # and the lock onto the pipetting head all happen inside one picture.
+            (161, (-720, -2420, 1795), (-150, 18, 1270), 46),
+            (208, (-560, -2470, 1810), (-165, 15, 1268), 48),
+            # Back left with the new head, pushing in on the dispense station for
+            # the tips, the reservoir and the first fill.
+            (235, (-700, -2150, 1730), (-620, 10, 1262), 52),
             (262, (-680, -1620, 1640), (-840, -5, 1265), 54),
             (310, (-1010, -1440, 1575), (-800, -35, 1245), 62),
             (358, (-1300, -1250, 1505), (-778, -55, 1222), 70),
-            (378, (-1120, -1450, 1565), (-660, 30, 1260), 56),
-            (405, (-1120, -1580, 1600), (-830, 40, 1268), 50),
-            (426, (-1200, -1520, 1580), (-975, 35, 1262), 54),
-            (432, (-1240, -1450, 1565), (-930, 5, 1252), 56),
+            # The tip change.  Chute, tip rack and reservoir are all inside this
+            # frame, so the head leaves the middle of it and comes back without
+            # the camera going after it: the picture only opens a little and
+            # closes again.
+            (388, (-1230, -1430, 1570), (-768, -15, 1248), 62),
+            (418, (-1200, -1560, 1610), (-762, -5, 1254), 58),
+            (432, (-1240, -1470, 1580), (-790, -25, 1245), 58),
+            # The second fill, on the arc that closes back the other way.
             (480, (-900, -1360, 1530), (-800, -30, 1235), 62),
             (528, (-460, -1290, 1510), (-770, -50, 1220), 66),
-            (560, (-560, -1240, 1600), (-616, 45, 1250), 55),
-        ),
-    },
-    {
-        "name": "head-change-b-and-to-mix",
-        "start": 561,
-        "end": 752,
-        "note": (
-            "The take opens on a stopped machine and stays with it.  Two seconds of "
-            "dispense_hold pass with the mover parked over the waste chute and the "
-            "camera barely breathing, so the cut reads as the film moving on rather "
-            "than as the thing that started the next move.  Then head change B and "
-            "the transfer that follows it, in one travelling take from the right: "
-            "the camera moves in as the mover parks the pipetting head and picks the "
-            "gripper back up, pulls back to catch the plate leaving the dispense "
-            "stage, and settles as it lands on the mixer.  It closes on the second "
-            "held beat, easing to a stop over a machine that has already stopped, "
-            "and ends on mix_place_settle."
-        ),
-        "keys": (
-            (561, (1050, -1350, 1660), (-100, 60, 1310), 40),
-            (608, (1012, -1332, 1656), (-118, 60, 1306), 41),
-            (632, (940, -1250, 1560), (-300, 50, 1290), 46),
-            (655, (900, -1180, 1500), (300, 45, 1270), 52),
-            (711, (520, -1620, 1600), (-680, -20, 1220), 36),
-            (728, (580, -1520, 1540), (-260, -45, 1250), 40),
-            (752, (600, -1420, 1500), (0, -45, 1230), 44),
+            # Tips into the chute, and the machine stops.  The camera keeps
+            # opening out through it.
+            # The aim barely moves through the pull-back.  Widening a frame moves
+            # nothing across the screen; re-aiming one does, and the head is
+            # standing still over the chute while this happens.
+            (548, (-430, -1620, 1580), (-760, -25, 1236), 56),
+            (560, (-420, -1900, 1650), (-700, 0, 1250), 50),
+            # dispense_hold: forty-eight frames of a stopped machine, and the one
+            # stretch of the take the camera has to itself.  It drifts here, it
+            # does not travel - the beat exists to show a machine that has
+            # stopped, and a camera crossing it would put the motion back.
+            (608, (-400, -2080, 1690), (-520, 10, 1258), 48),
+            # Arriving on the working-area framing while the mover is crossing to
+            # the pipette dock, so the move is carried by the machine's own travel
+            # and is over before the head change proper starts.
+            (618, (-430, -2450, 1780), (-250, 15, 1264), 52),
+            # Held through the whole of head change B and the pick: dock row and
+            # dispense stage in one frame, drifting slowly and never re-aiming.
+            (645, (-340, -2480, 1790), (-242, 15, 1264), 51),
+            (668, (-260, -2510, 1800), (-235, 15, 1264), 50),
+            (699, (-110, -2560, 1815), (-225, 15, 1264), 48),
+            # mix_cross: the plate actually goes somewhere, so the camera does.
+            (711, (60, -2400, 1760), (60, 5, 1256), 50),
+            (717, (170, -2150, 1690), (30, -15, 1246), 48),
+            (729, (350, -1600, 1540), (0, -45, 1230), 44),
+            (752, (365, -1560, 1528), (0, -45, 1230), 44),
         ),
     },
     {
@@ -6491,47 +6725,72 @@ CAMERA_SHOTS: tuple[Shot, ...] = (
         "note": (
             "The closing take, seventeen and a half seconds in one continuous "
             "outward-turning move.  It opens tight on the Heater-Shaker from the "
-            "left, arcs right through the clamp close and the orbit, then travels a "
-            "station along with the plate and watches it seated in the reader.  It "
-            "stays on the reader for the whole characterization - the door lifted off "
-            "its caddy, lowered home, the read itself, the door lifted away again and "
-            "returned - reframing around the same subject rather than cutting to a "
-            "new angle for each sub-action, because none of it changes station.  Then "
-            "it follows the plate right to the output hotel and, once the plate is "
-            "stored, keeps going outward: the carriage crossing back to park the "
-            "gripper head in its dock, rising away empty, travelling home to the "
-            "middle of the changer, and stopping.  The pull-back finishes exactly as "
-            "the machine does, on the wide the film opened on, and holds there for "
-            "two seconds with nothing moving at all."
+            "left, arcs right through the clamp close and the orbit, then travels "
+            "with the plate to the reader - carrying it, so the plate holds its "
+            "place in the frame while the deck moves behind it - and watches it "
+            "seated.  It stays on the reader for the whole characterization - the "
+            "door lifted off its caddy, lowered home, the read itself, the door "
+            "lifted away again and returned - reframing around the same subject "
+            "rather than cutting to a new angle for each sub-action, because none "
+            "of it changes station.  Then it travels with the plate again to the "
+            "output hotel and, once the plate is stored, keeps going outward: the "
+            "carriage crossing back to park the gripper head in its dock, rising "
+            "away empty, travelling home to the middle of the changer, and "
+            "stopping.  The pull-back is finished before the last travel starts, "
+            "and the last travel is carried, so the arm arrives at the centre of "
+            "an already-composed wide instead of being driven into a corner of a "
+            "frame that is still growing.  It holds there for two seconds with "
+            "nothing moving at all."
         ),
         "sustains": (
             "One outward move over one place at a time, with nothing to cut on.  "
-            "Every legal frame inside it - mix_settle, read_place_clear, "
-            "door_close_clear, characterize_end, out_place_clear, cycle_end, "
-            "park_clear, home_settle - falls in the middle of the machine working "
-            "the station the camera is already on, and the closing pull-back has to "
-            "be one continuous move because it is the ending: a cut inside it would "
-            "restart the film just as it is stopping."
+            "Every legal frame inside it - mix_orbit_end, mix_settle, "
+            "read_place_clear, door_close_clear, door_return_clear, "
+            "characterize_end, out_place_clear, out_stored, cycle_end, park_clear "
+            "- falls in the middle of the machine working the station the camera "
+            "is already on, and the closing pull-back has to be one continuous "
+            "move because it is the ending: a cut inside it would restart the film "
+            "just as it is stopping."
         ),
         "keys": (
             (753, (-760, -900, 1420), (0, -50, 1235), 66),
             (758, (-720, -910, 1415), (0, -50, 1235), 66),
             (794, (-380, -980, 1370), (0, -50, 1235), 66),
-            (821, (-120, -1020, 1400), (60, -50, 1240), 56),
-            (842, (280, -1150, 1470), (700, -45, 1250), 46),
+            (816, (-160, -1020, 1395), (10, -48, 1238), 58),
+            (821, (-140, -1030, 1400), (15, -48, 1239), 57),
+            # read_cross.  The plate crosses a whole station in half a second, so
+            # the camera crosses with it: fast, but the plate does not move in the
+            # frame and the eye never has to go looking for it.  The pan starts on
+            # the frame the plate starts moving and stops on the frame it lands,
+            # because a camera still swinging after the subject has arrived is the
+            # same defect as one that has not set off yet.
+            (833, (240, -1120, 1450), (750, -40, 1250), 50),
+            (845, (450, -1160, 1475), (790, -32, 1258), 46),
             (856, (620, -1180, 1490), (800, -20, 1265), 46),
             (881, (620, -1320, 1620), (800, 30, 1300), 46),
             (906, (900, -1200, 1470), (790, -30, 1235), 58),
             (928, (1240, -1300, 1420), (800, -35, 1230), 52),
             (950, (1500, -1520, 1520), (860, 0, 1255), 48),
             (972, (1620, -1620, 1580), (900, 30, 1270), 50),
-            (995, (1660, -1750, 1620), (960, -30, 1250), 46),
-            (1024, (1800, -1900, 1640), (1300, -20, 1250), 42),
-            (1040, (1800, -2100, 1700), (1500, 20, 1260), 38),
-            (1074, (2100, -2800, 1900), (900, 40, 1290), 32),
-            (1100, (2560, -3500, 2100), (520, 50, 1300), 29),
-            (1128, (3060, -4320, 2330), (260, 60, 1310), 26),
-            (1176, (3060, -4320, 2330), (260, 60, 1310), 26),
+            (990, (1650, -1720, 1610), (930, -25, 1250), 47),
+            (995, (1655, -1730, 1615), (935, -25, 1250), 47),
+            # out_cross, carried the same way.
+            (1007, (1780, -1830, 1630), (1540, -20, 1250), 44),
+            (1024, (1830, -1950, 1660), (1560, -15, 1252), 42),
+            # The plate is stored.  The pull-back starts here and is finished
+            # before the carriage leaves the output station, so the widening and
+            # the last travel never happen at the same time.
+            (1040, (1960, -2320, 1760), (1400, 10, 1258), 38),
+            (1056, (2050, -2760, 1870), (1080, 25, 1266), 34),
+            # Parking the gripper head, seen in a frame that has already arrived.
+            (1074, (2080, -3260, 1990), (620, 35, 1275), 30),
+            (1100, (2060, -3900, 2110), (240, 30, 1275), 28),
+            # home_cross: the last travel.  The frame is composed and the aim
+            # follows the carriage in, so the arm settles at the centre of the
+            # closing wide rather than being left at the edge of it.
+            (1120, (2040, -4180, 2160), (60, 22, 1270), 27),
+            (1128, (2030, -4260, 2175), (30, 20, 1268), 27),
+            (1176, (2030, -4260, 2175), (30, 20, 1268), 27),
         ),
     },
 )
@@ -6773,11 +7032,20 @@ def validate_camera_shots() -> dict[str, object]:
         # is opened by an authoring note.  The first is "there was nowhere to
         # cut", checked by trying every legal frame.  The second is a declared
         # long take, which is not an exemption but a move onto harder checks: a
-        # hard absolute ceiling, and a development rate the take has to keep
-        # over every window inside it.  ``declined`` is reported either way, so
-        # a take that runs long always says which legal frames it passed up.
+        # development rate over every window inside it, and past the declared
+        # ceiling two more that ask whether the take was composed at all.
+        # ``declined`` is reported either way, so a take that runs long always
+        # says which legal frames it passed up.
         held_for: str | None = None
         declined: list[int] = []
+        resolution: dict[str, object] | None = None
+        share = (end - start + 1) / FRAME_END
+        if share > SHOT_MAX_TIMELINE_SHARE:
+            failures.append(
+                f"{name}: {end - start + 1} frames is {share:.0%} of the timeline, over the "
+                f"{SHOT_MAX_TIMELINE_SHARE:.0%} share one take may own; at that length the "
+                "film has stopped being an edit"
+            )
         if seconds < SHOT_MIN_SECONDS:
             failures.append(f"{name}: {seconds:.2f} s is under the {SHOT_MIN_SECONDS:.0f} s floor")
         elif seconds > SHOT_MAX_SECONDS:
@@ -6800,13 +7068,40 @@ def validate_camera_shots() -> dict[str, object]:
                     f"could have been cut on {completions[declined[0]]} at frame {declined[0]}; "
                     "cut there, or declare sustains to say what the take is holding for"
                 )
-            elif seconds > SHOT_ABSOLUTE_MAX_SECONDS:
-                failures.append(
-                    f"{name}: {seconds:.2f} s is over the {SHOT_ABSOLUTE_MAX_SECONDS:.0f} s "
-                    "absolute ceiling, which no declaration opens"
-                )
             else:
                 held_for = sustains
+                if seconds > SHOT_DECLARED_MAX_SECONDS:
+                    # Past the declared ceiling the take has to show it was
+                    # composed rather than merely long.  Both tests are on the
+                    # authored keys, because both accidents they name - a take
+                    # joined by one long interpolation, and a take that ends
+                    # framed the way it started - are visible there.
+                    gaps = [
+                        (earlier, later)
+                        for earlier, later in zip(keys, keys[1:])
+                        if later[0] - earlier[0] > SHOT_LONG_MAX_KEY_GAP
+                    ]
+                    if gaps:
+                        first_gap, next_gap = max(gaps, key=lambda pair: pair[1][0] - pair[0][0])
+                        failures.append(
+                            f"{name}: {seconds:.2f} s is over the "
+                            f"{SHOT_DECLARED_MAX_SECONDS:.0f} s declared ceiling and coasts "
+                            f"{next_gap[0] - first_gap[0]} frames between the keys at "
+                            f"{first_gap[0]} and {next_gap[0]}; a take that long has to be "
+                            f"authored at least every {SHOT_LONG_MAX_KEY_GAP} frames"
+                        )
+                    resolved = cut_metrics(keys[0], keys[-1])
+                    steps = int(resolved["sizeSteps"])  # type: ignore[call-overload]
+                    lens_change = float(resolved["lensChange"])  # type: ignore[arg-type]
+                    if steps < CUT_MIN_SIZE_STEPS and lens_change < CUT_MIN_LENS_CHANGE_MM:
+                        failures.append(
+                            f"{name}: {seconds:.2f} s is over the "
+                            f"{SHOT_DECLARED_MAX_SECONDS:.0f} s declared ceiling and ends on "
+                            f"{resolved['sizeAfter']} having opened on {resolved['sizeBefore']} "
+                            f"- {steps} size step(s) and {lens_change} mm of lens over its whole "
+                            "length, which is less development than a cut would have given free"
+                        )
+                    resolution = resolved
                 # A declared long take earns its length by never stopping.  Every
                 # window of SHOT_DEVELOPMENT_WINDOW frames that fits inside it has
                 # to travel or change lens, which is what an accidental long take
@@ -6857,6 +7152,15 @@ def validate_camera_shots() -> dict[str, object]:
             ]
         if "sustains" in shot:
             entry["development"] = development_profile(shot)
+        if resolution is not None:
+            entry["resolvesBy"] = {
+                "sizeSteps": resolution["sizeSteps"],
+                "lensChange": resolution["lensChange"],
+                "widthBefore": resolution["widthBefore"],
+                "widthAfter": resolution["widthAfter"],
+                "maxKeyGap": max(later[0] - earlier[0] for earlier, later in zip(keys, keys[1:])),
+            }
+        entry["timelineShare"] = round(share, 3)
         shots.append(entry)
     if expected_start != FRAME_END + 1:
         failures.append(f"The shot list ends at frame {expected_start - 1}, not {FRAME_END}")
@@ -7186,6 +7490,275 @@ def validate_camera_path(camera: bpy.types.Object, *, step: int = 1) -> dict[str
             f"Camera path passes {closest * 1000:.0f} mm from {closest_body} at frame "
             f"{closest_frame}; {CAMERA_MIN_CLEARANCE * 1000:.0f} mm is the minimum"
         )
+    return report
+
+
+def frame_runs(frames: Iterable[int]) -> list[list[int]]:
+    """Consecutive frame numbers collapsed to ``[first, last]`` pairs."""
+    runs: list[list[int]] = []
+    for frame in sorted(frames):
+        if runs and frame == runs[-1][1] + 1:
+            runs[-1][1] = frame
+        else:
+            runs.append([frame, frame])
+    return runs
+
+
+def eye_trace_subject(beat: str) -> str:
+    """Which body the audience is watching during a beat.  Longest prefix wins."""
+    best = ""
+    subject = EYE_TRACE_SUBJECTS[0][1]
+    for prefix, name in EYE_TRACE_SUBJECTS:
+        if beat.startswith(prefix) and len(prefix) >= len(best):
+            best, subject = prefix, name
+    return subject
+
+
+def subject_centre(obj: bpy.types.Object, depsgraph: object) -> Vector:
+    """Where a subject actually is on screen: the centre of what it draws.
+
+    Every subject here is an empty with its meshes parented under it, and those
+    roots sit at floor level or at a coupling face rather than at the middle of
+    the thing a viewer sees.  Projecting the root would measure the eye trace of
+    a point nobody is looking at, so the union of the drawn bounds is used.
+    """
+    corners: list[Vector] = []
+    for child in (obj, *obj.children_recursive):
+        if child.type != "MESH":
+            continue
+        evaluated = child.evaluated_get(depsgraph)  # type: ignore[arg-type]
+        corners.extend(evaluated.matrix_world @ Vector(corner) for corner in evaluated.bound_box)
+    if not corners:
+        return obj.matrix_world.translation.copy()
+    return Vector(
+        (
+            (min(point.x for point in corners) + max(point.x for point in corners)) / 2.0,
+            (min(point.y for point in corners) + max(point.y for point in corners)) / 2.0,
+            (min(point.z for point in corners) + max(point.z for point in corners)) / 2.0,
+        )
+    )
+
+
+def validate_eye_trace(camera: bpy.types.Object) -> dict[str, object]:
+    """Measure where the audience is looking, frame by frame, and refuse strain.
+
+    ``validate_camera_path`` flies the camera against the machine.  This flies
+    the machine against the frame: for every frame it projects the beat's active
+    subject through the camera and records its normalised screen position.  Three
+    failures are refused - a subject pinned to an edge, a subject crossing the
+    screen faster than the eye follows it, and a handoff that drops the new
+    subject far from where the old one was.
+
+    The closing pull-back is what this was written for.  It ended on the exact
+    pose the film opens on, which was composed for the whole machine seen from
+    the front right; the closing subject is one arm at the middle of the changer,
+    so the subject moved left while the camera retreated right and widened, and
+    the point of interest was driven off the left edge of a frame that kept
+    growing.  Every part of that is legal by the other rules and all of it is
+    visible here as a number.
+    """
+    from bpy_extras.object_utils import world_to_camera_view
+
+    scene = bpy.context.scene
+    original_frame = scene.frame_current
+    cuts = {shot["end"] for shot in CAMERA_SHOTS[:-1]}
+    beats = {frame: beat_covering(frame) for frame in range(1, FRAME_END + 1)}
+    wanted = {eye_trace_subject(beat) for beat in beats.values()}
+    missing = sorted(name for name in wanted if bpy.data.objects.get(name) is None)
+
+    track: list[dict[str, object]] = []
+    held: Vector | None = None
+    for frame in range(1, FRAME_END + 1):
+        scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        beat = beats[frame]
+        name = eye_trace_subject(beat)
+        obj = bpy.data.objects.get(name)
+        if obj is None:
+            continue
+        centre = subject_centre(obj, depsgraph)
+        projected = world_to_camera_view(scene, camera, centre)
+        entry: dict[str, object] = {
+            "frame": frame,
+            "beat": beat,
+            "subject": name,
+            "x": round(projected.x, 4),
+            "y": round(projected.y, 4),
+            "depth": round(projected.z, 3),
+        }
+        # The previous frame's subject point, re-projected through this frame's
+        # camera.  Comparing it with where it sat last frame isolates how far the
+        # camera alone moved the picture, with the machine's own motion held out.
+        if held is not None:
+            dragged = world_to_camera_view(scene, camera, held)
+            entry["dragx"] = round(dragged.x, 4)
+            entry["dragy"] = round(dragged.y, 4)
+        # Both bodies are projected on a handoff frame, so the saccade is a
+        # distance inside one frame rather than a difference across two.
+        previous = eye_trace_subject(beats[frame - 1]) if frame > 1 else name
+        if previous != name and (other := bpy.data.objects.get(previous)) is not None:
+            outgoing = world_to_camera_view(scene, camera, subject_centre(other, depsgraph))
+            entry["prevx"] = round(outgoing.x, 4)
+            entry["prevy"] = round(outgoing.y, 4)
+        held = centre
+        track.append(entry)
+    scene.frame_set(original_frame)
+
+    failures: list[str] = []
+    for name in missing:
+        failures.append(f"eye trace: subject {name} is not in the scene")
+    off_frame = [
+        entry
+        for entry in track
+        if not (
+            EYE_TRACE_SAFE_X[0] <= float(entry["x"]) <= EYE_TRACE_SAFE_X[1]  # type: ignore[arg-type]
+            and EYE_TRACE_SAFE_Y[0] <= float(entry["y"]) <= EYE_TRACE_SAFE_Y[1]  # type: ignore[arg-type]
+        )
+    ]
+    steps: list[tuple[int, float, bool]] = []
+    handoffs: list[tuple[int, str, str, float]] = []
+    for before, after in zip(track, track[1:]):
+        frame = int(after["frame"])  # type: ignore[arg-type]
+        if before["subject"] != after["subject"] and "prevx" in after:
+            handoffs.append(
+                (
+                    frame,
+                    str(before["subject"]),
+                    str(after["subject"]),
+                    math.dist(
+                        (float(after["prevx"]), float(after["prevy"])),  # type: ignore[arg-type]
+                        (float(after["x"]), float(after["y"])),  # type: ignore[arg-type]
+                    ),
+                )
+            )
+        if int(before["frame"]) in cuts or "dragx" not in after:  # type: ignore[arg-type]
+            continue
+        drag = (
+            float(after["dragx"]) - float(before["x"]),  # type: ignore[arg-type]
+            float(after["dragy"]) - float(before["y"]),  # type: ignore[arg-type]
+        )
+        after["dragstep"] = drag
+        moved = (
+            float(after["x"]) - float(before["x"]),  # type: ignore[arg-type]
+            float(after["y"]) - float(before["y"]),  # type: ignore[arg-type]
+        )
+        # Carrying the subject: what the eye actually had to do is less than it
+        # would have had to do from a locked camera.
+        carrying = math.hypot(*moved) < math.hypot(moved[0] - drag[0], moved[1] - drag[1])
+        steps.append((frame, math.hypot(*drag), carrying))
+    fast = [step for step in steps if step[1] > EYE_TRACE_MAX_STEP and not step[2]]
+    strained = [handoff for handoff in handoffs if handoff[3] > EYE_TRACE_MAX_HANDOFF]
+
+    sweeps: list[tuple[int, int, float, float]] = []
+    for index in range(len(track) - EYE_TRACE_SWEEP_WINDOW):
+        opened = track[index]
+        closed = track[index + EYE_TRACE_SWEEP_WINDOW]
+        first = int(opened["frame"])  # type: ignore[arg-type]
+        last = int(closed["frame"])  # type: ignore[arg-type]
+        if last - first != EYE_TRACE_SWEEP_WINDOW:
+            continue
+        span = track[index : index + EYE_TRACE_SWEEP_WINDOW + 1]
+        if any(entry["subject"] != opened["subject"] for entry in span):
+            continue
+        if any(first <= cut < last for cut in cuts):
+            continue
+        moved = (
+            float(closed["x"]) - float(opened["x"]),  # type: ignore[arg-type]
+            float(closed["y"]) - float(opened["y"]),  # type: ignore[arg-type]
+        )
+        dragged = (0.0, 0.0)
+        for entry in span[1:]:
+            step = entry.get("dragstep", (0.0, 0.0))
+            dragged = (dragged[0] + step[0], dragged[1] + step[1])  # type: ignore[index]
+        # ``moved`` is what the eye had to do.  ``moved - dragged`` is what it
+        # would have had to do from a locked camera.  The difference is the
+        # camera's share of the strain, and it is the only part the edit owns.
+        added = math.hypot(*moved) - math.hypot(moved[0] - dragged[0], moved[1] - dragged[1])
+        sweeps.append((first, last, math.hypot(*moved), added))
+    swept = [
+        sweep
+        for sweep in sweeps
+        if sweep[2] > EYE_TRACE_MAX_SWEEP and sweep[3] > EYE_TRACE_MAX_ADDED
+    ]
+    if off_frame:
+        worst = min(
+            off_frame,
+            key=lambda entry: min(
+                float(entry["x"]) - EYE_TRACE_SAFE_X[0],  # type: ignore[arg-type]
+                EYE_TRACE_SAFE_X[1] - float(entry["x"]),  # type: ignore[arg-type]
+                float(entry["y"]) - EYE_TRACE_SAFE_Y[0],  # type: ignore[arg-type]
+                EYE_TRACE_SAFE_Y[1] - float(entry["y"]),  # type: ignore[arg-type]
+            ),
+        )
+        failures.append(
+            f"eye trace: the subject is outside the safe region on {len(off_frame)} frame(s); "
+            f"worst is {worst['subject']} at ({worst['x']}, {worst['y']}) on frame "
+            f"{worst['frame']} during {worst['beat']}"
+        )
+    if fast:
+        frame = max(fast, key=lambda step: step[1])[0]
+        distance = max(fast, key=lambda step: step[1])[1]
+        failures.append(
+            f"eye trace: the camera moves the picture {distance:.3f} of the frame in one "
+            f"frame at {frame} without carrying the subject, over the {EYE_TRACE_MAX_STEP} "
+            f"limit, on {len(fast)} frame(s)"
+        )
+    if swept:
+        first, last, distance, added = max(swept, key=lambda sweep: sweep[3])
+        failures.append(
+            f"eye trace: the point of interest crosses {distance:.3f} of the frame over "
+            f"frames {first}-{last} and the camera adds {added:.3f} of that instead of "
+            f"absorbing it; {len(swept)} window(s) move subject and frame against each other"
+        )
+    if strained:
+        frame, before_name, after_name, distance = max(strained, key=lambda hand: hand[3])
+        failures.append(
+            f"eye trace: the handoff {before_name} -> {after_name} at frame {frame} moves the "
+            f"point of interest {distance:.3f} across the frame, over {EYE_TRACE_MAX_HANDOFF}"
+        )
+
+    report: dict[str, object] = {
+        "frames": len(track),
+        "offSafeRegion": len(off_frame),
+        "offSafeFrames": frame_runs(int(entry["frame"]) for entry in off_frame),  # type: ignore[arg-type]
+        "fastFrames": len(fast),
+        "fastRuns": frame_runs(step[0] for step in fast),
+        "maxStep": round(max((step[1] for step in steps), default=0.0), 4),
+        "maxStepFrame": max(steps, key=lambda step: step[1])[0] if steps else None,
+        "maxUncarriedStep": round(max((step[1] for step in steps if not step[2]), default=0.0), 4),
+        "maxUncarriedStepFrame": max(
+            (step for step in steps if not step[2]), key=lambda step: step[1], default=(None,)
+        )[0],
+        "dragPerSecond": round(FPS * sum(step[1] for step in steps) / max(len(steps), 1), 3),
+        "sweepWindow": EYE_TRACE_SWEEP_WINDOW,
+        "maxSweep": round(max((sweep[2] for sweep in sweeps), default=0.0), 3),
+        "maxSweepFrames": list(max(sweeps, key=lambda sweep: sweep[2])[:2]) if sweeps else None,
+        "maxAdded": round(max((sweep[3] for sweep in sweeps), default=0.0), 3),
+        "maxAddedFrames": list(max(sweeps, key=lambda sweep: sweep[3])[:2]) if sweeps else None,
+        "sweptWindows": len(swept),
+        "sweptRuns": [
+            [run[0], run[1] + EYE_TRACE_SWEEP_WINDOW]
+            for run in frame_runs(sweep[0] for sweep in swept)
+        ],
+        "handoffs": [
+            {"frame": frame, "from": before, "to": after, "distance": round(distance, 3)}
+            for frame, before, after, distance in handoffs
+        ],
+        "worstHandoff": round(max((hand[3] for hand in handoffs), default=0.0), 3),
+        "xRange": [
+            round(min(float(entry["x"]) for entry in track), 3),  # type: ignore[arg-type]
+            round(max(float(entry["x"]) for entry in track), 3),  # type: ignore[arg-type]
+        ],
+        "track": [
+            [entry["frame"], entry["subject"], entry["x"], entry["y"]]
+            for entry in track
+            if int(entry["frame"]) % EYE_TRACE_SAMPLE == 1  # type: ignore[arg-type]
+        ],
+    }
+    print("EYE TRACE: " + json.dumps(report))
+    if failures:
+        raise RuntimeError("Eye-trace validation failed:\n- " + "\n- ".join(failures))
     return report
 
 
@@ -8214,6 +8787,7 @@ def build_scene(options: argparse.Namespace) -> None:
     )
     build_camera_choreography(camera)
     validate_camera_path(camera)
+    validate_eye_trace(camera)
     configure_render(options)
     motion_checks = validate_motion(
         slots,

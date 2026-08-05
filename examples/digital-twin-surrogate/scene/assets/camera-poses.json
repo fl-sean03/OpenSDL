@@ -312,11 +312,11 @@
   },
   "shots": [
     {
-      "name": "establish-load-and-first-dispense",
+      "name": "establish-load-dispense-and-to-mix",
       "start": 1,
-      "end": 560,
-      "seconds": 23.33,
-      "note": "The opening take, twenty-three seconds in one continuous developing move.  It opens wide from the front right of the aisle on the whole machine, then goes straight to the station the gripper is working - no detour - trucking left and in as the mover lifts the plate out of the input hotel and lands it on the dispense stage.  With the plate seated it pans slightly right, only far enough to take in both head docks, and watches the gripper head seated, released and left hanging while the mover crosses to the pipetting head and couples to it.  Then it comes back left with the new head and stays with it: tips, reservoir, the twelve columns of the first fill on an arc that closes from the left, the tip drop at the waste chute, the second set of tips, and the twelve columns of the second fill on an arc that closes back the other way.  It ends on dispense_end, with the tips dropped, the head empty and the carriage measurably stopped - the first frame at which the work actually leaves the dispense station.",
+      "end": 752,
+      "seconds": 31.33,
+      "note": "The opening take, thirty-one seconds in one continuous developing move, and everything that happens at the dispense end of the deck.  It opens wide from the front right of the aisle on the whole machine, then goes straight to the station the gripper is working - no detour - trucking left and in as the mover lifts the plate out of the input hotel and lands it on the dispense stage.  With the plate seated it opens out to hold the dispense stage and both head docks in one frame and stops there, so head change A happens inside a still picture instead of being chased across it.  Then it comes back left with the new head and pushes in for the work: tips, reservoir, the twelve columns of the first fill on an arc that closes from the left.  The tip drop, the second set of tips and the second reservoir dip are all inside the dispense station, so the camera stays on the station and only breathes out and back in while the head goes and returns.  Then the twelve columns of the second fill on an arc that closes back the other way, the tips into the chute, and the machine stops.  The two seconds of dispense_hold are where the take changes position rather than where the edit used to change shot: the camera eases out to the framing that holds both docks and the dispense stage at once, and holds it through the whole of head change B and the pick that follows - the mover parks the pipetting head, crosses, picks the gripper back up, comes back for the plate and lifts it, all inside one still frame.  The only pan in that stretch is the one that means something: mix_cross, the plate actually travelling to the mixer.  It ends on mix_place_settle, eased to a stop on a machine that has already stopped.",
       "keys": [
         {
           "frame": 1,
@@ -331,6 +331,20 @@
             1310
           ],
           "lens": 26
+        },
+        {
+          "frame": 28,
+          "eye": [
+            2670,
+            -4160,
+            2300
+          ],
+          "look": [
+            30,
+            57,
+            1305
+          ],
+          "lens": 26.5
         },
         {
           "frame": 52,
@@ -361,58 +375,72 @@
           "lens": 32
         },
         {
-          "frame": 129,
+          "frame": 112,
           "eye": [
-            -120,
-            -2760,
-            1900
+            380,
+            -3120,
+            2020
           ],
           "look": [
-            -870,
-            10,
+            -860,
+            25,
+            1282
+          ],
+          "lens": 35
+        },
+        {
+          "frame": 122,
+          "eye": [
+            -560,
+            -2560,
+            1840
+          ],
+          "look": [
+            -700,
+            5,
             1270
           ],
-          "lens": 40
+          "lens": 41
         },
         {
-          "frame": 150,
+          "frame": 134,
           "eye": [
-            -1020,
-            -1980,
-            1700
+            -720,
+            -2400,
+            1790
           ],
           "look": [
-            -800,
-            -20,
-            1255
-          ],
-          "lens": 48
-        },
-        {
-          "frame": 173,
-          "eye": [
-            -780,
-            -2020,
-            1720
-          ],
-          "look": [
-            -120,
-            30,
-            1300
+            -630,
+            0,
+            1266
           ],
           "lens": 44
         },
         {
-          "frame": 192,
+          "frame": 150,
           "eye": [
-            -700,
-            -1900,
-            1700
+            -770,
+            -2345,
+            1776
           ],
           "look": [
-            0,
-            40,
-            1310
+            -600,
+            -2,
+            1265
+          ],
+          "lens": 44.5
+        },
+        {
+          "frame": 161,
+          "eye": [
+            -720,
+            -2420,
+            1795
+          ],
+          "look": [
+            -150,
+            18,
+            1270
           ],
           "lens": 46
         },
@@ -420,43 +448,29 @@
           "frame": 208,
           "eye": [
             -560,
-            -1820,
-            1690
+            -2470,
+            1810
           ],
           "look": [
-            -300,
-            35,
-            1300
+            -165,
+            15,
+            1268
           ],
-          "lens": 46
+          "lens": 48
         },
         {
           "frame": 235,
           "eye": [
-            -600,
-            -1720,
-            1660
+            -700,
+            -2150,
+            1730
           ],
           "look": [
-            -800,
-            40,
-            1280
+            -620,
+            10,
+            1262
           ],
-          "lens": 50
-        },
-        {
-          "frame": 256,
-          "eye": [
-            -660,
-            -1650,
-            1640
-          ],
-          "look": [
-            -960,
-            35,
-            1268
-          ],
-          "lens": 54
+          "lens": 52
         },
         {
           "frame": 262,
@@ -501,60 +515,46 @@
           "lens": 70
         },
         {
-          "frame": 378,
+          "frame": 388,
           "eye": [
-            -1120,
-            -1450,
-            1565
+            -1230,
+            -1430,
+            1570
           ],
           "look": [
-            -660,
-            30,
-            1260
+            -768,
+            -15,
+            1248
           ],
-          "lens": 56
+          "lens": 62
         },
         {
-          "frame": 405,
-          "eye": [
-            -1120,
-            -1580,
-            1600
-          ],
-          "look": [
-            -830,
-            40,
-            1268
-          ],
-          "lens": 50
-        },
-        {
-          "frame": 426,
+          "frame": 418,
           "eye": [
             -1200,
-            -1520,
-            1580
+            -1560,
+            1610
           ],
           "look": [
-            -975,
-            35,
-            1262
+            -762,
+            -5,
+            1254
           ],
-          "lens": 54
+          "lens": 58
         },
         {
           "frame": 432,
           "eye": [
             -1240,
-            -1450,
-            1565
+            -1470,
+            1580
           ],
           "look": [
-            -930,
-            5,
-            1252
+            -790,
+            -25,
+            1245
           ],
-          "lens": 56
+          "lens": 58
         },
         {
           "frame": 480,
@@ -585,118 +585,151 @@
           "lens": 66
         },
         {
+          "frame": 548,
+          "eye": [
+            -430,
+            -1620,
+            1580
+          ],
+          "look": [
+            -760,
+            -25,
+            1236
+          ],
+          "lens": 56
+        },
+        {
           "frame": 560,
           "eye": [
-            -560,
-            -1240,
-            1600
+            -420,
+            -1900,
+            1650
           ],
           "look": [
-            -616,
-            45,
+            -700,
+            0,
             1250
           ],
-          "lens": 55
-        }
-      ]
-    },
-    {
-      "name": "head-change-b-and-to-mix",
-      "start": 561,
-      "end": 752,
-      "seconds": 8.0,
-      "note": "The take opens on a stopped machine and stays with it.  Two seconds of dispense_hold pass with the mover parked over the waste chute and the camera barely breathing, so the cut reads as the film moving on rather than as the thing that started the next move.  Then head change B and the transfer that follows it, in one travelling take from the right: the camera moves in as the mover parks the pipetting head and picks the gripper back up, pulls back to catch the plate leaving the dispense stage, and settles as it lands on the mixer.  It closes on the second held beat, easing to a stop over a machine that has already stopped, and ends on mix_place_settle.",
-      "keys": [
-        {
-          "frame": 561,
-          "eye": [
-            1050,
-            -1350,
-            1660
-          ],
-          "look": [
-            -100,
-            60,
-            1310
-          ],
-          "lens": 40
+          "lens": 50
         },
         {
           "frame": 608,
           "eye": [
-            1012,
-            -1332,
-            1656
+            -400,
+            -2080,
+            1690
           ],
           "look": [
-            -118,
-            60,
-            1306
+            -520,
+            10,
+            1258
           ],
-          "lens": 41
+          "lens": 48
         },
         {
-          "frame": 632,
+          "frame": 618,
           "eye": [
-            940,
-            -1250,
-            1560
+            -430,
+            -2450,
+            1780
           ],
           "look": [
-            -300,
-            50,
-            1290
-          ],
-          "lens": 46
-        },
-        {
-          "frame": 655,
-          "eye": [
-            900,
-            -1180,
-            1500
-          ],
-          "look": [
-            300,
-            45,
-            1270
+            -250,
+            15,
+            1264
           ],
           "lens": 52
         },
         {
-          "frame": 711,
+          "frame": 645,
           "eye": [
-            520,
-            -1620,
-            1600
+            -340,
+            -2480,
+            1790
           ],
           "look": [
-            -680,
-            -20,
-            1220
+            -242,
+            15,
+            1264
           ],
-          "lens": 36
+          "lens": 51
         },
         {
-          "frame": 728,
+          "frame": 668,
           "eye": [
-            580,
-            -1520,
+            -260,
+            -2510,
+            1800
+          ],
+          "look": [
+            -235,
+            15,
+            1264
+          ],
+          "lens": 50
+        },
+        {
+          "frame": 699,
+          "eye": [
+            -110,
+            -2560,
+            1815
+          ],
+          "look": [
+            -225,
+            15,
+            1264
+          ],
+          "lens": 48
+        },
+        {
+          "frame": 711,
+          "eye": [
+            60,
+            -2400,
+            1760
+          ],
+          "look": [
+            60,
+            5,
+            1256
+          ],
+          "lens": 50
+        },
+        {
+          "frame": 717,
+          "eye": [
+            170,
+            -2150,
+            1690
+          ],
+          "look": [
+            30,
+            -15,
+            1246
+          ],
+          "lens": 48
+        },
+        {
+          "frame": 729,
+          "eye": [
+            350,
+            -1600,
             1540
           ],
           "look": [
-            -260,
+            0,
             -45,
-            1250
+            1230
           ],
-          "lens": 40
+          "lens": 44
         },
         {
           "frame": 752,
           "eye": [
-            600,
-            -1420,
-            1500
+            365,
+            -1560,
+            1528
           ],
           "look": [
             0,
@@ -712,7 +745,7 @@
       "start": 753,
       "end": 1176,
       "seconds": 17.67,
-      "note": "The closing take, seventeen and a half seconds in one continuous outward-turning move.  It opens tight on the Heater-Shaker from the left, arcs right through the clamp close and the orbit, then travels a station along with the plate and watches it seated in the reader.  It stays on the reader for the whole characterization - the door lifted off its caddy, lowered home, the read itself, the door lifted away again and returned - reframing around the same subject rather than cutting to a new angle for each sub-action, because none of it changes station.  Then it follows the plate right to the output hotel and, once the plate is stored, keeps going outward: the carriage crossing back to park the gripper head in its dock, rising away empty, travelling home to the middle of the changer, and stopping.  The pull-back finishes exactly as the machine does, on the wide the film opened on, and holds there for two seconds with nothing moving at all.",
+      "note": "The closing take, seventeen and a half seconds in one continuous outward-turning move.  It opens tight on the Heater-Shaker from the left, arcs right through the clamp close and the orbit, then travels with the plate to the reader - carrying it, so the plate holds its place in the frame while the deck moves behind it - and watches it seated.  It stays on the reader for the whole characterization - the door lifted off its caddy, lowered home, the read itself, the door lifted away again and returned - reframing around the same subject rather than cutting to a new angle for each sub-action, because none of it changes station.  Then it travels with the plate again to the output hotel and, once the plate is stored, keeps going outward: the carriage crossing back to park the gripper head in its dock, rising away empty, travelling home to the middle of the changer, and stopping.  The pull-back is finished before the last travel starts, and the last travel is carried, so the arm arrives at the centre of an already-composed wide instead of being driven into a corner of a frame that is still growing.  It holds there for two seconds with nothing moving at all.",
       "keys": [
         {
           "frame": 753,
@@ -757,30 +790,58 @@
           "lens": 66
         },
         {
+          "frame": 816,
+          "eye": [
+            -160,
+            -1020,
+            1395
+          ],
+          "look": [
+            10,
+            -48,
+            1238
+          ],
+          "lens": 58
+        },
+        {
           "frame": 821,
           "eye": [
-            -120,
-            -1020,
+            -140,
+            -1030,
             1400
           ],
           "look": [
-            60,
-            -50,
-            1240
+            15,
+            -48,
+            1239
           ],
-          "lens": 56
+          "lens": 57
         },
         {
-          "frame": 842,
+          "frame": 833,
           "eye": [
-            280,
-            -1150,
-            1470
+            240,
+            -1120,
+            1450
           ],
           "look": [
-            700,
-            -45,
+            750,
+            -40,
             1250
+          ],
+          "lens": 50
+        },
+        {
+          "frame": 845,
+          "eye": [
+            450,
+            -1160,
+            1475
+          ],
+          "look": [
+            790,
+            -32,
+            1258
           ],
           "lens": 46
         },
@@ -869,102 +930,158 @@
           "lens": 50
         },
         {
-          "frame": 995,
+          "frame": 990,
           "eye": [
-            1660,
-            -1750,
-            1620
+            1650,
+            -1720,
+            1610
           ],
           "look": [
-            960,
-            -30,
+            930,
+            -25,
             1250
           ],
-          "lens": 46
+          "lens": 47
+        },
+        {
+          "frame": 995,
+          "eye": [
+            1655,
+            -1730,
+            1615
+          ],
+          "look": [
+            935,
+            -25,
+            1250
+          ],
+          "lens": 47
+        },
+        {
+          "frame": 1007,
+          "eye": [
+            1780,
+            -1830,
+            1630
+          ],
+          "look": [
+            1540,
+            -20,
+            1250
+          ],
+          "lens": 44
         },
         {
           "frame": 1024,
           "eye": [
-            1800,
-            -1900,
-            1640
+            1830,
+            -1950,
+            1660
           ],
           "look": [
-            1300,
-            -20,
-            1250
+            1560,
+            -15,
+            1252
           ],
           "lens": 42
         },
         {
           "frame": 1040,
           "eye": [
-            1800,
-            -2100,
-            1700
+            1960,
+            -2320,
+            1760
           ],
           "look": [
-            1500,
-            20,
-            1260
+            1400,
+            10,
+            1258
           ],
           "lens": 38
         },
         {
-          "frame": 1074,
+          "frame": 1056,
           "eye": [
-            2100,
-            -2800,
-            1900
+            2050,
+            -2760,
+            1870
           ],
           "look": [
-            900,
-            40,
-            1290
+            1080,
+            25,
+            1266
           ],
-          "lens": 32
+          "lens": 34
+        },
+        {
+          "frame": 1074,
+          "eye": [
+            2080,
+            -3260,
+            1990
+          ],
+          "look": [
+            620,
+            35,
+            1275
+          ],
+          "lens": 30
         },
         {
           "frame": 1100,
           "eye": [
-            2560,
-            -3500,
-            2100
+            2060,
+            -3900,
+            2110
           ],
           "look": [
-            520,
-            50,
-            1300
+            240,
+            30,
+            1275
           ],
-          "lens": 29
+          "lens": 28
+        },
+        {
+          "frame": 1120,
+          "eye": [
+            2040,
+            -4180,
+            2160
+          ],
+          "look": [
+            60,
+            22,
+            1270
+          ],
+          "lens": 27
         },
         {
           "frame": 1128,
           "eye": [
-            3060,
-            -4320,
-            2330
+            2030,
+            -4260,
+            2175
           ],
           "look": [
-            260,
-            60,
-            1310
+            30,
+            20,
+            1268
           ],
-          "lens": 26
+          "lens": 27
         },
         {
           "frame": 1176,
           "eye": [
-            3060,
-            -4320,
-            2330
+            2030,
+            -4260,
+            2175
           ],
           "look": [
-            260,
-            60,
-            1310
+            30,
+            20,
+            1268
           ],
-          "lens": 26
+          "lens": 27
         }
       ]
     }

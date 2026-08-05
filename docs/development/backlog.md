@@ -4,6 +4,10 @@ This page is the maintained list of framework work that remains.
 [ROADMAP.md](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md) keeps the release view. A
 laboratory repository keeps its own work in `docs/lab/setup-plan.md`.
 
+The [2026-08-05 repository audit](audit-2026-08-05.md) stress-tested the framework against its own
+stated vision and records the gaps this page does not yet track, with evidence for each. Its
+findings have not been folded into the sections below and nothing in it has been acted on.
+
 Update this page when a design changes, an implementation lands, or new evidence changes the order.
 Check an item only when its stated evidence exists in the repository or a linked deployment record.
 

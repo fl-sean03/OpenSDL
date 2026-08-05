@@ -31,6 +31,7 @@ nav:
       - Closed-loop campaign: guides/closed-loop-campaign.md
   - Development:
       - Development backlog: development/backlog.md
+      - Repository audit 2026-08-05: development/audit-2026-08-05.md
       - Agent instructions and skills: development/agent-skills.md
       - Testing: development/testing.md
       - Validation: development/validation.md

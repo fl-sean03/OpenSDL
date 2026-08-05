@@ -1,39 +1,41 @@
-# OpenSDL
+<h1 align="center">OpenSDL</h1>
 
-**An open foundation for building computational and autonomous laboratories.**
+<p align="center">
+  <strong>An open foundation for building computational and autonomous laboratories.</strong>
+</p>
 
-[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#project-status)
-[![CI](https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml/badge.svg)](https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+<p align="center">
+  <a href="#project-status"><img src="https://img.shields.io/badge/status-alpha-orange" alt="Status: alpha"></a>
+  <a href="https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml"><img src="https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python 3.12+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
+</p>
+
+<p align="center">
+  <img src="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell-loop.webp"
+       alt="A gantry cell lifts a microplate out of its input hotel, lands it on the dispensing stage, then parks the gripper head and couples the pipetting head"
+       width="880">
+</p>
+
+<p align="center">
+  <sub>A simulated self-driving-laboratory cell executing the authored workflow, rendered from procedural Blender source committed in this repository — a reference surrogate, not an instrument OpenSDL ships.</sub>
+</p>
+
+<p align="center">
+  <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">Full 49-second render</a> ·
+  <a href="examples/digital-twin-surrogate/README.md">The example behind it</a> ·
+  <a href="examples/digital-twin-surrogate/scene/README.md">How the scene is built</a>
+</p>
+
+## What this is
 
 OpenSDL is a modular framework for defining laboratory capabilities, connecting physical and computational systems, executing reproducible workflows, preserving evidence, and progressively moving from manual operation to bounded closed-loop experimentation.
 
 It is built as normal scientific software: installable packages, deployable applications, versioned schemas, replaceable adapters, database migrations, simulations, tests, project generators, and complete runnable examples.
 
-## What works now
-
-The v0.1 alpha includes:
-
-- a versioned laboratory manifest;
-- domain-neutral models for capabilities, resources, workflows, runs, tasks, events, artifacts, observations, decisions, authorizations, and incidents;
-- a durable reference runtime with DAG execution, retries, timeouts, resource leases, restart reconciliation, and policy checks;
-- SQLite and PostgreSQL-compatible metadata storage through SQLAlchemy;
-- content-addressed local artifact storage;
-- adapter and optimizer plugin discovery through Python entry points;
-- deterministic virtual mixer, balance, colorimeter, and labware-transport capabilities;
-- safe local numerical-analysis capabilities;
-- structured human-task attestations for assisted workflows;
-- a closed-loop campaign runner and reference grid optimizer;
-- CLI, Python SDK, HTTP API, and optional MCP transport hook;
-- versioned digital-twin bindings, verified GLB delivery, persisted-run projection, and a read-only
-  viewer;
-- JSON Schema generation and YAML validation;
-- run export as a portable RO-Crate-style ZIP;
-- a repository propagation graph for identifying affected contracts, code, tests, examples, and documentation;
-- materials, chemistry, and physics extension packs;
-- generators for organization laboratory repositories, adapters, capabilities, and domain packs;
-- unit, integration, end-to-end, and conformance tests.
+Everything here runs today in a simulator-only reference profile. It is an alpha. Read [project
+status](#project-status) for what is implemented, and [SAFETY.md](SAFETY.md) for where the framework
+stops and a laboratory's own protective systems begin.
 
 ## Quick start
 
@@ -76,7 +78,31 @@ Then open `http://127.0.0.1:8000/docs`.
 
 The [digital-twin surrogate example](examples/digital-twin-surrogate/README.md) runs a complete
 simulated workflow against an original, real-scale Flex-class reference scene. Its authored motion
-spans 960 frames over 40 seconds.
+spans 1176 frames over 49 seconds.
+
+## What works now
+
+The v0.1 alpha includes:
+
+- a versioned laboratory manifest;
+- domain-neutral models for capabilities, resources, workflows, runs, tasks, events, artifacts, observations, decisions, authorizations, and incidents;
+- a durable reference runtime with DAG execution, retries, timeouts, resource leases, restart reconciliation, and policy checks;
+- SQLite and PostgreSQL-compatible metadata storage through SQLAlchemy;
+- content-addressed local artifact storage;
+- adapter and optimizer plugin discovery through Python entry points;
+- deterministic virtual mixer, balance, colorimeter, and labware-transport capabilities;
+- safe local numerical-analysis capabilities;
+- structured human-task attestations for assisted workflows;
+- a closed-loop campaign runner and reference grid optimizer;
+- CLI, Python SDK, HTTP API, and optional MCP transport hook;
+- versioned digital-twin bindings, verified GLB delivery, persisted-run projection, and a read-only
+  viewer;
+- JSON Schema generation and YAML validation;
+- run export as a portable RO-Crate-style ZIP;
+- a repository propagation graph for identifying affected contracts, code, tests, examples, and documentation;
+- materials, chemistry, and physics extension packs;
+- generators for organization laboratory repositories, adapters, capabilities, and domain packs;
+- unit, integration, end-to-end, and conformance tests.
 
 ## Create an organization lab project
 
@@ -92,6 +118,15 @@ This scaffolds an independent OpenSDL-based lab project, which should live in it
 repository. It is not a GitHub fork of the framework source. The lab project consumes versioned
 OpenSDL packages and owns its equipment, workflows, integrations, context, and deployment. Fork
 OpenSDL itself only when you intend to change the framework.
+
+The generated repository can add private equipment definitions, domain models, workflows, compute backends, policies, deployments, and local adapters without modifying OpenSDL core.
+
+Start a normal agent conversation in the generated repository and ask it to “start here.” The
+`start-here` skill records confirmed lab context, maps the first workflow, and hands implementation
+to the relevant repository skills. See [lab onboarding](docs/architecture/lab-onboarding.md).
+
+<details>
+<summary>Package sources, generated layout, and CI for the new repository</summary>
 
 The generated lab needs a package source for the OpenSDL alpha distributions. If they are absent
 from your configured registry, build a local wheelhouse from this checkout for a smoke test:
@@ -130,11 +165,7 @@ my-lab/
 └── pyproject.toml
 ```
 
-That repository can add private equipment definitions, domain models, workflows, compute backends, policies, deployments, and local adapters without modifying OpenSDL core.
-
-Start a normal agent conversation in the generated repository and ask it to “start here.” The
-`start-here` skill records confirmed lab context, maps the first workflow, and hands implementation
-to the relevant repository skills. See [lab onboarding](docs/architecture/lab-onboarding.md).
+</details>
 
 ## Architecture
 
@@ -173,7 +204,26 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) and the
 [digital-twin plan](docs/architecture/digital-twin.md) defines the on-demand Blender path for custom
 models in laboratory repositories. OpenSDL does not ship a shared equipment-model catalog.
 
+## Data and provenance
+
+OpenSDL separates:
+
+- planned workflow inputs;
+- executed task inputs and outputs;
+- append-only events;
+- immutable artifact bytes and hashes;
+- campaign decisions;
+- current-state projections.
+
+A graph is generated from those records rather than treated as the only source of truth. Run bundles include the run, tasks, events, artifacts, and RO-Crate metadata.
+
 ## Repository layout
+
+Reusable libraries live in `packages/`, deployable applications in `apps/`, vendor and facility
+integrations in `adapters/`, and scientific extensions in `domain-packs/`.
+
+<details>
+<summary>Full directory tree</summary>
 
 ```text
 .
@@ -195,16 +245,21 @@ models in laboratory repositories. OpenSDL does not ship a shared equipment-mode
 └── pyproject.toml        # uv workspace and shared tooling configuration
 ```
 
+</details>
+
 ## Extensibility
 
-Installable extensions use standard Python entry points:
+Installable extensions use standard Python entry points. Local organization adapters may live in the
+laboratory repository, public adapters may ship as independent packages, and the same pattern
+supports optimizers and domain packs.
+
+<details>
+<summary>Entry-point declaration and the adapter and domain-pack generators</summary>
 
 ```toml
 [project.entry-points."opensdl.adapters"]
 my-balance = "my_lab.adapters.balance:BalanceAdapter"
 ```
-
-Local organization adapters may live in the laboratory repository. Public adapters may ship as independent packages. The same pattern supports optimizers and domain packs.
 
 Generate an adapter:
 
@@ -223,28 +278,23 @@ uv run --locked opensdl domain-pack create electrochemistry \
   --destination ../my-lab/domain-packs
 ```
 
-## Data and provenance
-
-OpenSDL separates:
-
-- planned workflow inputs;
-- executed task inputs and outputs;
-- append-only events;
-- immutable artifact bytes and hashes;
-- campaign decisions;
-- current-state projections.
-
-A graph is generated from those records rather than treated as the only source of truth. Run bundles include the run, tasks, events, artifacts, and RO-Crate metadata.
+</details>
 
 ## Repository propagation
 
-`propagation.yaml` describes the blast radius of important changes.
+`propagation.yaml` describes the blast radius of important changes, which makes cross-repository
+consistency testable instead of relying only on search and memory.
+
+<details>
+<summary>Running the propagation query</summary>
 
 ```bash
 uv run --locked opensdl propagate packages/core/src/opensdl_core/models.py
 ```
 
-The result identifies affected adapters, schemas, tests, examples, API contracts, generated documentation, and deployment files. This makes cross-repository consistency testable instead of relying only on search and memory.
+The result identifies affected adapters, schemas, tests, examples, API contracts, generated documentation, and deployment files.
+
+</details>
 
 ## Safety boundary
 

@@ -9,7 +9,7 @@ coordinateFrame:
   origin: [0.0, 0.0, 0.0]
 scene:
   path: scene/assets/surrogate-cell.glb
-  sha256: d9a1fae5d345b92a6c1bb79e7d7043e3ad899580fa3c5df092a3dd450d2a64f0
+  sha256: 098fc4fd05e86282b95e05b24927042b7ef008ce0587aa20a325999c0a6b39a8
 entities:
   - id: cell
     node: CellRoot
@@ -52,10 +52,13 @@ anchors:
 animationTimeline:
   frameRate: 24
   frameStart: 1
-  frameEnd: 960
+  frameEnd: 1176
   # The gaps between phases are the cell's own housekeeping.  The two long
-  # ones, 150-208 and 552-612, are head changes: the mover parks one head in
+  # ones, 150-208 and 560-668, are head changes: the mover parks one head in
   # its dock and couples the other before the next commanded operation starts.
+  # The second also carries the 48-frame hold the edit cuts on.  Frames after
+  # 1040 are the park, the travel home and the closing hold, which are the
+  # machine returning to rest rather than any commanded task.
   bindings:
     - id: input-to-dispense
       action: transfer
@@ -66,32 +69,32 @@ animationTimeline:
       action: play_clip
       parameterMatch: {clip: dispense_cycle}
       frameStart: 208
-      frameEnd: 552
+      frameEnd: 560
     - id: dispense-to-mix
       action: transfer
       parameterMatch: {source: dispense, destination: mix}
-      frameStart: 612
-      frameEnd: 672
+      frameStart: 668
+      frameEnd: 728
     - id: mix-cycle
       action: play_clip
       parameterMatch: {clip: mix_cycle}
-      frameStart: 672
-      frameEnd: 724
+      frameStart: 728
+      frameEnd: 804
     - id: mix-to-characterize
       action: transfer
       parameterMatch: {source: mix, destination: characterize}
-      frameStart: 724
-      frameEnd: 770
+      frameStart: 804
+      frameEnd: 850
     - id: characterize-cycle
       action: play_clip
       parameterMatch: {clip: characterize_cycle}
-      frameStart: 776
-      frameEnd: 892
+      frameStart: 856
+      frameEnd: 972
     - id: characterize-to-output
       action: transfer
       parameterMatch: {source: characterize, destination: output}
-      frameStart: 898
-      frameEnd: 960
+      frameStart: 978
+      frameEnd: 1040
 projectionRules:
   - id: transfer-started
     match:

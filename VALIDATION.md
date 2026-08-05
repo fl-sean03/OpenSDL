@@ -41,9 +41,8 @@ focused checks on the source workspace:
   **15 tests**;
 - a headless Blender 5.2.0 rebuild in a temporary directory reproduced `surrogate-cell.glb`, the
   node inventory, and the motion report byte for byte, and a 0.1 mm change to a source constant was
-  confirmed to break that comparison. The current scene is a purpose-built self-driving-laboratory
-  frame: **2283 exported nodes**, 28 authored animations, digest
-  `480da6d8bf368e0151b94f34855ca68e4ffa6696886627fa386f04e95b89248b`;
+  confirmed to break that comparison. The scene is a purpose-built self-driving-laboratory frame;
+  its current form is recorded under the rebuild below;
 - `opensdl twin validate` loaded the example definition and matched its declared scene digest;
 - targeted package, CLI, and API tests covered model validation, safe scene loading, deterministic
   projection, run-to-twin binding pins, stable run identifiers, twin routes, and viewer-path
@@ -54,10 +53,10 @@ focused checks on the source workspace:
   and received no issues from the Khronos validator;
 - viewer tests covered browser-side scene-digest verification, missing-binding failure, authored-motion
   synchronization, and exact-reference demo selection; and
-- the generated motion report marked all **85** checks as passed. Seventy-one are scalar checks on
-  deck, labware, gripper, tip, liquid, lid, Stacker, and Heater-Shaker values; the remaining
-  fourteen compare bodies to each other — carry rigidity, grip contact, mesh interpenetration
-  against the modules and labware, and jaw-mechanism continuity — and run before the export.
+- the generated motion report marked every check as passed. Most are scalar checks on deck, labware,
+  gripper, tip, liquid, lid, Stacker, and Heater-Shaker values; the rest compare bodies to each
+  other — carry rigidity, grip contact, mesh interpenetration against the modules and labware, and
+  mechanism continuity — and run before the export.
 
 Those relational checks are new. The previous seventy validated scalars only, which is why a scene
 with the carriage passing through the enclosure glazing, jaw paddles intersecting seating surfaces,

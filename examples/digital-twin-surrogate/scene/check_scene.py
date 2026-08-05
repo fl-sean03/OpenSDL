@@ -29,6 +29,16 @@ Invariant D - gripper mechanism continuity
     track its head exactly while still reading as a bar floating in space,
     because nothing spans the gap; only this check sees that.
 
+Invariant F - carriage mechanism continuity
+    The mover reaches the bridge rail through an unbroken chain: body, bracket,
+    slide, vertical way, bearing block, rail.  Each link stays in contact at
+    every frame and therefore at every height in the stroke, and neither sliding
+    joint ever runs off the member it rides.  Invariant D made this claim about
+    the jaws and only about the jaws; the mover had the identical defect one
+    joint up, and additionally passed straight through the rail, because the
+    bridge assembly was in neither ``MOVERS`` nor ``STATICS`` and the pair was
+    never formed.
+
 Invariant E - head ownership
     There is one mover.  Every head is at every frame either coupled to
     ``MoverCoupler`` or resting in its own dock, never both and never neither;
@@ -64,7 +74,7 @@ from mathutils.bvhtree import BVHTree
 # repeating frame numbers is what keeps a re-timed animation from silently
 # invalidating every window below.  build_scene imports this module inside a
 # function, so the dependency runs one way at module level.
-from build_scene import BEAT, HEAD_DOCK_X, HEAD_DOCK_Y, HEAD_DOCK_Z
+from build_scene import BEAT, FRAME_END, HEAD_DOCK_X, HEAD_DOCK_Y, HEAD_DOCK_Z
 
 
 # Motion thresholds.  A payload counts as moving above MOVE_EPSILON, and a
@@ -111,7 +121,18 @@ MOVERS = (PLATE, MOVER, GRIPPER_HEAD, PIPETTE_HEAD, JAW_LEFT, JAW_RIGHT)
 # run into instead is the machine frame it is built into, the process deck, the
 # service assemblies packed under that deck, the runway that carries it, and the
 # modules and labware on the deck.
+#
+# ``MoverGantry`` is in this list even though it moves, and it belongs here.
+# The name says "not a mover" rather than "does not move": bounds and BVH trees
+# are rebuilt every sampled frame, so a body that travels is measured correctly.
+# It was missing, and its absence was the whole reason the mover was free to
+# pass through its own rail - the pair ``Mover x MoverGantry`` was never formed,
+# so no allowlist and no tolerance was involved.  Nothing was suppressing the
+# overlap; nothing was looking.  The one contact at that joint that is real is
+# the slide on the way, and that is documented in ``ALLOWED_CONTACTS`` below
+# rather than hidden by leaving the assembly out.
 STATICS = (
+    "MoverGantry",
     "Frame",
     "Workstation",
     "ServiceDeck",
@@ -147,6 +168,30 @@ JAW_MECHANISM: dict[str, tuple[str, ...]] = {
 }
 # The rail members the carriers ride.  Their combined X span bounds jaw travel.
 JAW_RAIL_MEMBERS = ("GripperCrossRailFront", "GripperCrossRailRear", "GripperLeadScrew")
+
+# Invariant F.  The same claim as invariant D, one joint up.  The jaw check was
+# written for the jaws and generalised to nothing, so the mover went on to make
+# the identical mistake against its own rail: correct pose, no geometry, and it
+# read as an arm floating beside the bridge.  This is the chain from the body
+# that carries the tool up to the rail the machine is built around, and it is
+# checked the same way: every consecutive pair in contact at every frame, and
+# the block never running off the end of the rail it rides.
+MOVER_MECHANISM: tuple[str, ...] = (
+    "MoverCarriage",
+    "MoverSlideBracket",
+    "MoverColumnSlide",
+    "MoverColumn",
+    "MoverTruckPlate",
+    "MoverBearingBlock_0",
+    "MoverBridgeTrack",
+)
+# The two joints in that chain that actually slide, and the member each one
+# rides.  A sliding pair has to stay engaged *and* stay inside its rail, which
+# is the part a contact test alone does not say.
+MOVER_SLIDING_JOINTS: dict[str, tuple[str, str, str]] = {
+    "carriage on the bridge rail": ("MoverBearingBlock_0", "MoverBridgeTrack", "x"),
+    "body on the vertical way": ("MoverColumnSlide", "MoverColumn", "z"),
+}
 # Two bodies count as coupled when their world bounds overlap on every axis.
 # A positive gap on any axis is a visible seam.
 MECHANISM_GAP = 0.0
@@ -197,10 +242,25 @@ ALLOWED_CONTACTS: tuple[dict[str, object], ...] = (
     {
         "mover": PLATE,
         "static": "Hotel_Output",
-        "frames": (BEAT["out_place_release"], BEAT["cycle_end"]),
+        "frames": (BEAT["out_place_release"], FRAME_END),
         "reason": (
             "The finished plate rides the output shuttle back into the storage tower. "
-            "Same closed-shell simplification as the input tower."
+            "Same closed-shell simplification as the input tower.  The window runs to "
+            "the last frame because the plate stays stored through the park and the "
+            "rest hold; the cycle ends with it inside the tower."
+        ),
+    },
+    {
+        "mover": MOVER,
+        "static": "MoverGantry",
+        "frames": (1, FRAME_END),
+        "bodies": (("MoverColumnSlide", "MoverColumn"), ("MoverSlideWiper_*", "MoverColumn")),
+        "reason": (
+            "A running fit, not a collision.  The slide wraps the vertical way over the "
+            "whole stroke, which is what holds the mover up; bounds that overlap on all "
+            "three axes are the engagement the carriage invariant requires.  Every other "
+            "body of the mover - carriage, front panel, camera, badge, coupler - is held "
+            "clear of the beam, the cover, the rail and the truck by this same check."
         ),
     },
 )
@@ -654,6 +714,94 @@ def _jaw_mechanism(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[s
     return checks
 
 
+def _mover_mechanism(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[str, object]]:
+    """Invariant F.  The mover reaches the bridge rail through real geometry.
+
+    ``_jaw_mechanism`` was written after the jaws shipped as two bars floating
+    beside the arm.  It fixed the jaws and generalised to nothing, so the same
+    defect was sitting one joint higher the whole time: the mover was correctly
+    posed on the bridge and nothing at all connected it to the bridge.  Worse,
+    its body occupied the rail's own volume at travel height, which the
+    interpenetration check could not see because the bridge assembly was in
+    neither the mover list nor the static list, so the pair was never formed.
+
+    This walks the chain the same way the jaw check does - body, bracket, slide,
+    way, bearing block, rail - and adds the part a contact test does not say on
+    its own: each of the two sliding joints has to stay *inside* the member it
+    rides, over the full stroke, or the block has run off the end of its rail.
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    members = {name: _object(name) for name in MOVER_MECHANISM}
+    links = list(zip(MOVER_MECHANISM, MOVER_MECHANISM[1:], strict=False))
+    worst_link: dict[str, tuple[float, int]] = {f"{a} - {b}": (0.0, 0) for a, b in links}
+    worst_joint: dict[str, tuple[float, int, float, int]] = {
+        label: (0.0, 0, -1.0, 0) for label in MOVER_SLIDING_JOINTS
+    }
+    heights: set[float] = set()
+    mover = _object(MOVER)
+    for frame in frames:
+        scene.frame_set(frame)
+        depsgraph.update()
+        bounds = {name: _world_bounds([obj], depsgraph) for name, obj in members.items()}
+        if any(value is None for value in bounds.values()):
+            continue
+        heights.add(round(float(mover.location.z), 5))
+        for first, second in links:
+            gap = max(_axis_gap(bounds[first], bounds[second]))  # type: ignore[arg-type]
+            key = f"{first} - {second}"
+            if gap > worst_link[key][0]:
+                worst_link[key] = (gap, frame)
+        for label, (rider, rail, axis) in MOVER_SLIDING_JOINTS.items():
+            rider_bounds = bounds[rider]
+            rail_bounds = bounds[rail]
+            if rider_bounds is None or rail_bounds is None:
+                continue
+            gap = max(_axis_gap(rider_bounds, rail_bounds))
+            index = "xyz".index(axis)
+            overrun = max(
+                rail_bounds[0][index] - rider_bounds[0][index],
+                rider_bounds[1][index] - rail_bounds[1][index],
+            )
+            best_gap, gap_frame, best_overrun, overrun_frame = worst_joint[label]
+            if gap > best_gap:
+                best_gap, gap_frame = gap, frame
+            if overrun > best_overrun:
+                best_overrun, overrun_frame = overrun, frame
+            worst_joint[label] = (best_gap, gap_frame, best_overrun, overrun_frame)
+
+    coupled = max(value[0] for value in worst_link.values())
+    checks: list[dict[str, object]] = [
+        {
+            "name": "mover stays coupled to the bridge through its carriage",
+            "passed": coupled <= MECHANISM_GAP,
+            "actual": {
+                "authoredHeights": len(heights),
+                "worstGapMm": _round(coupled * 1000.0, 3),
+                "links": {
+                    key: {"gapMm": _round(value[0] * 1000.0, 3), "frame": value[1]}
+                    for key, value in worst_link.items()
+                },
+            },
+            "expected": {"worstGapMm": 0.0},
+        }
+    ]
+    for label, (gap, gap_frame, overrun, overrun_frame) in worst_joint.items():
+        checks.append(
+            {
+                "name": f"{label} stays engaged over the whole stroke",
+                "passed": gap <= MECHANISM_GAP and overrun <= 0.0,
+                "actual": {
+                    "worstGapMm": _round(gap * 1000.0, 3),
+                    "worstGapFrame": gap_frame,
+                    "worstOverrunMm": _round(overrun * 1000.0, 3),
+                    "worstOverrunFrame": overrun_frame,
+                },
+                "expected": {"worstGapMm": 0.0, "worstOverrunMm": "<= 0"},
+            }
+        )
+    return checks
+
+
 def _head_coupling(scene: bpy.types.Scene, frames: Sequence[int]) -> list[dict[str, object]]:
     """Invariant E.  One mover, interchangeable heads, nothing floating.
 
@@ -919,6 +1067,7 @@ def spatial_checks(*, step: int = 2, frame_end: int | None = None) -> list[dict[
     checks, ridden = _carry_rigidity(scene, every_frame)
     checks.extend(_grip_contact(scene, every_frame, ridden))
     checks.extend(_jaw_mechanism(scene, every_frame))
+    checks.extend(_mover_mechanism(scene, every_frame))
     checks.extend(_head_coupling(scene, every_frame))
     checks.extend(_interpenetration(scene, sampled))
     scene.frame_set(original)

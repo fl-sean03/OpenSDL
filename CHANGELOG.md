@@ -13,8 +13,8 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 - SDK methods for twin definitions, verified scene bytes, and projected runs, plus caller-supplied
   stable run identifiers;
 - one complete, real-scale Flex-class surrogate-cell reference with original procedural geometry,
-  published equipment dimensions, Blender source, GLB output, provenance, 70 scene checks, and a
-  committed 40-second, 960-frame H.264 animation of the authored sequence;
+  published equipment dimensions, Blender source, GLB output, provenance, 108 scene checks, and a
+  committed 49-second, 1176-frame H.264 animation of the authored sequence;
 - a read-only Three.js viewer with local demonstration data, stored-run replay, timeline controls,
   semantic highlights, transfers, authored-motion synchronization, browser-side scene-digest
   checks, required-binding failures, and projected sample properties; and
@@ -24,6 +24,11 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   requirement that actually drives a design, judge whether a pattern borrowed from another field
   transfers to a given material system, separate reversible decisions from irreversible ones, and
   keep safety functions outside the orchestration layer;
+- a twin-scene authoring guide covering the node vocabulary as a published interface, procedural and
+  byte-reproducible builds, the three tiers of checking, and the four ways a passing check misleads —
+  the unconstructed pair, the invariant written for one chain, the check that has never failed, and
+  the failure reported only on stderr — together with deriving carried motion from its carrier so a
+  class of defect cannot be expressed at all;
 - generated JSON Schemas for the twin definition and cue contracts, produced by a single composed
   generator that both `scripts/generate-schemas.py` and `opensdl schema generate` consume; and
 - an enforced Ruff formatting gate in `make lint` and CI.
@@ -60,24 +65,44 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   are named for their role rather than borrowed from a vendor deck grid, and the build emits a named
   camera rig with per-pose hide lists, so stills frame the work deliberately instead of auto-framing;
 - the animation held one fixed wide pose for all 960 frames, so no component was ever seen closely
-  and nothing read as active. It is now a six-shot edit averaging 6.7 seconds, cut to the standards
-  the form actually uses: shots sit inside the 5–8 second band architectural visualisation works to,
-  and every cut changes the camera angle about the subject by more than the 30 degrees that separates
-  a cut from a jump cut, as well as changing framing by at least two size steps. Those figures are
-  computed by the build and printed, and `validate_camera_shots` refuses to build a list that misses
-  the band, the angle or the framing change, so pacing cannot regress quietly. The camera aims
-  through a constraint on an animated target rather than keyframed Euler rotation, which cannot flip
-  on an arcing move. Cameras are excluded from the export, so the edit does not touch the scene
-  digest; and
+  and nothing read as active. It is now a three-shot edit with two cuts, and the standards that
+  place those cuts are measured by the build rather than judged by eye. A cut may land only where an
+  action completes, which is derived from the beat table rather than written down, so re-timing the
+  workflow moves the cuts with it. That proved necessary and not sufficient: a beat boundary marks
+  the end of a labelled step, not the moment the machine stopped, and the earlier cut on a completion
+  still had the mover 3 mm into its lift-away on the next frame. Cuts are now additionally required
+  to land where the mover, bridge, heads and carrier are all measurably still, for longer before the
+  cut than after it, because cutting away from a moving machine reads as the edit interrupting the
+  work while opening on motion reads as the cut having caused it. Every cut still changes the camera
+  angle about the subject by more than the 30 degrees that separates a cut from a jump cut and
+  changes framing by at least two size steps. A legal cut frame is permission rather than obligation,
+  so a take that declines one holds, and a take that runs past the eight-second ceiling passes only
+  by declaring itself sustained — after which it is held to more, not less: a hard 24-second ceiling
+  and a camera-development rate measured over every rolling two-second window, so a long take cannot
+  buy its length and then sit still inside it. The camera aims through a constraint on an animated
+  target rather than keyframed Euler rotation, which cannot flip on an arcing move. Cameras are
+  excluded from the export, so the edit does not touch the scene digest; and
 - EEVEE was silently dropping shadow maps. Twenty area lights over a 2300-node scene overflow the
   default shadow pool on the close shots, and the only symptom is a line on stderr, so a render can
   look finished and be wrong. Raising the pool took a full pass from 5568 overflow reports to none;
 - the reference cell drove two independent carriages along one rail, which is a collision hazard and
   forced every spatial check to keep testing the two against each other. There is now a single mover
   carrying interchangeable heads: a gripper and a pipetting head that couple to it and rest in docks
-  when idle, with two head changes in the sequence. A coupled head's pose is written from the mover's,
+  when idle, with three head changes in the sequence. A coupled head's pose is written from the mover's,
   so a head cannot move under its own power, and a new invariant asserts that at every frame each head
   is either coupled or docked — never both, never neither — with no two heads coupled at once;
+- the mover had no vertical axis. Its carriage was a fixed-height body whose top sat 45.5 mm inside
+  the bridge beam and passed through the rail at travel height, and at the bottom of its stroke the
+  nearest bridge body was 66.5 mm above it with no geometry in between, so the same missing part read
+  as clipping at one end of the travel and floating at the other. The interpenetration check had not
+  been suppressed for that pair by an allowlist or a tolerance: it forms its pairs from movers against
+  fixed bodies, the bridge assembly belonged to neither set, and the pair was therefore never
+  constructed. The gantry is now a separate assembly from the mover so the question can be asked at
+  all, the carriage ceiling is derived from the beam rather than hardcoded, and a truck of two bearing
+  blocks with end wipers rides the rail and carries a vertical way, a slide and the drag umbilical.
+  A mover-mechanism invariant now walks the carriage-to-track chain at every frame with no gap
+  permitted, holds both sliding joints inside the member they ride, and declares the one running fit
+  as a documented contact; and
 - the scene used four different words for the reader station: the anchor called it `characterize`, the
   node called it `Colorimeter`, the entity called it `plate-reader`, and the capability driving it is
   `cell-characterize`. Hardware vocabulary is now defined once and applied throughout — cell, mover,
@@ -99,6 +124,17 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   was shaking. Carried motion is now derived from the carrier pose rather than authored alongside
   it, and `scene/check_scene.py` verifies carry rigidity, grip contact, and mesh interpenetration
   before the export;
+- the viewer's demonstration data sat outside every consistency check. The asset tests closed a ring
+  around the GLB, the node inventory, the motion report and `twin.yaml`, but nothing compared the
+  scene digest and frame ranges the viewer ships against the ones the twin declares, so a scene
+  change that updated the definition and not the viewer produced a viewer that refuses its own scene
+  in the browser and says so nowhere else. A test now compares both, and it is written so a parse
+  that finds nothing fails rather than agreeing with everything;
+- the digital-twin architecture described what projection does without stating what it cannot do. A
+  cue carries a task and its capability, so only the `Task*` event types can carry a projection rule
+  and the twin shows the execute half of a closed loop rather than the decide half. That is a
+  property of the cue contract, and the documentation now says so instead of leaving a reader to
+  infer that a campaign could be visualised;
 - `opensdl schema generate` emitted only the pre-twin schema set while the repository script emitted
   the full set;
 - the reference viewer presented stylized playback pacing and a synthetic demonstration timestamp

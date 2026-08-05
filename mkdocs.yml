@@ -26,6 +26,7 @@ nav:
       - Package boundaries: architecture/packages.md
   - Guides:
       - Design a laboratory: guides/design-a-lab.md
+      - Build a twin scene: guides/build-a-twin-scene.md
       - Add an adapter: guides/add-adapter.md
       - Closed-loop campaign: guides/closed-loop-campaign.md
   - Development:

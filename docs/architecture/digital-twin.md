@@ -141,6 +141,23 @@ This alpha does not retain historical twin definitions or scene bytes. A stored 
 only while its exact definition and scene binding remains current. Content-addressed definition and
 scene snapshots are required for replay across later twin revisions.
 
+### What a projection cannot show
+
+Projection is task-shaped. A cue carries a task and the capability that ran it, so a projection rule
+can only match an event type that has a task identifier. Those are the `Task*` events. The
+`Campaign*` and `Run*` types have none, and `project_events` raises rather than emitting a task-less
+cue if a rule is written against one. The reference twin's rules all match `Task*` types for that
+reason.
+
+The consequence is worth stating plainly, because the name invites the opposite assumption. **The
+twin shows the execute half of a closed loop and not the decide half.** A campaign converging, an
+optimizer proposing the next point, an objective improving, and a run's own lifecycle are outside
+what a scene can display today. A user who expects to watch the laboratory think will see only the
+laboratory act.
+
+This is a property of the cue contract rather than a missing feature, so widening it is a contract
+change and not a scene change.
+
 The CLI exposes the current path:
 
 ```bash

@@ -35,7 +35,7 @@ The adapter-neutral workflow uses four semantic capabilities:
 6. `cell.characterize` returns a deterministic normalized response.
 7. `cell.transfer_labware` moves the plate to `output`.
 
-The 40-second scene animation expands those tasks into visible equipment actions. There is one
+The 49-second scene animation expands those tasks into visible equipment actions. There is one
 mover on the bridge and two interchangeable heads. The input hotel's shuttle presents a plate at the
 front of its station and the mover, wearing the gripper head, carries it to the dispensing stage. It
 then parks the gripper head in `HeadDock_Gripper`, couples the pipetting head out of
@@ -209,7 +209,7 @@ GLB, and projected cue sequence from the API. The API recalculates the GLB diges
 request. The browser checks the downloaded bytes again before parsing them. Missing declared scene
 nodes stop loading.
 
-Playback scrubs the authored 960-frame GLB timeline through the frame ranges declared in
+Playback scrubs the authored 1176-frame GLB timeline through the frame ranges declared in
 `animationTimeline`. The viewer can orbit, zoom, play, pause, reset, and scrub. It cannot send
 equipment commands or change runtime state.
 

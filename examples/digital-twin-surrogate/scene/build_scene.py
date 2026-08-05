@@ -26,7 +26,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import bpy
 from mathutils import Vector
@@ -48,7 +48,7 @@ VALIDATION_PATH = ASSET_DIR / "motion-validation.json"
 CAMERA_RIG_PATH = ASSET_DIR / "camera-poses.json"
 
 FPS = 24
-FRAME_END = 960
+FRAME_END = 1176
 # The transport plane.  Every seating height in this machine is set by the
 # gantry's reach envelope, not by a person's elbows: DECK_Z is where the mover
 # can put a plate down, and everything else composes against it.  BENCH_Z is the
@@ -283,9 +283,29 @@ COUPLER_PIN_BOTTOM_Z = HEAD_TOP_Z - 0.004
 MOVER_BOTTOM_Z = HEAD_COLLAR_TOP_Z + COUPLER_GAP
 COUPLER_PLATE_Z = MOVER_BOTTOM_Z + COUPLER_PLATE_HEIGHT / 2.0
 MOVER_CARRIAGE_BOTTOM_Z = MOVER_BOTTOM_Z + COUPLER_PLATE_HEIGHT
-MOVER_CARRIAGE_TOP_Z = 1.5625
+# The X carriage and the Z axis, which are two different things and were one.
+#
+# The mover's body is the Z slide: it travels 117 mm, and its top was authored
+# at a fixed 1.5625, which is 45 mm inside the bridge beam.  At travel height it
+# passed straight through the beam, the cover and the rail; at the bottom of its
+# stroke it hung 67 mm below the nearest bridge body with nothing between them.
+# One number produced both reported defects - clipping at the top of the stroke,
+# floating at the bottom - because there was no geometry at the joint at all.
+#
+# A gantry does not work like that.  A truck rides the bridge rail on bearing
+# blocks and never changes height; a vertical way hangs off that truck; and the
+# body slides on the way.  So the body's ceiling is now derived from the beam it
+# has to pass under rather than authored, and the truck, the way and the slide
+# are built below.
+MOVER_BEAM_BOTTOM_Z = MOVER_BRIDGE_Z - 0.048
+# The running clearance at every sliding joint in this axis.  Small enough to
+# read as a fit, large enough that no pair of bodies touches.
+MOVER_RUNNING_GAP = 0.006
+MOVER_CARRIAGE_TOP_Z = MOVER_BEAM_BOTTOM_Z - MOVER_RUNNING_GAP
 MOVER_CARRIAGE_HEIGHT = MOVER_CARRIAGE_TOP_Z - MOVER_CARRIAGE_BOTTOM_Z
 MOVER_CARRIAGE_LOCAL_Z = MOVER_CARRIAGE_BOTTOM_Z + MOVER_CARRIAGE_HEIGHT / 2.0
+# The truck, the way and the slide are dimensioned further down, once the
+# deepest reach of the axis is known.
 
 # The head docks.  An idle head hangs by its collar on a two-armed cradle that
 # reaches in from posts standing clear of the head's widest body.  The mover
@@ -308,12 +328,54 @@ HEAD_DOCK_Y = ROW_BACK
 # the coupler never travels over the other head's dock, because each dock lies
 # on the far side of the machine from the work the other head does.
 HEAD_DOCK_X = {"Pipette": -0.30, "Gripper": 0.30}
+# Where the carriage comes to rest once the cycle is over.  Derived rather than
+# chosen: the midpoint of the two head docks, on the changer row.  Nothing is
+# seated there, both docks are equidistant from it, and it is clear of every
+# station's working slot, which is what a home position is for.
+MOVER_HOME_X = (HEAD_DOCK_X["Pipette"] + HEAD_DOCK_X["Gripper"]) / 2.0
 
 # The gripper head.  PLATE_GRIP_LOCAL_Z is the height of the grip line in the
 # mover's own space: a payload held by the jaws sits at
 # (mover x, bridge y, mover z + PLATE_GRIP_LOCAL_Z).  Every carried
 # keyframe is derived from that relation instead of being authored twice.
 PLATE_GRIP_LOCAL_Z = 1.267
+# The deepest the axis reaches: seating a plate on the bare deck, which is the
+# lowest grip line in the workflow.  Every other authored z is shallower, so
+# this is the stroke the vertical way has to hold the slide over.
+MOVER_STROKE = PLATE_GRIP_LOCAL_Z - DIRECT_DECK_PLATE_Z
+# The rail the truck rides: MoverBridgeTrack, 20 mm deep and 24 mm tall, its
+# front face 60 mm in front of the beam centreline.  Every truck number below is
+# derived from these, so the joint cannot go stale if the bridge is re-sized.
+MOVER_TRACK_Z = MOVER_BRIDGE_Z - 0.030
+MOVER_TRACK_FRONT_Y = -0.060
+# Bearing blocks wrap the rail: they reach 8 mm past its front face, which is
+# what "engaged" means to the carriage-on-rail invariant, and they clear the
+# cover and the beam behind it entirely.
+MOVER_BLOCK_DEPTH = 0.046
+MOVER_BLOCK_Y = MOVER_TRACK_FRONT_Y - MOVER_BLOCK_DEPTH / 2.0 + 0.008
+MOVER_BLOCK_HEIGHT = 0.052
+MOVER_BLOCK_PITCH = 0.052
+MOVER_BLOCK_WIDTH = 0.058
+MOVER_TRUCK_PLATE_Y = MOVER_BLOCK_Y - MOVER_BLOCK_DEPTH / 2.0 - 0.004
+MOVER_TRUCK_TOP_Z = MOVER_TRACK_Z + MOVER_BLOCK_HEIGHT / 2.0 + 0.002
+# The vertical way and the slide that runs on it.  The way is long enough to
+# carry the slide over the whole stroke without the slide overrunning either
+# end, which the invariant measures rather than assumes.
+MOVER_SLIDE_TOP_Z = MOVER_CARRIAGE_TOP_Z - 0.010
+MOVER_SLIDE_HEIGHT = 0.062
+MOVER_SLIDE_DEPTH = 0.040
+MOVER_SLIDE_WIDTH = 0.052
+MOVER_COLUMN_DEPTH = 0.028
+MOVER_COLUMN_WIDTH = 0.036
+MOVER_COLUMN_Y = MOVER_BLOCK_Y - 0.009
+MOVER_COLUMN_TOP_Z = MOVER_TRACK_Z - MOVER_BLOCK_HEIGHT / 2.0 + 0.038
+MOVER_COLUMN_BOTTOM_Z = MOVER_SLIDE_TOP_Z - MOVER_SLIDE_HEIGHT - MOVER_STROKE - 0.005
+# The bracket that carries the body off the slide.  It stops one running gap
+# short of the way, so the only thing touching the way is the slide.
+MOVER_BRACKET_HEIGHT = 0.048
+MOVER_BRACKET_WIDTH = 0.070
+MOVER_BRACKET_BACK_Y = -0.047
+MOVER_BRACKET_FRONT_Y = MOVER_COLUMN_Y + MOVER_COLUMN_DEPTH / 2.0 + 0.001
 # The gripper is a mechanism, not two bars.  Reading down from the collar:
 # a socket block, the actuator housing that drives the jaws, a cross-rail
 # spanning the whole jaw travel, a finger carrier per side that rides that
@@ -364,7 +426,18 @@ DOOR_GRIP_LOCAL_Z = PLATE_GRIP_LOCAL_Z - DOOR_GRIP_Z
 # The two head changes are the two long gaps.  A change is a real beat - travel
 # to the dock, seat, unlock, rise away, cross to the other dock, lower, lock,
 # rise - and it needs about sixty frames to read as a mechanism rather than as a
-# cut.  Everything else was compressed to pay for them inside the same 960.
+# cut.
+#
+# ``dispense_hold`` is the one beat here that exists so that nothing happens.
+# The edit cuts on ``dispense_end``, and a machine that starts moving four
+# tenths of a second into a new shot reads as though the cut caused the move.
+# Two seconds of a genuinely stationary machine after the cut lets the picture
+# change land on its own.  Those 48 frames were added to the timeline rather
+# than taken out of the dispensing: compressing real work to buy a pause makes
+# the machine visibly faster at the thing the film is about.  The same reasoning
+# added ``mix_place_settle`` before the second cut, and the park, travel home and
+# ``rest_hold`` that end the film rather than stopping it.  The cycle is
+# therefore 1176 frames, 49.0 s at 24 fps, not 960.
 _BEATS: tuple[tuple[str, int], ...] = (
     ("start", 1),
     # Phase 1: stage the reader door, then transfer the input plate to dispense.
@@ -427,7 +500,15 @@ _BEATS: tuple[tuple[str, int], ...] = (
     ("waste_b_down", 6),
     ("waste_b_drop", 3),
     ("waste_b_up", 5),
-    ("dispense_end", 4),
+    # The nozzles are already back at travel height at waste_b_up, so this gap
+    # is pure stillness before the cut.  It was four frames, which measured as
+    # four frames of a stopped machine going into a cut - not enough for the cut
+    # to land in a pocket of stillness on both sides.  Twelve is.
+    ("dispense_end", 12),
+    # The held beat: two seconds in which the mover, both heads and the plate
+    # are all stationary, so the cut on dispense_end is not immediately papered
+    # over by motion.
+    ("dispense_hold", 48),
     # Head change B: pipetting head to its dock, gripper head onto the mover.
     ("swap_b_over_pipette", 10),
     ("swap_b_seat", 7),
@@ -447,6 +528,11 @@ _BEATS: tuple[tuple[str, int], ...] = (
     ("mix_place_down", 6),
     ("mix_place_release", 5),
     ("mix_place_clear", 6),
+    # The mover is still rising away on the frame mix_place_clear completes on,
+    # measured at 3 mm of travel per frame, so a cut there lands mid-motion.
+    # This is the second of the film's two held beats: a second of a genuinely
+    # stopped machine, and the frame it completes on is where the cut goes.
+    ("mix_place_settle", 24),
     # Phase 4: orbital mixing.
     ("mix_clamp_closed", 6),
     ("mix_orbit_end", 36),
@@ -490,6 +576,25 @@ _BEATS: tuple[tuple[str, int], ...] = (
     ("out_place_clear", 6),
     ("out_stored", 12),
     ("cycle_end", 4),
+    # Phase 8: return to rest.  The workflow is over at cycle_end; what follows
+    # is the machine putting itself away, which is authored motion with no
+    # projected cue behind it.  The park mirrors the two head changes beat for
+    # beat because it is the same mechanism doing the same thing, and a cycle
+    # that ended with the gripper still coupled and the carriage stopped
+    # wherever the last transfer left it was not a rest state a machine would
+    # actually sit in.
+    ("park_cross", 16),
+    ("park_row_back", 8),
+    ("park_seat", 10),
+    ("park_unlock", 6),
+    ("park_lift", 10),
+    ("park_clear", 10),
+    ("home_cross", 20),
+    ("home_settle", 8),
+    # The last held beat: two seconds of a machine at rest, at rest, with the
+    # camera at rest on it.  The film stops here rather than at the last frame
+    # of the last move.
+    ("rest_hold", 48),
 )
 
 
@@ -3692,6 +3797,16 @@ def build_transport(
 
     bridge = empty("MoverBridge", target=target, location=(0.0, ROW_FRONT, 0.0), parent=cell_root)
     bridge["movable"] = True
+    # Everything rigid on the bridge hangs off MoverGantry rather than off the
+    # bridge empty itself, and the two things that are not rigid on it - the
+    # mover and its drag chain - do not.  The split exists so that a check can
+    # ask "does the mover enter the structure it rides?" at all: an assembly is
+    # a root plus its whole subtree, so with the beam and the mover under one
+    # root the two were the same assembly and the question could not be posed.
+    # That is the reason the mover spent this project passing through its rail
+    # with every spatial invariant green.
+    gantry = empty("MoverGantry", target=target, location=(0.0, 0.0, 0.0), parent=bridge)
+    gantry["movable"] = True
     beam_length = 2 * MOVER_HALF_SPAN + 0.10
     rounded_box(
         "MoverBridgeBeam",
@@ -3699,7 +3814,7 @@ def build_transport(
         (0.0, 0.0, MOVER_BRIDGE_Z),
         "AnodizedAluminum",
         target=target,
-        parent=bridge,
+        parent=gantry,
         bevel=0.010,
     )
     rounded_box(
@@ -3708,7 +3823,7 @@ def build_transport(
         (0.0, -0.041, MOVER_BRIDGE_Z),
         "PowderCoatGraphite",
         target=target,
-        parent=bridge,
+        parent=gantry,
         bevel=0.007,
     )
     rounded_box(
@@ -3717,7 +3832,7 @@ def build_transport(
         (0.0, -0.050, MOVER_BRIDGE_Z - 0.030),
         "BrushedStainless",
         target=target,
-        parent=bridge,
+        parent=gantry,
         bevel=0.003,
     )
     for x in (-MOVER_HALF_SPAN, MOVER_HALF_SPAN):
@@ -3727,14 +3842,14 @@ def build_transport(
             (x, 0.0, MOVER_BRIDGE_Z + 0.010),
             "PowderCoatBlack",
             target=target,
-            parent=bridge,
+            parent=gantry,
             bevel=0.010,
         )
         screw(
             f"MoverBridgeScrew_{x:+.3f}",
             (x, -0.059, MOVER_BRIDGE_Z + 0.010),
             target=target,
-            parent=bridge,
+            parent=gantry,
             axis="Y",
         )
 
@@ -3754,7 +3869,7 @@ def build_transport(
             (0.0, wall_y, trough_z + (0.0 if wall == "Floor" else 0.024)),
             "PowderCoatGraphite",
             target=target,
-            parent=bridge,
+            parent=gantry,
             bevel=0.002,
         )
     for anchor_x in (-MOVER_HALF_SPAN + 0.02, MOVER_HALF_SPAN - 0.02):
@@ -3764,7 +3879,7 @@ def build_transport(
             (anchor_x, 0.058, trough_z + 0.022),
             "PowderCoatGraphite",
             target=target,
-            parent=bridge,
+            parent=gantry,
             bevel=0.003,
         )
     tube_path(
@@ -3777,7 +3892,93 @@ def build_transport(
         0.0036,
         "CableBlue",
         target=target,
-        parent=bridge,
+        parent=gantry,
+    )
+
+    # The truck: what actually holds the mover up.  It rides the bridge rail on
+    # two bearing blocks, it travels in X with the mover and never in Z, and the
+    # vertical way the mover's body slides on hangs off its front plate.  It is
+    # a child of the bridge rather than of the mover for exactly that reason: a
+    # carriage that rose and fell with the tool would not be a carriage.
+    truck = empty(
+        "MoverTruck", target=target, location=(STATION_X["characterize"], 0.0, 0.0), parent=gantry
+    )
+    truck["movable"] = True
+    for index, block_x in enumerate((-MOVER_BLOCK_PITCH, MOVER_BLOCK_PITCH)):
+        rounded_box(
+            f"MoverBearingBlock_{index}",
+            (MOVER_BLOCK_WIDTH, MOVER_BLOCK_DEPTH, MOVER_BLOCK_HEIGHT),
+            (block_x, MOVER_BLOCK_Y, MOVER_TRACK_Z),
+            "PowderCoatBlack",
+            target=target,
+            parent=truck,
+            bevel=0.004,
+        )
+        # End wipers.  A recirculating-ball block is capped at both ends, and the
+        # caps are what make it read as a bearing rather than as a lug.
+        for side, cap_x in enumerate((-1.0, 1.0)):
+            rounded_box(
+                f"MoverBearingCap_{index}_{side}",
+                (0.008, MOVER_BLOCK_DEPTH - 0.006, MOVER_BLOCK_HEIGHT - 0.008),
+                (
+                    block_x + cap_x * (MOVER_BLOCK_WIDTH / 2.0 + 0.004),
+                    MOVER_BLOCK_Y,
+                    MOVER_TRACK_Z,
+                ),
+                "BrushedStainless",
+                target=target,
+                parent=truck,
+                bevel=0.002,
+            )
+    # The carriage plate the blocks bolt to.  Deliberately shorter than the
+    # blocks in both X and Z: a plate that covered them would read as a blank
+    # panel hanging off the rail, which is the failure this whole joint exists
+    # to fix.  It stops inside the end wipers, so the bearing shows.
+    rounded_box(
+        "MoverTruckPlate",
+        (
+            2 * MOVER_BLOCK_PITCH + MOVER_BLOCK_WIDTH + 0.010,
+            0.012,
+            MOVER_BLOCK_HEIGHT - 0.020,
+        ),
+        (0.0, MOVER_TRUCK_PLATE_Y, MOVER_TRACK_Z),
+        "AnodizedAluminum",
+        target=target,
+        parent=truck,
+        bevel=0.003,
+    )
+    for screw_x in (-MOVER_BLOCK_PITCH, MOVER_BLOCK_PITCH):
+        screw(
+            f"MoverTruckScrew_{screw_x:+.3f}",
+            (screw_x, MOVER_TRUCK_PLATE_Y - 0.006, MOVER_TRACK_Z + 0.010),
+            target=target,
+            parent=truck,
+            axis="Y",
+            radius=0.004,
+        )
+    # The vertical way.  Fixed to the truck, so it does not move in Z; the
+    # mover's slide runs on it over the whole stroke.
+    rounded_box(
+        "MoverColumn",
+        (
+            MOVER_COLUMN_WIDTH,
+            MOVER_COLUMN_DEPTH,
+            MOVER_COLUMN_TOP_Z - MOVER_COLUMN_BOTTOM_Z,
+        ),
+        (0.0, MOVER_COLUMN_Y, (MOVER_COLUMN_TOP_Z + MOVER_COLUMN_BOTTOM_Z) / 2.0),
+        "BrushedStainless",
+        target=target,
+        parent=truck,
+        bevel=0.003,
+    )
+    rounded_box(
+        "MoverColumnFoot",
+        (MOVER_COLUMN_WIDTH + 0.012, MOVER_COLUMN_DEPTH, 0.012),
+        (0.0, MOVER_COLUMN_Y, MOVER_COLUMN_BOTTOM_Z - 0.006),
+        "PowderCoatBlack",
+        target=target,
+        parent=truck,
+        bevel=0.002,
     )
 
     # The mover: one carriage on the bridge, ending in the changer master plate.
@@ -3820,11 +4021,56 @@ def build_transport(
     rounded_box(
         "MoverBadge",
         (0.040, 0.004, 0.011),
-        (0.0, -0.062, MOVER_CARRIAGE_TOP_Z - 0.062),
+        (0.0, -0.062, MOVER_CARRIAGE_TOP_Z - 0.0725),
         "AnodizedAluminum",
         target=target,
         parent=mover,
         bevel=0.002,
+    )
+    # The Z slide and the bracket that hangs the body off it.  These two are the
+    # only things that connect the mover to the machine, so they are built from
+    # the way's own numbers: the slide wraps MoverColumn on all three axes at
+    # every height in the stroke, and the bracket reaches from the slide into
+    # the carriage.  ``check_scene`` walks exactly this chain.
+    rounded_box(
+        "MoverColumnSlide",
+        (MOVER_SLIDE_WIDTH, MOVER_SLIDE_DEPTH, MOVER_SLIDE_HEIGHT),
+        (0.0, MOVER_COLUMN_Y, MOVER_SLIDE_TOP_Z - MOVER_SLIDE_HEIGHT / 2.0),
+        "PowderCoatBlack",
+        target=target,
+        parent=mover,
+        bevel=0.004,
+    )
+    for side, cap_z in enumerate((-1.0, 1.0)):
+        rounded_box(
+            f"MoverSlideWiper_{side}",
+            (MOVER_SLIDE_WIDTH - 0.008, MOVER_SLIDE_DEPTH - 0.004, 0.006),
+            (
+                0.0,
+                MOVER_COLUMN_Y,
+                MOVER_SLIDE_TOP_Z - MOVER_SLIDE_HEIGHT / 2.0 + cap_z * (MOVER_SLIDE_HEIGHT / 2.0),
+            ),
+            "BrushedStainless",
+            target=target,
+            parent=mover,
+            bevel=0.001,
+        )
+    rounded_box(
+        "MoverSlideBracket",
+        (
+            MOVER_BRACKET_WIDTH,
+            MOVER_BRACKET_BACK_Y - MOVER_BRACKET_FRONT_Y,
+            MOVER_BRACKET_HEIGHT,
+        ),
+        (
+            0.0,
+            (MOVER_BRACKET_BACK_Y + MOVER_BRACKET_FRONT_Y) / 2.0,
+            MOVER_SLIDE_TOP_Z - MOVER_SLIDE_HEIGHT / 2.0,
+        ),
+        "AnodizedAluminum",
+        target=target,
+        parent=mover,
+        bevel=0.004,
     )
 
     # The changer.  MoverCoupler is the master half: a plate under the carriage,
@@ -4125,7 +4371,7 @@ def build_transport(
         "MoverChain",
         target=target,
         location=(STATION_X["characterize"], 0.0, 0.0),
-        parent=bridge,
+        parent=gantry,
     )
     drag["movable"] = True
     trough_z = MOVER_BRIDGE_Z + 0.062
@@ -4179,7 +4425,10 @@ def build_transport(
         (
             (-0.010, 0.050, trough_z + 0.138),
             (0.006, 0.010, trough_z + 0.106),
-            (0.006, -0.020, MOVER_CARRIAGE_TOP_Z + 0.004),
+            # The umbilical lands on the truck, not on the body: the truck is the
+            # part that keeps a constant height, so this is the only terminus
+            # that stays plugged in over the whole stroke.
+            (0.006, MOVER_TRUCK_PLATE_Y + 0.010, MOVER_TRUCK_TOP_Z + 0.004),
         ),
         0.0072,
         "CableBlack",
@@ -4189,7 +4438,7 @@ def build_transport(
 
     for label in ("Gripper", "Pipette"):
         build_head_dock(label, cell_root)
-    return bridge, mover, gripper_head, pipette_head, tip_group, jaw_left, jaw_right, drag
+    return bridge, mover, truck, gripper_head, pipette_head, tip_group, jaw_left, jaw_right, drag
 
 
 def build_plate(
@@ -5091,6 +5340,7 @@ def set_interpolation(obj: bpy.types.Object, interpolation: str = "BEZIER") -> N
 def animate_scene(
     bridge: bpy.types.Object,
     mover: bpy.types.Object,
+    truck: bpy.types.Object,
     gripper_head: bpy.types.Object,
     pipette_head: bpy.types.Object,
     attached_tips: bpy.types.Object,
@@ -5163,6 +5413,10 @@ def animate_scene(
         """
         key_location(bridge, frame, (0.0, y, 0.0))
         key_location(mover, frame, (x, 0.0, z))
+        # The truck and the drag chain follow the mover in X and never in Z.
+        # That is the whole difference between the carriage and the tool: one
+        # rides the bridge rail at a fixed height, the other hangs off it.
+        key_location(truck, frame, (x, 0.0, 0.0))
         key_location(drag, frame, (x, 0.0, 0.0))
         if head is not None:
             key_location(head, frame, (x, y, z))
@@ -5429,6 +5683,14 @@ def animate_scene(
         key_pipette(BEAT[f"waste_{letter}_drop"], waste_x, waste_y, WASTE_ENTRY_Z)
         key_pipette(BEAT[f"waste_{letter}_up"], waste_x, waste_y)
     key_pipette(BEAT["dispense_end"], slots["tip-waste"][0], slots["tip-waste"][1])
+    # The held beat is authored, not implied.  Without a second key on the same
+    # pose the mover's curve would interpolate straight from dispense_end into
+    # the head change and start creeping the moment the shot changed, which is
+    # the exact thing the beat exists to prevent.  Everything else on the
+    # machine already holds across it: the jaws, the coupler pins, the docked
+    # gripper head, the plate and both shuttles have equal-valued keys either
+    # side, so their curves are flat here by construction.
+    key_pipette(BEAT["dispense_hold"], slots["tip-waste"][0], slots["tip-waste"][1])
 
     # ---- Head change B: pipetting head out, gripper in ----------------------
     key_mover(BEAT["swap_b_over_pipette"], pipette_dock_x, HEAD_DOCK_Y, head=pipette_head)
@@ -5508,6 +5770,11 @@ def animate_scene(
         head=gripper_head,
     )
     key_mover(BEAT["mix_place_clear"], positions["mix"][0], positions["mix"][1], head=gripper_head)
+    # The held beat before the second cut.  The mover already has an equal-valued
+    # key at mix_orbit_end so its own curve is flat here, but the mixer latches
+    # would otherwise start closing the moment the plate was released; this
+    # holds them open so the whole machine is stopped, not just the carriage.
+    key_latches(BEAT["mix_place_settle"], opened=True)
 
     # ---- Phase 4: mix -------------------------------------------------------
     # The plate is now the shaker platform's payload: it is keyed from the
@@ -5692,7 +5959,33 @@ def animate_scene(
         output_shuttle, output_slot, BEAT["out_place_clear"], hotel_extended_x, carrying=True
     )
     key_shuttle(output_shuttle, output_slot, BEAT["out_stored"], hotel_stored_x, carrying=True)
-    key_mover(FRAME_END, MOVER_PARK_X, ROW_FRONT, head=gripper_head)
+
+    # ---- Phase 8: park the head, go home, stop -----------------------------
+    # The mover holds at the output station while the shuttle takes the plate
+    # in, then carries the gripper head back to its dock and leaves it there.
+    # The seat, unlock and lift are the same five beats as head change A, keyed
+    # the same way, because it is the same mechanism: a head is released by the
+    # mover rising, not by the pins.
+    key_mover(BEAT["cycle_end"], positions["output"][0], positions["output"][1], head=gripper_head)
+    key_mover(BEAT["park_cross"], gripper_dock_x, ROW_FRONT, head=gripper_head)
+    key_mover(BEAT["park_row_back"], gripper_dock_x, HEAD_DOCK_Y, head=gripper_head)
+    key_mover(BEAT["park_seat"], gripper_dock_x, HEAD_DOCK_Y, HEAD_DOCK_Z, head=gripper_head)
+    key_coupler(BEAT["park_seat"], locked=True)
+    key_coupler(BEAT["park_unlock"], locked=False)
+    key_head_docked(gripper_head, BEAT["park_unlock"])
+    key_mover(BEAT["park_lift"], gripper_dock_x, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["park_lift"])
+    key_mover(BEAT["park_clear"], gripper_dock_x, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["park_clear"])
+    key_mover(BEAT["home_cross"], MOVER_HOME_X, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["home_cross"])
+    key_mover(BEAT["home_settle"], MOVER_HOME_X, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["home_settle"])
+    # The rest hold is authored on both ends so the curve is flat across it
+    # rather than easing towards a key that is two seconds away.
+    key_mover(BEAT["rest_hold"], MOVER_HOME_X, HEAD_DOCK_Y)
+    key_head_docked(gripper_head, BEAT["rest_hold"])
+    key_jaws(BEAT["rest_hold"], jaw_open)
     key_latches(FRAME_END, opened=True)
 
     for obj, action_name in (
@@ -5729,7 +6022,7 @@ def look_at(obj: bpy.types.Object, point: Sequence[float]) -> None:
 # Named camera poses in millimetres, in the scene frame.  A composed room is
 # never auto-framed: every pose states its eye, its look point, its lens, the
 # frame it reads at, and the object-name prefixes it hides, so any consumer of
-# this scene frames it the same way.  These are stills.  The 960-frame render is
+# this scene frames it the same way.  These are stills.  The 1176-frame render is
 # shot by ``CAMERA_SHOTS`` further down, and ``still`` is the pose the published
 # preview is framed from, held apart from the edit so the two cannot fight over
 # the camera.
@@ -5927,9 +6220,11 @@ def apply_camera_pose(camera: bpy.types.Object, pose: dict[str, object]) -> None
 # ---------------------------------------------------------------------------
 # The edit.
 #
-# The still poses above frame the machine.  This is the film: the 40-second
-# cycle cut into six moving takes.  Three standards decide where a cut may
-# fall, and all three are measured rather than judged by eye.
+# The still poses above frame the machine.  This is the film: the 49-second
+# cycle cut into three moving takes.  Four standards decide where a cut may
+# fall, and all four are measured rather than judged by eye.  Three of them are
+# below; the fourth is stillness, which is measured off the built animation
+# rather than off the timeline and is documented at ``validate_cut_stillness``.
 #
 # Cut motivation, which is the standard that decides where the cuts go.  A cut
 # may land only where an action completes: a station changes, a tool changes, or
@@ -5942,15 +6237,30 @@ def apply_camera_pose(camera: bpy.types.Object, pose: dict[str, object]) -> None
 # derived from ``_BEATS`` rather than written down, so re-timing the workflow
 # moves the cuts with it instead of quietly invalidating them.
 #
+# A legal cut frame is permission, not an obligation.  That is the correction
+# this edit exists for.  The previous cut spent five of its twenty-eight legal
+# frames and two of those five bought nothing: at 150 the plate had just been
+# seated at the dispense stage and the machine went straight on working the same
+# end of the deck, and at 358 the same head refilled the same plate on the same
+# slot four frames later.  Cutting there announced a change that had not
+# happened.  The rule is now the stronger one: when the work continues in the
+# same place, the camera continues too, and a cut is earned only when something
+# genuinely changes.  Frames 1-560 are therefore one 23-second take.
+#
 # Shot length, which is a consequence of motivation rather than a driver of it.
 # Architectural-visualisation practice is five to eight seconds a shot, and an
 # earlier cut that ran thirteen shots in forty seconds read as jittery.  Five
-# seconds is a floor with no exceptions.  Eight seconds is a ceiling a shot may
-# pass only when no completion inside it could have carried a cut without
+# seconds is a floor with no exceptions.  Eight seconds is a ceiling with two
+# doors through it, and both are measured rather than asserted.  A take passes
+# it silently when no completion inside it could have carried a cut without
 # putting one of the two halves under the floor, which ``validate_camera_shots``
-# checks by trying every legal frame rather than by taking the claim on trust.
-# Two shots here are over, at 8.67 s and 8.08 s: the whole of the first
-# dispensing pass and the whole of the second, each of which finishes only once.
+# checks by trying every legal frame.  A take that declines legal cut frames
+# passes it only by declaring ``sustains``, and a declared long take is then
+# held to more, not less: a hard 24-second ceiling nothing may cross, and a
+# development rate measured over every two-second window inside it.  A long take
+# with a lazy camera is worse than the cuts it replaced, so an edit that lets a
+# take sprawl without going anywhere fails the build at the dead window and is
+# told which frames it is.
 #
 # Cut quality.  A cut between two shots of the same subject has to change the
 # camera angle by at least thirty degrees, or it reads as a jump cut, and it has
@@ -5962,6 +6272,16 @@ def apply_camera_pose(camera: bpy.types.Object, pose: dict[str, object]) -> None
 # and it is also what gets the camera close to the work without spending a cut.
 SHOT_MIN_SECONDS = 5.0
 SHOT_MAX_SECONDS = 8.0
+# The two doors through the ceiling.  ``SHOT_ABSOLUTE_MAX_SECONDS`` is the one
+# nothing opens: a declared long take that crosses it is an authoring accident,
+# not an edit.  The development numbers are what a declared long take has to
+# keep earning - over every rolling window of ``SHOT_DEVELOPMENT_WINDOW`` frames
+# the authored camera has to travel this far along its path, or change this much
+# lens, so a take cannot buy its length and then sit still inside it.
+SHOT_ABSOLUTE_MAX_SECONDS = 24.0
+SHOT_DEVELOPMENT_WINDOW = 48
+SHOT_DEVELOPMENT_MIN_TRAVEL_MM = 150.0
+SHOT_DEVELOPMENT_MIN_LENS_CHANGE_MM = 4.0
 CUT_MIN_ANGLE_DEGREES = 30.0
 CUT_MIN_SIZE_STEPS = 2
 CUT_MIN_LENS_CHANGE_MM = 20.0
@@ -5980,13 +6300,24 @@ BEAT_COMPLETION_WORDS = frozenset(
 )
 # A beat this long or longer is a sustained one: the machine is doing a single
 # thing for the best part of a second or more.  At the authored timing that is
-# exactly the two 96-frame dispenses, the 36-frame orbital mix and the 22-frame
-# plate read.  No cut may fall strictly inside one, and the camera has to be
-# moving across one, or four seconds of dispensing becomes four seconds of a
-# held frame.
+# the two 96-frame dispenses, the 48-frame hold, the 36-frame orbital mix and
+# the 22-frame plate read.  No cut may fall strictly inside one, and the camera
+# has to be moving across one, or four seconds of dispensing becomes four
+# seconds of a held frame.
 SUSTAINED_BEAT_FRAMES = 20
 SUSTAINED_MIN_EYE_TRAVEL_MM = 200.0
 SUSTAINED_MIN_LENS_CHANGE_MM = 10.0
+# Three sustained beats are sustained stillness rather than sustained work, and
+# the test on them is inverted rather than waived.  They exist so the audience
+# sees a machine that has stopped - before a cut, after a cut, and at the end -
+# and a camera that travels across one puts the motion back into the frame and
+# hides the thing the beat is for.  Across the two beats that sit against a cut
+# the camera may still drift, because a frozen frame is not the same claim as a
+# still machine; across ``rest_hold`` it does not move at all, because that one
+# is the ending.  Either way the minimums become maximums.
+STILL_BEATS = frozenset({"dispense_hold", "mix_place_settle", "rest_hold"})
+STILL_MAX_EYE_TRAVEL_MM = 220.0
+STILL_MAX_LENS_CHANGE_MM = 6.0
 # The camera stays in the front aisle.  The machine's front-most body is the
 # transfer-port guard handle at y = -829 mm and the frame feet reach y = -613 mm,
 # both measured from the built scene, so an eye behind this plane is authoring a
@@ -5997,6 +6328,24 @@ CAMERA_AISLE_Y = -880.0
 # take the camera through a frame member between two keys.  222 mm is the
 # clearance the previous edit reported and the standard this one has to match.
 CAMERA_MIN_CLEARANCE = 0.222
+# The stillness rule, which governs where a cut may land.  Measured off the
+# built animation rather than off beat names: every one of these bodies has to
+# sit within a millimetre of its cut-frame pose for the required run of frames
+# either side.  A millimetre is under a tenth of the smallest authored motion in
+# the timeline, so the test cannot be passed by easing into the cut.
+#
+# The two requirements are deliberately different sizes, because the two things
+# they protect against are different.  Cutting away from a machine that is still
+# moving reads as the edit interrupting the work, so the run before a cut is
+# half a second and is the hard one.  Opening a shot on motion already under way
+# reads as the cut having caused it, which a quarter of a second of stillness is
+# enough to break; the machine is then free to start its next operation, which
+# is what a cut should be handing over to.
+CUT_STILL_BEFORE = 12
+CUT_STILL_AFTER = 6
+CUT_STILL_SCAN = 72
+CUT_STILL_TOLERANCE = 0.001
+CUT_STILL_BODIES = ("Mover", "MoverBridge", "GripperHead", "PipetteHead", "SampleCarrier")
 CAMERA_SENSOR_WIDTH = 36.0
 CAMERA_TARGET_NAME = "CameraTarget"
 # Shot-size ladder, as the horizontal field width in millimetres at the look
@@ -6028,146 +6377,161 @@ CameraKey = tuple[int, tuple[float, float, float], tuple[float, float, float], f
 
 
 class Shot(TypedDict):
-    """One take.  ``keys[0]`` is at ``start`` and ``keys[-1]`` is at ``end``."""
+    """One take.  ``keys[0]`` is at ``start`` and ``keys[-1]`` is at ``end``.
+
+    ``sustains`` is set only on a take that runs past the eight-second ceiling
+    while legal cut frames sit inside it: it says what the take is holding for.
+    Declaring it does not exempt the take from anything - it moves the take onto
+    the harder set of checks in ``validate_camera_shots``.
+    """
 
     name: str
     start: int
     end: int
     note: str
     keys: tuple[CameraKey, ...]
+    sustains: NotRequired[str]
 
 
-# Six shots, in millimetres, tiling frames 1-960 exactly.  A shot's first and
+# Three shots, in millimetres, tiling frames 1-1176 exactly.  A shot's first and
 # last key sit on its first and last frame, which is what lets the validator
 # measure a cut from the authored data rather than from a rendered frame.
 #
-# Every one of the five cuts lands on the frame an operation completes on:
-# 150 ``transfer_in_end``, 358 ``fill_a_end``, 552 ``dispense_end``,
-# 672 ``mix_place_clear`` and 826 ``door_close_clear``.  Nothing is running when
-# the picture changes, which is why the shots come out the lengths they do
-# rather than the lengths a clock would have chosen.
+# Both cuts land on the frame an operation completes on, both land where the
+# carrier physically leaves one station for another, and both land inside a
+# beat authored so that the machine is stopped either side of them: 560
+# ``dispense_end``, with the plate about to leave the dispense stage, and 752
+# ``mix_place_settle``, with the plate down on the mixer.  Every other legal
+# frame was declined, because the machine went on working the same station
+# through it and a cut there would announce a change that had not happened.
 CAMERA_SHOTS: tuple[Shot, ...] = (
     {
-        "name": "establish-and-load",
+        "name": "establish-load-and-first-dispense",
         "start": 1,
-        "end": 150,
+        "end": 560,
         "note": (
-            "The establishing take.  Wide from the front right of the aisle, then a "
-            "slow dolly in and left across the machine, arriving on the input end as "
-            "the mover lifts the plate out of the hotel and carries it to the "
-            "dispense stage.  It ends on transfer_in_end, with the plate seated and "
-            "the mover clear of it."
+            "The opening take, twenty-three seconds in one continuous developing "
+            "move.  It opens wide from the front right of the aisle on the whole "
+            "machine, then goes straight to the station the gripper is working - no "
+            "detour - trucking left and in as the mover lifts the plate out of the "
+            "input hotel and lands it on the dispense stage.  With the plate seated "
+            "it pans slightly right, only far enough to take in both head docks, and "
+            "watches the gripper head seated, released and left hanging while the "
+            "mover crosses to the pipetting head and couples to it.  Then it comes "
+            "back left with the new head and stays with it: tips, reservoir, the "
+            "twelve columns of the first fill on an arc that closes from the left, "
+            "the tip drop at the waste chute, the second set of tips, and the twelve "
+            "columns of the second fill on an arc that closes back the other way.  It "
+            "ends on dispense_end, with the tips dropped, the head empty and the "
+            "carriage measurably stopped - the first frame at which the work actually "
+            "leaves the dispense station."
+        ),
+        "sustains": (
+            "One station's work, unbroken.  The plate is delivered to the dispense "
+            "stage, the tool that fills it is changed onto the mover, and the same "
+            "head then fills the same plate twice on the same slot.  Nothing moves "
+            "off the dispense end of the deck between frame 89 and frame 552, so "
+            "every legal cut frame inside this take - transfer_in_end at 150, "
+            "swap_a_ready at 208, fill_a_end at 358, the tip-change completions - "
+            "would have announced a change that had not happened."
         ),
         "keys": (
-            (1, (2950, -4200, 2260), (150, 60, 1300), 26),
-            (60, (1900, -3760, 2200), (-500, 55, 1290), 28),
-            (110, (700, -3350, 2130), (-1150, 30, 1250), 38),
-            (150, (-500, -3000, 2050), (-1250, 20, 1240), 52),
-        ),
-    },
-    {
-        "name": "head-change-and-first-fill",
-        "start": 151,
-        "end": 358,
-        "note": (
-            "Head change A and the whole of the first dispensing pass, in one take.  "
-            "It opens tight on the gripper dock as the mover flies into it, seats the "
-            "gripper head, rises away empty and crosses left; the camera tracks it to "
-            "the pipette dock, watches the coupling, then follows the pipetting head "
-            "on to the tip rack and the reservoir, and pushes in through the four "
-            "seconds of dispensing - twelve dips of the nozzles, one column at a time "
-            "- until the head fills the frame.  It ends on fill_a_end, the frame the "
-            "head lifts clear of the last column."
-        ),
-        "keys": (
-            (151, (900, -1500, 1600), (300, 45, 1265), 62),
-            (183, (700, -1400, 1580), (300, 45, 1275), 58),
-            (208, (60, -1300, 1560), (-300, 45, 1270), 58),
-            (256, (-620, -1300, 1580), (-980, 40, 1245), 52),
-            (300, (-860, -1340, 1540), (-800, -30, 1230), 60),
-            (358, (-1150, -1180, 1500), (-795, -55, 1205), 72),
-        ),
-    },
-    {
-        "name": "reverse-and-second-fill",
-        "start": 359,
-        "end": 552,
-        "note": (
-            "The reverse angle, looking down the length of the machine from the "
-            "output end, and the whole of the second dispensing pass.  It opens wide "
-            "enough that the pipetting head working and the gripper head waiting in "
-            "its dock are in the same frame, which is the one-mover-two-heads claim "
-            "in one image, travels the length of the aisle through the tip drop and "
-            "the second tip pickup, holds the second fill on a move that keeps "
-            "closing, then swings back to the waste chute as the tips are dropped.  "
-            "It ends on dispense_end, with the head empty."
-        ),
-        "keys": (
-            (359, (1400, -2600, 1980), (-500, 20, 1250), 34),
-            (405, (500, -2200, 1830), (-700, 25, 1240), 42),
-            (440, (-380, -1760, 1700), (-830, 10, 1230), 52),
-            (505, (-1020, -1300, 1560), (-800, -40, 1210), 68),
-            (552, (-560, -1240, 1600), (-616, 45, 1250), 55),
+            (1, (3060, -4320, 2330), (260, 60, 1310), 26),
+            (52, (2320, -4020, 2270), (-180, 55, 1300), 27),
+            (100, (1180, -3500, 2160), (-900, 40, 1290), 32),
+            (129, (-120, -2760, 1900), (-870, 10, 1270), 40),
+            (150, (-1020, -1980, 1700), (-800, -20, 1255), 48),
+            (173, (-780, -2020, 1720), (-120, 30, 1300), 44),
+            (192, (-700, -1900, 1700), (0, 40, 1310), 46),
+            (208, (-560, -1820, 1690), (-300, 35, 1300), 46),
+            (235, (-600, -1720, 1660), (-800, 40, 1280), 50),
+            (256, (-660, -1650, 1640), (-960, 35, 1268), 54),
+            (262, (-680, -1620, 1640), (-840, -5, 1265), 54),
+            (310, (-1010, -1440, 1575), (-800, -35, 1245), 62),
+            (358, (-1300, -1250, 1505), (-778, -55, 1222), 70),
+            (378, (-1120, -1450, 1565), (-660, 30, 1260), 56),
+            (405, (-1120, -1580, 1600), (-830, 40, 1268), 50),
+            (426, (-1200, -1520, 1580), (-975, 35, 1262), 54),
+            (432, (-1240, -1450, 1565), (-930, 5, 1252), 56),
+            (480, (-900, -1360, 1530), (-800, -30, 1235), 62),
+            (528, (-460, -1290, 1510), (-770, -50, 1220), 66),
+            (560, (-560, -1240, 1600), (-616, 45, 1250), 55),
         ),
     },
     {
         "name": "head-change-b-and-to-mix",
-        "start": 553,
-        "end": 672,
+        "start": 561,
+        "end": 752,
         "note": (
-            "Head change B and the transfer that follows it, in one travelling take "
-            "from the right.  The camera opens with both docks in frame, moves in as "
-            "the mover parks the pipetting head and picks the gripper back up, pulls "
-            "back to catch the plate leaving the dispense stage, and settles as it "
-            "lands on the mixer.  It ends on mix_place_clear, with the plate down and "
-            "the jaws away."
+            "The take opens on a stopped machine and stays with it.  Two seconds of "
+            "dispense_hold pass with the mover parked over the waste chute and the "
+            "camera barely breathing, so the cut reads as the film moving on rather "
+            "than as the thing that started the next move.  Then head change B and "
+            "the transfer that follows it, in one travelling take from the right: "
+            "the camera moves in as the mover parks the pipetting head and picks the "
+            "gripper back up, pulls back to catch the plate leaving the dispense "
+            "stage, and settles as it lands on the mixer.  It closes on the second "
+            "held beat, easing to a stop over a machine that has already stopped, "
+            "and ends on mix_place_settle."
         ),
         "keys": (
-            (553, (1050, -1350, 1660), (-100, 60, 1310), 40),
-            (600, (900, -1180, 1500), (300, 45, 1270), 52),
-            (634, (520, -1620, 1600), (-680, -20, 1220), 36),
-            (655, (580, -1520, 1540), (-260, -45, 1250), 40),
-            (672, (600, -1420, 1500), (0, -45, 1230), 44),
+            (561, (1050, -1350, 1660), (-100, 60, 1310), 40),
+            (608, (1012, -1332, 1656), (-118, 60, 1306), 41),
+            (632, (940, -1250, 1560), (-300, 50, 1290), 46),
+            (655, (900, -1180, 1500), (300, 45, 1270), 52),
+            (711, (520, -1620, 1600), (-680, -20, 1220), 36),
+            (728, (580, -1520, 1540), (-260, -45, 1250), 40),
+            (752, (600, -1420, 1500), (0, -45, 1230), 44),
         ),
     },
     {
-        "name": "mix-and-seal",
-        "start": 673,
-        "end": 826,
+        "name": "mix-read-out-and-rest",
+        "start": 753,
+        "end": 1176,
         "note": (
-            "Tight on the Heater-Shaker from the left through the clamp close and the "
-            "orbit, arcing right as it runs, then travelling one station along with "
-            "the plate, watching it seated in the reader and the mover fetch the door "
-            "off its caddy and lower it home.  It ends on door_close_clear, with the "
-            "reader sealed and the jaws off it."
+            "The closing take, seventeen and a half seconds in one continuous "
+            "outward-turning move.  It opens tight on the Heater-Shaker from the "
+            "left, arcs right through the clamp close and the orbit, then travels a "
+            "station along with the plate and watches it seated in the reader.  It "
+            "stays on the reader for the whole characterization - the door lifted off "
+            "its caddy, lowered home, the read itself, the door lifted away again and "
+            "returned - reframing around the same subject rather than cutting to a "
+            "new angle for each sub-action, because none of it changes station.  Then "
+            "it follows the plate right to the output hotel and, once the plate is "
+            "stored, keeps going outward: the carriage crossing back to park the "
+            "gripper head in its dock, rising away empty, travelling home to the "
+            "middle of the changer, and stopping.  The pull-back finishes exactly as "
+            "the machine does, on the wide the film opened on, and holds there for "
+            "two seconds with nothing moving at all."
+        ),
+        "sustains": (
+            "One outward move over one place at a time, with nothing to cut on.  "
+            "Every legal frame inside it - mix_settle, read_place_clear, "
+            "door_close_clear, characterize_end, out_place_clear, cycle_end, "
+            "park_clear, home_settle - falls in the middle of the machine working "
+            "the station the camera is already on, and the closing pull-back has to "
+            "be one continuous move because it is the ending: a cut inside it would "
+            "restart the film just as it is stopping."
         ),
         "keys": (
-            (673, (-760, -900, 1420), (0, -50, 1235), 66),
-            (678, (-720, -910, 1415), (0, -50, 1235), 66),
-            (714, (-380, -980, 1370), (0, -50, 1235), 66),
-            (741, (-120, -1020, 1400), (60, -50, 1240), 56),
-            (762, (280, -1150, 1470), (700, -45, 1250), 46),
-            (795, (760, -1160, 1500), (860, 30, 1290), 46),
-            (826, (1180, -1180, 1420), (820, -40, 1215), 62),
-        ),
-    },
-    {
-        "name": "read-and-out",
-        "start": 827,
-        "end": 960,
-        "note": (
-            "The closing take, round on the other side of the aisle.  It opens wide "
-            "from the left while the reader indicates through the plate read, pushes "
-            "in on the sealed reader, then pulls out and travels right with the plate "
-            "as the door comes off and the finished sample is carried to the output "
-            "hotel, ending on a rise and a pull back to the closing wide."
-        ),
-        "keys": (
-            (827, (-100, -2000, 1600), (620, -40, 1240), 44),
-            (848, (420, -1700, 1560), (760, -40, 1250), 52),
-            (892, (980, -1620, 1620), (900, -30, 1250), 46),
-            (927, (900, -2500, 1820), (1180, -40, 1270), 40),
-            (960, (400, -4150, 2320), (0, 60, 1330), 28),
+            (753, (-760, -900, 1420), (0, -50, 1235), 66),
+            (758, (-720, -910, 1415), (0, -50, 1235), 66),
+            (794, (-380, -980, 1370), (0, -50, 1235), 66),
+            (821, (-120, -1020, 1400), (60, -50, 1240), 56),
+            (842, (280, -1150, 1470), (700, -45, 1250), 46),
+            (856, (620, -1180, 1490), (800, -20, 1265), 46),
+            (881, (620, -1320, 1620), (800, 30, 1300), 46),
+            (906, (900, -1200, 1470), (790, -30, 1235), 58),
+            (928, (1240, -1300, 1420), (800, -35, 1230), 52),
+            (950, (1500, -1520, 1520), (860, 0, 1255), 48),
+            (972, (1620, -1620, 1580), (900, 30, 1270), 50),
+            (995, (1660, -1750, 1620), (960, -30, 1250), 46),
+            (1024, (1800, -1900, 1640), (1300, -20, 1250), 42),
+            (1040, (1800, -2100, 1700), (1500, 20, 1260), 38),
+            (1074, (2100, -2800, 1900), (900, 40, 1290), 32),
+            (1100, (2560, -3500, 2100), (520, 50, 1300), 29),
+            (1128, (3060, -4320, 2330), (260, 60, 1310), 26),
+            (1176, (3060, -4320, 2330), (260, 60, 1310), 26),
         ),
     },
 )
@@ -6294,6 +6658,91 @@ def camera_state_at(frame: int) -> tuple[tuple[float, float, float], float] | No
     return None
 
 
+def still_frames() -> frozenset[int]:
+    """Every frame the timeline authors as a stopped machine."""
+    return frozenset(
+        frame
+        for name, first, last in beat_spans()
+        if name in STILL_BEATS
+        for frame in range(first, last + 1)
+    )
+
+
+def development_windows(shot: Shot) -> list[tuple[int, int, float, float]]:
+    """Every whole ``SHOT_DEVELOPMENT_WINDOW`` inside a take, and what it moved.
+
+    Returned as ``(first frame, last frame, eye travel in mm, lens change in mm)``.
+    Both figures are measured along the path rather than end to end, because an
+    arc that goes out and comes back has developed the frame even though its two
+    ends are close together, and the question here is only whether the camera is
+    going anywhere.  Windows step one frame at a time, so a dead stretch cannot
+    hide by straddling two of them.
+
+    Windows are formed over the take's *working* frames.  A beat authored as a
+    stopped machine is not dead air - it is the point - so counting it would
+    make the two rules fight, and the one that wants the camera moving would
+    win against the one that wants it still.
+    """
+    still = still_frames()
+    frames = [frame for frame in range(shot["start"], shot["end"] + 1) if frame not in still]
+    states = [camera_state_at(frame) for frame in frames]
+    if len(frames) < SHOT_DEVELOPMENT_WINDOW or any(state is None for state in states):
+        return []
+    travelled = [0.0]
+    zoomed = [0.0]
+    for (before_frame, before), (after_frame, after) in zip(
+        zip(frames, states), zip(frames[1:], states[1:])
+    ):
+        adjacent = after_frame == before_frame + 1
+        travelled.append(travelled[-1] + (math.dist(before[0], after[0]) if adjacent else 0.0))  # type: ignore[index]
+        zoomed.append(zoomed[-1] + (abs(after[1] - before[1]) if adjacent else 0.0))  # type: ignore[index]
+    windows: list[tuple[int, int, float, float]] = []
+    for index in range(len(frames) - SHOT_DEVELOPMENT_WINDOW + 1):
+        stop = index + SHOT_DEVELOPMENT_WINDOW - 1
+        windows.append(
+            (
+                frames[index],
+                frames[stop],
+                travelled[stop] - travelled[index],
+                zoomed[stop] - zoomed[index],
+            )
+        )
+    return windows
+
+
+def dead_windows(shot: Shot) -> list[tuple[int, int, float, float]]:
+    """The windows a take sits still through.  A long take may have none."""
+    return [
+        window
+        for window in development_windows(shot)
+        if window[2] < SHOT_DEVELOPMENT_MIN_TRAVEL_MM
+        and window[3] < SHOT_DEVELOPMENT_MIN_LENS_CHANGE_MM
+    ]
+
+
+def development_profile(shot: Shot) -> dict[str, object]:
+    """How hard a declared long take is working, as the report prints it."""
+    windows = development_windows(shot)
+    if not windows:
+        return {"windows": 0}
+    slowest = min(windows, key=lambda window: (window[2], window[3]))
+    return {
+        "windowFrames": SHOT_DEVELOPMENT_WINDOW,
+        "windows": len(windows),
+        "deadWindows": len(dead_windows(shot)),
+        "slowestWindow": [slowest[0], slowest[1]],
+        "slowestTravel": round(slowest[2]),
+        "slowestLensChange": round(slowest[3], 1),
+        "eyeTravelTotal": round(
+            sum(
+                math.dist(before[1], after[1])
+                for before, after in zip(shot["keys"], shot["keys"][1:])
+            )
+        ),
+        "lensRange": [min(key[3] for key in shot["keys"]), max(key[3] for key in shot["keys"])],
+    }
+
+
 def validate_camera_shots() -> dict[str, object]:
     """Refuse to build an edit that breaks the three standards it claims to meet.
 
@@ -6320,32 +6769,57 @@ def validate_camera_shots() -> dict[str, object]:
         expected_start = end + 1
         seconds = (end - start + 1) / FPS
         seconds_total += seconds
-        # The floor has no exceptions.  The ceiling has exactly one: a take may
-        # run long when no completion inside it could have carried a cut without
-        # putting one of the two halves under the floor.  That is checked by
-        # trying every legal frame, so "there was nowhere to cut" is a measured
-        # claim rather than an authoring note.
+        # The floor has no exceptions.  The ceiling has two doors, and neither
+        # is opened by an authoring note.  The first is "there was nowhere to
+        # cut", checked by trying every legal frame.  The second is a declared
+        # long take, which is not an exemption but a move onto harder checks: a
+        # hard absolute ceiling, and a development rate the take has to keep
+        # over every window inside it.  ``declined`` is reported either way, so
+        # a take that runs long always says which legal frames it passed up.
         held_for: str | None = None
+        declined: list[int] = []
         if seconds < SHOT_MIN_SECONDS:
             failures.append(f"{name}: {seconds:.2f} s is under the {SHOT_MIN_SECONDS:.0f} s floor")
         elif seconds > SHOT_MAX_SECONDS:
-            splits = [
+            declined = [
                 frame
                 for frame in sorted(completions)
                 if start < frame < end
                 and (frame - start + 1) / FPS >= SHOT_MIN_SECONDS
                 and (end - frame) / FPS >= SHOT_MIN_SECONDS
             ]
-            if splits:
-                failures.append(
-                    f"{name}: {seconds:.2f} s is over the {SHOT_MAX_SECONDS:.0f} s ceiling and "
-                    f"could have been cut on {completions[splits[0]]} at frame {splits[0]}"
-                )
-            else:
+            sustains = shot.get("sustains")
+            if not declined:
                 held_for = (
                     f"no completion between frames {start} and {end} splits it into two "
                     f"takes of at least {SHOT_MIN_SECONDS:.0f} s"
                 )
+            elif not sustains:
+                failures.append(
+                    f"{name}: {seconds:.2f} s is over the {SHOT_MAX_SECONDS:.0f} s ceiling and "
+                    f"could have been cut on {completions[declined[0]]} at frame {declined[0]}; "
+                    "cut there, or declare sustains to say what the take is holding for"
+                )
+            elif seconds > SHOT_ABSOLUTE_MAX_SECONDS:
+                failures.append(
+                    f"{name}: {seconds:.2f} s is over the {SHOT_ABSOLUTE_MAX_SECONDS:.0f} s "
+                    "absolute ceiling, which no declaration opens"
+                )
+            else:
+                held_for = sustains
+                # A declared long take earns its length by never stopping.  Every
+                # window of SHOT_DEVELOPMENT_WINDOW frames that fits inside it has
+                # to travel or change lens, which is what an accidental long take
+                # fails and a composed one does not.
+                dead = dead_windows(shot)
+                if dead:
+                    first, last, travel, lens_change = dead[0]
+                    failures.append(
+                        f"{name}: declared a long take but the camera travels "
+                        f"{travel:.0f} mm and changes {lens_change:.1f} mm of lens over frames "
+                        f"{first}-{last}, which is {len(dead)} dead window(s) of "
+                        f"{SHOT_DEVELOPMENT_WINDOW} frames in a {seconds:.2f} s take"
+                    )
         frames = [key[0] for key in keys]
         if len(frames) < 2:
             failures.append(f"{name}: a shot needs at least two keys, it has {len(frames)}")
@@ -6377,6 +6851,12 @@ def validate_camera_shots() -> dict[str, object]:
         }
         if held_for is not None:
             entry["overCeilingBecause"] = held_for
+        if declined:
+            entry["declinedCutFrames"] = [
+                {"frame": frame, "beat": completions[frame]} for frame in declined
+            ]
+        if "sustains" in shot:
+            entry["development"] = development_profile(shot)
         shots.append(entry)
     if expected_start != FRAME_END + 1:
         failures.append(f"The shot list ends at frame {expected_start - 1}, not {FRAME_END}")
@@ -6438,7 +6918,13 @@ def validate_camera_shots() -> dict[str, object]:
             continue
         travel = math.dist(opened[0], closed[0])
         lens_change = abs(closed[1] - opened[1])
-        moved = travel >= SUSTAINED_MIN_EYE_TRAVEL_MM or lens_change >= SUSTAINED_MIN_LENS_CHANGE_MM
+        still = held in STILL_BEATS
+        if still:
+            passed = travel <= STILL_MAX_EYE_TRAVEL_MM and lens_change <= STILL_MAX_LENS_CHANGE_MM
+        else:
+            passed = (
+                travel >= SUSTAINED_MIN_EYE_TRAVEL_MM or lens_change >= SUSTAINED_MIN_LENS_CHANGE_MM
+            )
         holds.append(
             {
                 "beat": held,
@@ -6448,10 +6934,17 @@ def validate_camera_shots() -> dict[str, object]:
                 "shot": owner["name"],
                 "eyeTravel": round(travel),
                 "lensChange": round(lens_change, 1),
-                "passed": moved,
+                "requires": "stillness" if still else "movement",
+                "passed": passed,
             }
         )
-        if not moved:
+        if not passed and still:
+            failures.append(
+                f"{held}: the camera travels {travel:.0f} mm and changes "
+                f"{lens_change:.1f} mm of lens over its {last - first + 1} frames, which "
+                "moves the frame across a beat that exists to show a stopped machine"
+            )
+        elif not passed:
             failures.append(
                 f"{held}: the camera travels {travel:.0f} mm and changes "
                 f"{lens_change:.1f} mm of lens over its {last - first + 1} frames, which "
@@ -7346,6 +7839,99 @@ def validate_motion(
     return checks
 
 
+def validate_cut_stillness() -> list[dict[str, object]]:
+    """A cut may only land on a frame where the machine is actually stopped.
+
+    ``beat_completions`` is a rule about names: it says a labelled step has
+    finished.  That turned out to be necessary and not sufficient.  The cut on
+    ``mix_place_clear`` was on a completion by every name test and still read
+    wrong, because the mover is 3 mm into its lift-away on the frame that beat
+    completes on.  A beat boundary marks the end of a labelled step, not the
+    moment the machine has stopped moving.
+
+    So the governing constraint is measured off the built animation instead of
+    off the timeline: at a cut frame the mover, the bridge, both heads and the
+    carrier must all be within ``CUT_STILL_TOLERANCE`` of their cut-frame pose
+    for ``CUT_STILL_WINDOW`` frames on each side.  It is deliberately harder to
+    satisfy by accident than the name rule, and it cannot be satisfied at all by
+    renaming a beat.  The run of stillness actually available each side is
+    reported whether it passes or not, because that number is what says how much
+    room an edit has to move a cut.
+    """
+    scene = bpy.context.scene
+    original_frame = scene.frame_current
+    bodies = [
+        (name, obj) for name in CUT_STILL_BODIES if (obj := bpy.data.objects.get(name)) is not None
+    ]
+    missing = [name for name in CUT_STILL_BODIES if bpy.data.objects.get(name) is None]
+
+    def poses(frame: int) -> dict[str, Vector]:
+        scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        return {name: obj.matrix_world.translation.copy() for name, obj in bodies}
+
+    def run(cut: int, poses_at_cut: dict[str, Vector], direction: int) -> tuple[int, float]:
+        """How many frames stay still that way, and the first motion that broke it.
+
+        Scanned well past what is required, because the run available is what
+        says how much room an edit has to move a cut, and that is worth
+        reporting whether it passes or not.
+        """
+        length = 0
+        broke = 0.0
+        for step in range(1, CUT_STILL_SCAN + 1):
+            frame = cut + direction * step
+            if not 1 <= frame <= FRAME_END:
+                break
+            drift = max(
+                (poses_at_cut[name] - position).length for name, position in poses(frame).items()
+            )
+            if drift > CUT_STILL_TOLERANCE:
+                broke = drift
+                break
+            length = step
+        return length, broke
+
+    checks: list[dict[str, object]] = []
+    for name in missing:
+        checks.append(
+            {
+                "name": f"stillness body {name} exists",
+                "passed": False,
+                "actual": None,
+                "expected": name,
+            }
+        )
+    for before_shot, after_shot in zip(CAMERA_SHOTS, CAMERA_SHOTS[1:]):
+        cut = before_shot["end"]
+        at_cut = poses(cut)
+        still_before, broke_before = run(cut, at_cut, -1)
+        still_after, broke_after = run(cut, at_cut, 1)
+        passed = still_before >= CUT_STILL_BEFORE and still_after >= CUT_STILL_AFTER
+        checks.append(
+            {
+                "name": f"cut {before_shot['name']} -> {after_shot['name']} lands on a still machine",
+                "passed": passed,
+                "actual": {
+                    "frame": cut,
+                    "beat": beat_completions().get(cut),
+                    "stillFramesBefore": still_before,
+                    "stillFramesAfter": still_after,
+                    "firstMotionBeforeMm": round(broke_before * 1000.0, 2),
+                    "firstMotionAfterMm": round(broke_after * 1000.0, 2),
+                },
+                "expected": {
+                    "stillFramesBefore": CUT_STILL_BEFORE,
+                    "stillFramesAfter": CUT_STILL_AFTER,
+                    "toleranceMm": CUT_STILL_TOLERANCE * 1000.0,
+                },
+            }
+        )
+    scene.frame_set(original_frame)
+    print("CUT STILLNESS: " + json.dumps([check["actual"] for check in checks]))
+    return checks
+
+
 def validate_spatial_invariants(step: int = 2) -> list[dict[str, object]]:
     """Check carry rigidity, grip contact, and interpenetration.
 
@@ -7556,6 +8142,7 @@ def build_scene(options: argparse.Namespace) -> None:
     (
         bridge,
         mover,
+        truck,
         gripper_head,
         pipette_head,
         attached_tips,
@@ -7607,6 +8194,7 @@ def build_scene(options: argparse.Namespace) -> None:
     animate_scene(
         bridge,
         mover,
+        truck,
         gripper_head,
         pipette_head,
         attached_tips,
@@ -7641,6 +8229,7 @@ def build_scene(options: argparse.Namespace) -> None:
         input_shuttle=input_shuttle,
         output_shuttle=output_shuttle,
     )
+    motion_checks.extend(validate_cut_stillness())
     motion_checks.extend(validate_spatial_invariants())
     bpy.context.scene.frame_set(max(1, min(FRAME_END, options.frame)))
     bpy.ops.wm.save_as_mainfile(filepath=str(BLEND_PATH))

@@ -1,9 +1,9 @@
 {
-  "sha256": "d9a1fae5d345b92a6c1bb79e7d7043e3ad899580fa3c5df092a3dd450d2a64f0",
+  "sha256": "098fc4fd05e86282b95e05b24927042b7ef008ce0587aa20a325999c0a6b39a8",
   "passed": true,
   "frameRange": {
     "start": 1,
-    "end": 960,
+    "end": 1176,
     "fps": 24
   },
   "checks": [
@@ -66,7 +66,7 @@
       ]
     },
     {
-      "name": "sample checkpoint frame 661",
+      "name": "sample checkpoint frame 717",
       "passed": true,
       "actual": [
         0.0,
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "name": "sample checkpoint frame 759",
+      "name": "sample checkpoint frame 839",
       "passed": true,
       "actual": [
         0.78,
@@ -94,7 +94,7 @@
       ]
     },
     {
-      "name": "sample checkpoint frame 933",
+      "name": "sample checkpoint frame 1013",
       "passed": true,
       "actual": [
         1.56,
@@ -108,7 +108,7 @@
       ]
     },
     {
-      "name": "sample checkpoint frame 956",
+      "name": "sample checkpoint frame 1036",
       "passed": true,
       "actual": [
         1.56,
@@ -134,37 +134,37 @@
       "expected": 1.267
     },
     {
-      "name": "plate follows the mover frame 643",
+      "name": "plate follows the mover frame 699",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate follows the mover frame 655",
+      "name": "plate follows the mover frame 711",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate follows the mover frame 741",
+      "name": "plate follows the mover frame 821",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate follows the mover frame 753",
+      "name": "plate follows the mover frame 833",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate follows the mover frame 915",
+      "name": "plate follows the mover frame 995",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate follows the mover frame 927",
+      "name": "plate follows the mover frame 1007",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
@@ -182,37 +182,37 @@
       "expected": 1.267
     },
     {
-      "name": "plate aligns with jaw center frame 637",
+      "name": "plate aligns with jaw center frame 693",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate aligns with jaw center frame 661",
+      "name": "plate aligns with jaw center frame 717",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate aligns with jaw center frame 735",
+      "name": "plate aligns with jaw center frame 815",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate aligns with jaw center frame 759",
+      "name": "plate aligns with jaw center frame 839",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate aligns with jaw center frame 909",
+      "name": "plate aligns with jaw center frame 989",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "plate aligns with jaw center frame 933",
+      "name": "plate aligns with jaw center frame 1013",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
@@ -246,7 +246,7 @@
       ]
     },
     {
-      "name": "reader door checkpoint frame 815",
+      "name": "reader door checkpoint frame 895",
       "passed": true,
       "actual": [
         0.78,
@@ -260,7 +260,7 @@
       ]
     },
     {
-      "name": "reader door checkpoint frame 879",
+      "name": "reader door checkpoint frame 959",
       "passed": true,
       "actual": [
         0.78,
@@ -286,25 +286,25 @@
       "expected": 1.267
     },
     {
-      "name": "door follows the mover frame 801",
+      "name": "door follows the mover frame 881",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "door follows the mover frame 809",
+      "name": "door follows the mover frame 889",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "door follows the mover frame 865",
+      "name": "door follows the mover frame 945",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "door follows the mover frame 873",
+      "name": "door follows the mover frame 953",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
@@ -322,25 +322,25 @@
       "expected": 1.267
     },
     {
-      "name": "door aligns with jaw center frame 795",
+      "name": "door aligns with jaw center frame 875",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "door aligns with jaw center frame 815",
+      "name": "door aligns with jaw center frame 895",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "door aligns with jaw center frame 859",
+      "name": "door aligns with jaw center frame 939",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
     },
     {
-      "name": "door aligns with jaw center frame 879",
+      "name": "door aligns with jaw center frame 959",
       "passed": true,
       "actual": 1.267,
       "expected": 1.267
@@ -406,7 +406,7 @@
       "expected": "0.057 to 0.060 m"
     },
     {
-      "name": "mixer latch 1 open frame 672",
+      "name": "mixer latch 1 open frame 728",
       "passed": true,
       "actual": {
         "y": -0.05054,
@@ -418,7 +418,7 @@
       }
     },
     {
-      "name": "mixer latch 2 open frame 672",
+      "name": "mixer latch 2 open frame 728",
       "passed": true,
       "actual": {
         "y": 0.05054,
@@ -430,7 +430,7 @@
       }
     },
     {
-      "name": "mixer latch 1 closed frame 678",
+      "name": "mixer latch 1 closed frame 758",
       "passed": true,
       "actual": {
         "y": -0.04654,
@@ -442,7 +442,7 @@
       }
     },
     {
-      "name": "mixer latch 2 closed frame 678",
+      "name": "mixer latch 2 closed frame 758",
       "passed": true,
       "actual": {
         "y": 0.04654,
@@ -454,7 +454,7 @@
       }
     },
     {
-      "name": "mixer latch 1 closed frame 714",
+      "name": "mixer latch 1 closed frame 794",
       "passed": true,
       "actual": {
         "y": -0.04654,
@@ -466,7 +466,7 @@
       }
     },
     {
-      "name": "mixer latch 2 closed frame 714",
+      "name": "mixer latch 2 closed frame 794",
       "passed": true,
       "actual": {
         "y": 0.04654,
@@ -478,7 +478,7 @@
       }
     },
     {
-      "name": "mixer latch 1 open frame 720",
+      "name": "mixer latch 1 open frame 800",
       "passed": true,
       "actual": {
         "y": -0.05054,
@@ -490,7 +490,7 @@
       }
     },
     {
-      "name": "mixer latch 2 open frame 720",
+      "name": "mixer latch 2 open frame 800",
       "passed": true,
       "actual": {
         "y": 0.05054,
@@ -502,7 +502,7 @@
       }
     },
     {
-      "name": "mixer latch 1 open frame 735",
+      "name": "mixer latch 1 open frame 815",
       "passed": true,
       "actual": {
         "y": -0.05054,
@@ -514,7 +514,7 @@
       }
     },
     {
-      "name": "mixer latch 2 open frame 735",
+      "name": "mixer latch 2 open frame 815",
       "passed": true,
       "actual": {
         "y": 0.05054,
@@ -626,7 +626,7 @@
       ]
     },
     {
-      "name": "Gripper head rests in its dock frame 579",
+      "name": "Gripper head rests in its dock frame 635",
       "passed": true,
       "actual": [
         0.3,
@@ -652,7 +652,7 @@
       ]
     },
     {
-      "name": "Gripper head tracks the mover frame 655",
+      "name": "Gripper head tracks the mover frame 711",
       "passed": true,
       "actual": [
         0.0,
@@ -664,7 +664,7 @@
       ]
     },
     {
-      "name": "Gripper head tracks the mover frame 927",
+      "name": "Gripper head tracks the mover frame 1007",
       "passed": true,
       "actual": [
         0.0,
@@ -690,7 +690,7 @@
       ]
     },
     {
-      "name": "Pipette head rests in its dock frame 848",
+      "name": "Pipette head rests in its dock frame 928",
       "passed": true,
       "actual": [
         -0.3,
@@ -704,7 +704,7 @@
       ]
     },
     {
-      "name": "Pipette head rests in its dock frame 960",
+      "name": "Pipette head rests in its dock frame 1176",
       "passed": true,
       "actual": [
         -0.3,
@@ -760,18 +760,52 @@
       "expected": ">= 0.30 m apart"
     },
     {
+      "name": "cut establish-load-and-first-dispense -> head-change-b-and-to-mix lands on a still machine",
+      "passed": true,
+      "actual": {
+        "frame": 560,
+        "beat": "dispense_end",
+        "stillFramesBefore": 12,
+        "stillFramesAfter": 48,
+        "firstMotionBeforeMm": 8.53,
+        "firstMotionAfterMm": 8.85
+      },
+      "expected": {
+        "stillFramesBefore": 12,
+        "stillFramesAfter": 6,
+        "toleranceMm": 1.0
+      }
+    },
+    {
+      "name": "cut head-change-b-and-to-mix -> mix-read-out-and-rest lands on a still machine",
+      "passed": true,
+      "actual": {
+        "frame": 752,
+        "beat": "mix_place_settle",
+        "stillFramesBefore": 24,
+        "stillFramesAfter": 8,
+        "firstMotionBeforeMm": 3.03,
+        "firstMotionAfterMm": 1.82
+      },
+      "expected": {
+        "stillFramesBefore": 12,
+        "stillFramesAfter": 6,
+        "toleranceMm": 1.0
+      }
+    },
+    {
       "name": "SampleCarrier moves rigidly with a support",
       "passed": true,
       "actual": {
-        "movingFrames": 175,
+        "movingFrames": 195,
         "unsupportedFrames": 0,
         "unsupportedSample": [],
         "worstSlipMm": 0.0,
         "worstFrame": 0,
-        "gripperOnlySlipFrames": 73,
+        "gripperOnlySlipFrames": 67,
         "gripperOnlyWorstSlipMm": 195.0163,
         "gripperOnlyWorstFrame": 80,
-        "gripperOnlyTotalSlipMm": 3114.1
+        "gripperOnlyTotalSlipMm": 2422.4
       },
       "expected": {
         "unsupportedFrames": 0,
@@ -784,7 +818,7 @@
       "actual": {
         "carriedFrames": 100,
         "worstSlipMm": 0.0002,
-        "worstFrame": 929
+        "worstFrame": 1009
       },
       "expected": {
         "carriedFrames": "> 0",
@@ -816,7 +850,7 @@
       "actual": {
         "carriedFrames": 62,
         "worstSlipMm": 0.0002,
-        "worstFrame": 878
+        "worstFrame": 958
       },
       "expected": {
         "carriedFrames": "> 0",
@@ -954,11 +988,76 @@
       }
     },
     {
+      "name": "mover stays coupled to the bridge through its carriage",
+      "passed": true,
+      "actual": {
+        "authoredHeights": 134,
+        "worstGapMm": 0.0,
+        "links": {
+          "MoverCarriage - MoverSlideBracket": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "MoverSlideBracket - MoverColumnSlide": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "MoverColumnSlide - MoverColumn": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "MoverColumn - MoverTruckPlate": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "MoverTruckPlate - MoverBearingBlock_0": {
+            "gapMm": 0.0,
+            "frame": 0
+          },
+          "MoverBearingBlock_0 - MoverBridgeTrack": {
+            "gapMm": 0.0,
+            "frame": 0
+          }
+        }
+      },
+      "expected": {
+        "worstGapMm": 0.0
+      }
+    },
+    {
+      "name": "carriage on the bridge rail stays engaged over the whole stroke",
+      "passed": true,
+      "actual": {
+        "worstGapMm": 0.0,
+        "worstGapFrame": 0,
+        "worstOverrunMm": -74.0,
+        "worstOverrunFrame": 89
+      },
+      "expected": {
+        "worstGapMm": 0.0,
+        "worstOverrunMm": "<= 0"
+      }
+    },
+    {
+      "name": "body on the vertical way stays engaged over the whole stroke",
+      "passed": true,
+      "actual": {
+        "worstGapMm": 0.0,
+        "worstGapFrame": 0,
+        "worstOverrunMm": -5.0,
+        "worstOverrunFrame": 129
+      },
+      "expected": {
+        "worstGapMm": 0.0,
+        "worstOverrunMm": "<= 0"
+      }
+    },
+    {
       "name": "GripperHead is coupled to the mover or resting in HeadDock_Gripper",
       "passed": true,
       "actual": {
-        "coupledFrames": 542,
-        "dockedFrames": 418,
+        "coupledFrames": 604,
+        "dockedFrames": 572,
         "unsupportedFrames": 0,
         "unsupportedSample": [],
         "worstSeatOffsetMm": 0.0,
@@ -974,7 +1073,7 @@
       "name": "GripperHead only moves while coupled to the mover",
       "passed": true,
       "actual": {
-        "movingFrames": 352,
+        "movingFrames": 370,
         "selfDrivenFrames": 0,
         "selfDrivenSample": [],
         "worstSlipMm": 0.0,
@@ -989,8 +1088,8 @@
       "name": "PipetteHead is coupled to the mover or resting in HeadDock_Pipette",
       "passed": true,
       "actual": {
-        "coupledFrames": 374,
-        "dockedFrames": 586,
+        "coupledFrames": 430,
+        "dockedFrames": 746,
         "unsupportedFrames": 0,
         "unsupportedSample": [],
         "worstSeatOffsetMm": 0.0,
@@ -1025,8 +1124,8 @@
         "sampleFrames": [],
         "headChanges": 2,
         "coupledFrames": {
-          "GripperHead": 542,
-          "PipetteHead": 374
+          "GripperHead": 604,
+          "PipetteHead": 430
         }
       },
       "expected": {
@@ -1038,7 +1137,7 @@
       "name": "movers stay clear of fixed bodies",
       "passed": true,
       "actual": {
-        "sampledFrames": 481,
+        "sampledFrames": 589,
         "violatingPairs": 0,
         "detail": []
       },
@@ -1080,11 +1179,20 @@
         {
           "pair": "SampleCarrier x Hotel_Output",
           "frames": [
-            938,
-            960
+            1018,
+            1176
           ],
-          "sampledHits": 5,
-          "reason": "The finished plate rides the output shuttle back into the storage tower. Same closed-shell simplification as the input tower."
+          "sampledHits": 73,
+          "reason": "The finished plate rides the output shuttle back into the storage tower. Same closed-shell simplification as the input tower.  The window runs to the last frame because the plate stays stored through the park and the rest hold; the cycle ends with it inside the tower."
+        },
+        {
+          "pair": "Mover x MoverGantry",
+          "frames": [
+            1,
+            1176
+          ],
+          "sampledHits": 589,
+          "reason": "A running fit, not a collision.  The slide wraps the vertical way over the whole stroke, which is what holds the mover up; bounds that overlap on all three axes are the engagement the carriage invariant requires.  Every other body of the mover - carriage, front panel, camera, badge, coupler - is held clear of the beam, the cover, the rail and the truck by this same check."
         }
       ],
       "expected": "every allowed contact occurs and no other pair touches"

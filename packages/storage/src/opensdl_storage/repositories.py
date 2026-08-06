@@ -10,6 +10,7 @@ from opensdl_core import (
     ArtifactRecord,
     CapabilityDefinition,
     EventRecord,
+    LifecycleError,
     Quantity,
     Resource,
     RunRecord,
@@ -17,6 +18,8 @@ from opensdl_core import (
     TaskRecord,
     TaskState,
     utc_now,
+    validate_run_transition,
+    validate_task_transition,
 )
 
 from .database import Database
@@ -59,6 +62,13 @@ class Repositories:
             if row is None:
                 raise KeyError(run_id)
             if state is not None:
+                current = RunState(row.state)
+                try:
+                    validate_run_transition(current, state)
+                except LifecycleError as exc:
+                    raise LifecycleError(
+                        f"run {run_id} cannot move from '{current.value}' to '{state.value}': {exc}"
+                    ) from exc
                 row.state = state.value
             if outputs is not None:
                 row.outputs_json = outputs
@@ -91,6 +101,15 @@ class Repositories:
                     state=record.state.value,
                 )
                 session.add(row)
+            else:
+                current = TaskState(row.state)
+                try:
+                    validate_task_transition(current, record.state)
+                except LifecycleError as exc:
+                    raise LifecycleError(
+                        f"task {record.id} of run {record.run_id} cannot move from "
+                        f"'{current.value}' to '{record.state.value}': {exc}"
+                    ) from exc
             row.state = record.state.value
             row.attempt = record.attempt
             row.inputs_json = record.inputs

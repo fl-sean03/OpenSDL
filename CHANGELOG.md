@@ -63,6 +63,31 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Fixed
 
+- the runtime replayed physical actions it had recorded as ambiguous. Resuming a run rebuilt its
+  completed work from succeeded tasks only, so a task left `intervention_required` by a restart or a
+  cancellation — carrying the error string "physical outcome is unknown" — fell back into the pending
+  set and was dispatched again. The system recorded that it did not know whether the action had
+  happened, and then repeated it. Resume now refuses any run holding a task in an active or ambiguous
+  state, writes nothing, and explains what a human has to establish. No acknowledgement operation was
+  invented to close this: `intervention_required` remains a legal origin in the declared machine so
+  the typed acknowledgement has somewhere to land, and the runtime simply declines to make that move
+  on its own;
+- a result that violated its declared output schema was retried, so bad data repeated the action that
+  produced it. Validation sat inside the retried block, where the generic handler caught it and
+  dispatched again. The retry region now covers only the adapter call: a transport failure or timeout
+  retries as before, and an invalid result fails the task immediately, because the adapter has already
+  reported that the action completed;
+- the declared run and task lifecycles were enforced nowhere. `validate_run_transition` and
+  `validate_task_transition` existed, were unit-tested, and had no production callers, so the
+  persistence layer wrote any state over any state. Over the unauthenticated API that made a completed
+  run mutable: resubmitting its identifier passed the only guard, forced it back to running, executed
+  new steps attributed to the original operator, and overwrote its outputs while the workflow of
+  record stayed unchanged. Both machines are now checked on every state write. Enforcing them revealed
+  the machines themselves were wrong in four places, two of which were already contradicted by passing
+  tests — a retried attempt could not succeed and could not be left ambiguous by a restart, though the
+  suite demonstrated both. A specification nothing consults does not stay correct;
+- an unregistered resource raised before the task was touched, leaving it pending under a failed run
+  rather than recording why it stopped;
 - several statements described the target rather than the system. `SECURITY.md` presented nine
   "secure defaults" in the present tense when four had no implementation; each now carries its
   verified status, prefaced by the observation that an unimplemented requirement is one the operator

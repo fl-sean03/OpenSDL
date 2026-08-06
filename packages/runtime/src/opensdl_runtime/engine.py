@@ -9,6 +9,7 @@ from opensdl_core import (
     EventRecord,
     ExecutionDeniedError,
     ExecutionRequest,
+    LifecycleError,
     ResourceBusyError,
     RunRecord,
     RunState,
@@ -19,10 +20,23 @@ from opensdl_core import (
     WorkflowExecutionError,
     WorkflowStep,
     utc_now,
+    validate_run_transition,
 )
 from opensdl_policy import PolicyEvaluator
 from opensdl_storage import ArtifactStore, RepositoryStore
 from opensdl_workflows import resolve_mapping, topological_layers, validate_workflow_graph
+
+#: Task states a resumed run must never dispatch again. Either the task is active or was active
+#: (`RUNNING`, `RETRYING`), or the record already says the physical outcome is unknown
+#: (`INTERVENTION_REQUIRED`, `CANCELLED`). Re-dispatching any of them can repeat a physical action.
+UNRESUMABLE_TASK_STATES = frozenset(
+    {
+        TaskState.RUNNING,
+        TaskState.RETRYING,
+        TaskState.INTERVENTION_REQUIRED,
+        TaskState.CANCELLED,
+    }
+)
 
 
 class ReferenceRuntime:
@@ -67,6 +81,7 @@ class ReferenceRuntime:
         if workflow.input_schema:
             validate_instance(inputs, workflow.input_schema, label=f"{workflow.id} inputs")
         existing = self.repositories.get_run(run_id) if run_id else None
+        existing_tasks: dict[str, TaskRecord] = {}
         if existing is None:
             run = RunRecord(
                 id=run_id or RunRecord(workflow_id=workflow.id).id,
@@ -85,6 +100,11 @@ class ReferenceRuntime:
         else:
             if existing.workflow_id != workflow.id:
                 raise ValueError(f"run {existing.id} belongs to workflow {existing.workflow_id}")
+            self._assert_run_can_resume(existing)
+            existing_tasks = {
+                task.step_id: task for task in self.repositories.list_tasks(existing.id)
+            }
+            self._assert_tasks_can_resume(existing, list(existing_tasks.values()))
             run = existing
             inputs = run.inputs
             existing_events = self.repositories.list_events(run_id=run.id, limit=None)
@@ -97,7 +117,6 @@ class ReferenceRuntime:
         self.repositories.update_run(run.id, state=RunState.RUNNING, error=None)
         self._emit("RunStarted", run=run)
 
-        existing_tasks = {task.step_id: task for task in self.repositories.list_tasks(run.id)}
         step_outputs = {
             step_id: task.outputs
             for step_id, task in existing_tasks.items()
@@ -183,6 +202,34 @@ class ReferenceRuntime:
                 raise
             raise WorkflowExecutionError(error) from exc
 
+    def _assert_run_can_resume(self, run: RunRecord) -> None:
+        """Refuse to reuse a run identifier whose run can no longer legitimately start."""
+        try:
+            validate_run_transition(run.state, RunState.RUNNING)
+        except LifecycleError as exc:
+            raise LifecycleError(
+                f"run {run.id} is recorded as '{run.state.value}' and cannot start again. "
+                f"Its inputs, outputs, tasks, and events are the record of the work submitted by "
+                f"{run.operator_id}; running new steps under this run identifier would attribute "
+                "them to that operator and overwrite that record. Submit the new work as a new "
+                "run instead."
+            ) from exc
+
+    def _assert_tasks_can_resume(self, run: RunRecord, tasks: list[TaskRecord]) -> None:
+        """Refuse to replay a task whose physical outcome the record does not establish."""
+        for task in sorted(tasks, key=lambda item: item.step_id):
+            if task.state not in UNRESUMABLE_TASK_STATES:
+                continue
+            raise WorkflowExecutionError(
+                f"cannot resume run {run.id}: task {task.id} for step '{task.step_id}' "
+                f"(capability {task.capability_id}) is recorded as '{task.state.value}', so "
+                "OpenSDL does not know whether the physical action already happened and will not "
+                f"dispatch it again. Recorded task error: {task.error or 'none recorded'}. "
+                "A human must inspect the equipment and establish what actually happened. "
+                "OpenSDL has no operation for acknowledging an intervention yet, so record the "
+                "finding outside the run and submit the remaining work as a new run."
+            )
+
     async def execute_capability(
         self,
         capability_id: str,
@@ -247,9 +294,11 @@ class ReferenceRuntime:
             resources = sorted(set(definition.required_resources + step.resources))
             missing_resources = self.repositories.missing_resources(resources)
             if missing_resources:
-                raise ResourceBusyError(
-                    f"required resources are not registered: {missing_resources}"
-                )
+                task.state = TaskState.FAILED
+                task.error = f"required resources are not registered: {missing_resources}"
+                task.updated_at = utc_now()
+                self.repositories.upsert_task(task)
+                raise ResourceBusyError(task.error)
             task.state = TaskState.WAITING_FOR_RESOURCES
             task.updated_at = utc_now()
             self.repositories.upsert_task(task)
@@ -288,26 +337,6 @@ class ReferenceRuntime:
                     )
                     try:
                         result = await asyncio.wait_for(adapter.execute(request), timeout=timeout)
-                        validate_instance(
-                            result.output,
-                            definition.output_schema,
-                            label=f"{step.capability} output",
-                        )
-                        task.state = TaskState.SUCCEEDED
-                        task.outputs = result.output
-                        task.updated_at = utc_now()
-                        self.repositories.upsert_task(task)
-                        self._emit(
-                            "TaskSucceeded",
-                            run=run,
-                            task=task,
-                            payload={
-                                "attempt": task.attempt,
-                                "output": result.output,
-                                "adapter": adapter.name,
-                            },
-                        )
-                        return result.output
                     except asyncio.CancelledError:
                         task_error = (
                             f"execution of {step.capability} was cancelled while active; "
@@ -353,6 +382,56 @@ class ReferenceRuntime:
                         task.state = TaskState.RETRYING
                         self.repositories.upsert_task(task)
                         await asyncio.sleep(min(0.05 * (2**attempt), 1.0))
+                        continue
+
+                    # The adapter reported completion, so the physical action has happened. A
+                    # result that violates the declared contract is a contract failure, not a
+                    # transient fault: retrying it would repeat the action, so the task fails here.
+                    try:
+                        validate_instance(
+                            result.output,
+                            definition.output_schema,
+                            label=f"{step.capability} output",
+                        )
+                    except ValidationError as exc:
+                        invalid_output_error = (
+                            f"execution of {step.capability} returned a result that violates its "
+                            f"declared output schema on attempt {task.attempt}: {exc}. The "
+                            "adapter reported that the action completed, so the runtime does not "
+                            "retry it: a retry would repeat the physical action. Fix the adapter "
+                            "or the capability contract before running this step again."
+                        )
+                        task.state = TaskState.FAILED
+                        task.error = invalid_output_error
+                        task.updated_at = utc_now()
+                        self.repositories.upsert_task(task)
+                        self._emit(
+                            "TaskFailed",
+                            run=run,
+                            task=task,
+                            payload={
+                                "attempt": task.attempt,
+                                "error": invalid_output_error,
+                                "reason": "invalid_output",
+                            },
+                        )
+                        raise ValidationError(invalid_output_error) from exc
+
+                    task.state = TaskState.SUCCEEDED
+                    task.outputs = result.output
+                    task.updated_at = utc_now()
+                    self.repositories.upsert_task(task)
+                    self._emit(
+                        "TaskSucceeded",
+                        run=run,
+                        task=task,
+                        payload={
+                            "attempt": task.attempt,
+                            "output": result.output,
+                            "adapter": adapter.name,
+                        },
+                    )
+                    return result.output
                 raise AssertionError("retry loop exited unexpectedly")
             finally:
                 self.repositories.release_leases(task.id)

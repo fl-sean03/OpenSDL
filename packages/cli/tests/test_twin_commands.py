@@ -52,7 +52,10 @@ def test_twin_validate_uses_public_loader(tmp_path: Path, monkeypatch) -> None:
 
     assert result.exit_code == 0, result.output
     load.assert_called_once_with(definition_path)
-    assert str(definition_path.resolve()) in result.stdout
+    # Whitespace-collapsed, because the console wraps to the terminal width and a long path
+    # is broken across lines. Asserting on the rendered string directly made this test pass
+    # or fail on how wide the terminal happened to be.
+    assert str(definition_path.resolve()) in "".join(result.stdout.split())
 
 
 def test_twin_validate_reports_invalid_definition_without_traceback(

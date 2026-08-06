@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+import typer.main
 from typer.testing import CliRunner
 
 import opensdl_cli.main as cli
@@ -116,11 +117,18 @@ def test_the_campaign_environment_is_not_a_command_line_option(laboratory: Path)
 
     The environment comes from the manifest, so a laboratory that declares `production` cannot
     have its one unattended path talked into recording `simulation`.
-    """
-    help_text = CliRunner().invoke(cli.app, ["campaign", "start", "--help"]).output
 
-    assert "--environment" not in help_text
-    assert "--operator-id" in help_text
+    Read against the command's declared parameters rather than its rendered help. Rich wraps and
+    truncates that help to the terminal width, so an earlier form of this test asserted on a string
+    whose content depended on how wide the terminal was: it passed locally, passed in CI, and then
+    failed in CI alone the day three options were added and `--operator-id` became `--operator-i…`.
+    """
+    group = typer.main.get_command(cli.app)
+    start = group.commands["campaign"].commands["start"]  # type: ignore[attr-defined]
+    declared = {option for parameter in start.params for option in parameter.opts}
+
+    assert "--environment" not in declared
+    assert "--operator-id" in declared
 
 
 def test_inspecting_a_campaign_that_was_never_recorded_is_a_clean_not_found(

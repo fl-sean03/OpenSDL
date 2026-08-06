@@ -6,7 +6,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-from opensdl_capabilities import CapabilityRegistry, PluginManager
+from opensdl_capabilities import (
+    CapabilityRegistry,
+    PluginManager,
+    enforce_plugin_allowlist,
+    plugin_allowlist,
+    validate_declared_adapter_plugins,
+)
 from opensdl_operators import ContextPackBuilder, OperatorGateway
 from opensdl_policy import PolicyEngine, PolicyRule
 from opensdl_provenance import RunBundleExporter
@@ -16,6 +22,26 @@ from opensdl_schemas import LabManifest, load_manifest
 from opensdl_storage import Database, LocalArtifactStore, Repositories
 from opensdl_twin import TwinProjectionError, TwinService, load_twin_definition
 from opensdl_workflows import load_workflow
+
+
+class StoreNotFoundError(FileNotFoundError):
+    """A read-only system was asked for a laboratory store that does not exist yet."""
+
+
+class ReadOnlyGateway(OperatorGateway):
+    """The operator boundary of a read-only system, with its one write path closed.
+
+    Every read-only command reaches the store through the gateway, and `execute_capability` is the
+    single method on it that dispatches an action. Refusing it here means `read_only` constrains the
+    whole surface a caller actually touches, not only `OpenSDLSystem`'s own methods. It does not
+    make the repositories read-only: a caller holding `system.repositories` can still write, and
+    only the storage layer can close that.
+    """
+
+    async def execute_capability(
+        self, capability_id: str, inputs: dict[str, Any], *, operator_id: str, environment: str
+    ) -> dict[str, Any]:
+        raise ValueError("a read-only OpenSDL system cannot execute capabilities")
 
 
 class OpenSDLSystem:
@@ -35,7 +61,9 @@ class OpenSDLSystem:
         domain_packs: list[dict[str, Any]],
         twin: TwinService | None = None,
         twin_viewer_root: Path | None = None,
+        read_only: bool = False,
     ) -> None:
+        self.read_only = read_only
         self.manifest_path = manifest_path
         self.manifest = manifest
         self.database = database
@@ -54,12 +82,34 @@ class OpenSDLSystem:
             policy.version,
             domain_packs,
         )
-        self.gateway = OperatorGateway(runtime, repositories, self.context_builder)
+        gateway_type = ReadOnlyGateway if read_only else OperatorGateway
+        self.gateway = gateway_type(runtime, repositories, self.context_builder)
         self.exporter = RunBundleExporter(repositories, artifact_store)
         self.started = False
 
     @classmethod
-    def from_manifest(cls, path: str | Path) -> "OpenSDLSystem":
+    def from_manifest(
+        cls,
+        path: str | Path,
+        *,
+        read_only: bool = False,
+        require_store: bool = True,
+    ) -> "OpenSDLSystem":
+        """Compose one laboratory from its manifest.
+
+        `read_only=True` builds a system that inspects an existing laboratory without changing it:
+        it does not create the store, does not create tables, does not upsert the manifest's
+        capabilities or resources, never reconciles, and refuses to execute a workflow. Every
+        command that only reads — inspect, events, export, capability listing, twin projection —
+        belongs on this path. A store that does not exist yet raises `StoreNotFoundError` rather
+        than being created, because a laboratory that has never run has no runs to inspect.
+
+        `require_store=False` relaxes that one check, for a read that has an answer before the
+        laboratory has ever run. Adapter health is the case: `doctor()` touches no repository, so a
+        system composed this way against a laboratory with no store never connects to one and never
+        creates one. The flag is only consulted when `read_only` is set; the write path creates the
+        store by design.
+        """
         manifest_path = Path(path).expanduser().resolve()
         manifest = load_manifest(manifest_path)
         base = manifest_path.parent
@@ -71,8 +121,28 @@ class OpenSDLSystem:
         if not artifact_root.is_absolute():
             artifact_root = (base / artifact_root).resolve()
 
-        database = Database(database_url)
-        database.initialize()
+        # A manifest names the code this process will import and run. Authorize the names before
+        # any of them is loaded: the allowlist is what the deployment permits, and the provenance
+        # check stops an installed third party from answering to a reference adapter's name.
+        adapter_plugins = [
+            adapter_config.plugin
+            for adapter_config in manifest.spec.adapters
+            if adapter_config.enabled
+        ]
+        pack_plugins = [pack_config.plugin for pack_config in manifest.spec.domain_packs]
+        enforce_plugin_allowlist([*adapter_plugins, *pack_plugins], plugin_allowlist())
+        validate_declared_adapter_plugins(adapter_plugins)
+
+        if read_only and require_store:
+            store = _sqlite_store_path(database_url)
+            if store is not None and not store.exists():
+                raise StoreNotFoundError(
+                    f"no OpenSDL store at {store}: this laboratory has recorded no runs yet"
+                )
+
+        database = Database(database_url, create=not read_only)
+        if not read_only:
+            database.initialize()
         repositories = Repositories(database)
         registry = CapabilityRegistry()
         plugins = PluginManager()
@@ -116,11 +186,12 @@ class OpenSDLSystem:
                 )
             domain_packs.append({**pack, "config": pack_config.config})
 
-        for adapter in registry.list_adapters():
-            for definition in adapter.capability_definitions():
-                repositories.upsert_capability(definition, adapter.name)
-        for resource in manifest.spec.resources:
-            repositories.upsert_resource(resource)
+        if not read_only:
+            for adapter in registry.list_adapters():
+                for definition in adapter.capability_definitions():
+                    repositories.upsert_capability(definition, adapter.name)
+            for resource in manifest.spec.resources:
+                repositories.upsert_resource(resource)
 
         rules = [
             PolicyRule.model_validate(rule.model_dump(mode="json"))
@@ -131,7 +202,7 @@ class OpenSDLSystem:
             default_effect=manifest.spec.policy.default_effect,
             version=manifest.spec.policy.version,
         )
-        artifact_store = LocalArtifactStore(artifact_root, repositories)
+        artifact_store = LocalArtifactStore(artifact_root, repositories, create=not read_only)
         twin: TwinService | None = None
         twin_viewer_root: Path | None = None
         if manifest.spec.twin is not None:
@@ -164,14 +235,28 @@ class OpenSDLSystem:
             domain_packs=domain_packs,
             twin=twin,
             twin_viewer_root=twin_viewer_root,
+            read_only=read_only,
         )
 
-    async def start(self) -> None:
+    async def start(self, *, reconcile: bool = False) -> list[RunRecord]:
+        """Start the configured adapters and return the runs reconciliation moved.
+
+        Reconciliation is opt-in and reported. It transitions every `RUNNING` or `ABORTING` run to
+        `INTERVENTION_REQUIRED`, releases its leases, and appends recovery events — the correct
+        response to a controller restart, and the destruction of the operational record of an
+        experiment in flight when it happens during one. It used to run unconditionally and
+        silently on every `start()`, including the one behind `opensdl doctor`. A caller that wants
+        it now asks for it and is told what moved.
+        """
+        if reconcile and self.read_only:
+            raise ValueError("a read-only OpenSDL system cannot reconcile runs")
         if self.started:
-            return
+            return []
         await self.registry.start()
-        self.runtime.recover_incomplete_runs()
         self.started = True
+        if not reconcile:
+            return []
+        return self.runtime.recover_incomplete_runs()
 
     async def close(self) -> None:
         if not self.started:
@@ -207,6 +292,8 @@ class OpenSDLSystem:
     ) -> RunRecord:
         """Run a workflow and durably pin the twin binding used for replay."""
 
+        if self.read_only:
+            raise ValueError("a read-only OpenSDL system cannot execute workflows")
         effective_run_id = run_id or RunRecord(workflow_id=workflow.id).id
         twin_binding = self._current_twin_binding()
         run_context = {"twinBinding": twin_binding} if twin_binding is not None else None
@@ -243,11 +330,24 @@ class OpenSDLSystem:
         checks.append(
             {"name": "database", "passed": True, "details": {"url": _redact_url(self.database.url)}}
         )
+        # Whether the root can hold artifacts, which is not the same question as whether it is
+        # there yet. This check used to read `root.exists()` while the store's own constructor had
+        # just created that directory, so it reported on its own side effect and could not fail. A
+        # laboratory that has recorded nothing has no artifact root, and that is not a fault; a
+        # root that exists as a file, or whose parent cannot be written, is.
+        artifact_root = self.artifact_store.root
+        if artifact_root.exists():
+            usable = artifact_root.is_dir() and os.access(artifact_root, os.W_OK)
+            artifact_state = "ready" if usable else "unusable"
+        else:
+            parent = next((p for p in artifact_root.parents if p.exists()), None)
+            usable = parent is not None and os.access(parent, os.W_OK)
+            artifact_state = "creatable" if usable else "unusable"
         checks.append(
             {
                 "name": "artifact-store",
-                "passed": self.artifact_store.root.exists(),
-                "details": {"root": str(self.artifact_store.root)},
+                "passed": usable,
+                "details": {"root": str(artifact_root), "state": artifact_state},
             }
         )
         return {
@@ -295,6 +395,23 @@ def _resolve_database_url(url: str, base: Path) -> str:
         path = (base / url[len(prefix) :]).resolve()
         return f"sqlite:///{path}"
     return url
+
+
+def _sqlite_store_path(url: str) -> Path | None:
+    """The file a SQLite URL points at, or `None` when the store is not a local SQLite file.
+
+    A missing file is the one store absence that can be detected before connecting. SQLite creates
+    the database on first connect, so without this check a read against a laboratory that has never
+    run produces an empty database rather than an answer. No equivalent check exists for a server
+    backend, which is why this returns `None` rather than guessing.
+    """
+    prefix = "sqlite:///"
+    if not url.startswith(prefix):
+        return None
+    raw = url[len(prefix) :]
+    if raw in {":memory:", ""} or raw.startswith("file:"):
+        return None
+    return Path(raw).expanduser()
 
 
 def _twin_binding(twin: TwinService) -> dict[str, str]:

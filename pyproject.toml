@@ -31,6 +31,11 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  # The MCP transport is an optional extra of opensdl-operators, and a member's extra is not
+  # reachable from a workspace-root sync. Without it here its smoke test skips, which is the
+  # failure mode this repository has already shipped once: a green report from a test that never
+  # ran. See scripts/pytest_no_skip.py for the same problem solved for the scene rebuild.
+  "mcp>=1.28,<2",
   "packaging>=24,<27",
   "pytest>=8.3,<10",
   "pytest-asyncio>=0.24,<2",

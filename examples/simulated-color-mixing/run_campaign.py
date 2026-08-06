@@ -24,13 +24,26 @@ async def main() -> None:
         result = await CampaignRunner(system.runtime, system.repositories).run(
             workflow,
             optimizer,
+            # The campaign runs unattended, so it states where the work happens rather than
+            # inheriting a default: this is the environment the manifest declares and the one
+            # policy is evaluated against.
+            environment=system.manifest.spec.environment,
+            operator_id="software/campaign",
             base_inputs={"total_mass_g": 5.0, "target_rgb": [127.5, 0.0, 127.5]},
             score_output="score",
             max_iterations=5,
+            # This workflow mixes a physical sample, so each iteration needs its own identifier.
+            # A computational workflow leaves this unset and receives no injected input.
+            iteration_id_input="sample_id",
         )
         payload = {
             "campaign_id": result.campaign_id,
+            "environment": system.manifest.spec.environment,
             "iterations": len(result.history),
+            "succeeded": len(result.successes),
+            "failed": len(result.failures),
+            "stop_reason": result.stop_reason.value,
+            "stop_detail": result.stop_detail,
             "best": {
                 "candidate": result.best.candidate,
                 "score": result.best.score,

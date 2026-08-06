@@ -11,9 +11,15 @@ from .repositories import Repositories
 
 
 class LocalArtifactStore:
-    def __init__(self, root: str | Path, repositories: Repositories) -> None:
+    def __init__(
+        self, root: str | Path, repositories: Repositories, *, create: bool = True
+    ) -> None:
         self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=True)
+        # A read-only composition must not bring a store into existence just by being built,
+        # and a health check that reports on a directory its own constructor created is not
+        # reporting on anything.
+        if create:
+            self.root.mkdir(parents=True, exist_ok=True)
         self.repositories = repositories
 
     def put_bytes(

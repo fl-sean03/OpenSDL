@@ -67,7 +67,7 @@ class Repositories:
                     validate_run_transition(current, state)
                 except LifecycleError as exc:
                     raise LifecycleError(
-                        f"run {run_id} cannot move from '{current.value}' to '{state.value}': {exc}"
+                        f"run {run_id} cannot move from '{current.value}' to '{RunState(state).value}': {exc}"
                     ) from exc
                 row.state = state.value
             if outputs is not None:

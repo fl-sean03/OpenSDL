@@ -65,8 +65,88 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   reference scene headlessly and compares the exported bytes, so the committed digests are a
   reproducibility claim rather than a self-assertion.
 
+### Breaking
+
+- `spec.capabilities[].config` is removed from the laboratory manifest. It was accepted and never
+  read, and a per-capability `config:` is exactly where an operator would write the operating limits
+  `SAFETY.md` asks a deployment to enforce. Silently ignored safety configuration is worse than an
+  absent field. A manifest that sets it is refused by name, pointing at `spec.adapters[].config`,
+  which is the channel that works. There is no operating-envelope mechanism to move operating limits
+  to; that remains open design work.
+- `PolicyDecision` carries a required `policy_digest`. A third-party evaluator that constructs a
+  decision must supply one; `PolicyEngine.digest` computes it.
+- `OpenSDLSystem.start()` no longer reconciles incomplete runs by default and returns the runs it
+  moved. It used to move every running run to `intervention_required` and release its leases on every
+  call, including the call behind `opensdl doctor`. Pass `reconcile=True` where crash recovery is
+  wanted — a controller or server starting up — and report what comes back.
+- `CampaignRunner.run` requires `environment` and `operator_id` rather than defaulting them, and no
+  longer injects a `sample_id` input. Pass `iteration_id_input` to name an input to fill.
+
 ### Fixed
 
+- the campaign claimed an environment its laboratory had not declared. `CampaignRunner` defaulted to
+  `simulation`, so a laboratory running in `production` with policy permitting only `simulation` had
+  its direct submissions denied and its campaign — the one unattended path in the framework —
+  executed, then recorded runs saying the work happened somewhere it did not. Both fields are now
+  required, so a caller that omits them fails at type-check time rather than at a policy boundary
+  that let them through;
+- one failed run ended the campaign, discarded every successful iteration before it, emitted no
+  terminal event, and never told the optimizer, which then proposed the same failing candidate
+  forever. A failed attempt is now a typed observation with a reason, the optimizer sees it, and the
+  loop stops on sustained failure rather than on the first one. A campaign also records why it
+  stopped, so exhausting a budget and converging are no longer indistinguishable in the log;
+- a campaign's runs were unreachable from the campaign. Every run and task event now carries the
+  campaign that launched it, so one query returns the execution history rather than three campaign
+  events and a list of identifiers to chase;
+- reading a laboratory wrote to it. Composing a manifest initialized the store and seeded every
+  capability and resource, so `opensdl inspect` against a laboratory that had never run created a
+  database to report on. Worse, `doctor` called the recovery path: it moved every running run to
+  `intervention_required`, released their leases, and exited reporting success without mentioning it,
+  so a health check during a live campaign destroyed the record of the experiment in flight. Reads
+  now compose read-only and refuse to create a store; reconciliation is asked for and reported;
+- the artifact-store health check read a directory its own constructor had just created, so it
+  reported on its own side effect and could not fail. It now separates a laboratory that has recorded
+  nothing, which is healthy, from a root that cannot hold artifacts, which is not;
+- an arbitrary installed package could be bound by a one-line manifest edit and executed at startup.
+  The provenance check that catches a third party squatting a reference adapter name existed but was
+  called only from a skill helper, so a squatted `simulated-lab` was loaded. It now runs on the
+  composition path, and `OPENSDL_PLUGIN_ALLOWLIST` lets a deployment constrain what a manifest may
+  bind. The channel is the environment rather than the manifest, because the threat is a manifest an
+  agent edited and a control a manifest can grant itself is not a control;
+- policy evidence could not be checked. The recorded `policy_version` was a free-form label, so every
+  rule could change while the evidence stayed identical. Decisions now carry a digest of the effective
+  ruleset, computed the way the twin already pins its scene;
+- generated laboratories would have committed `.env.production`: the template ignored `.env` but not
+  `.env.*`, while environment variables are the only sanctioned credential channel. The generated lock
+  is also ignored now, because it pins a wheelhouse path that exists only on the machine that
+  generated it, and a lock a colleague cannot resolve is worse than no lock — the reversal is
+  documented where the ignore is. Generated dependency floors are capped at the next minor, which
+  first required fixing the release tooling: its rewrite pattern would have silently deleted an upper
+  bound on every version bump;
+- the CLI reported ordinary mistakes as framework tracebacks — 24 to 164 lines through `asyncio`,
+  SQLAlchemy and Pydantic internals, with absolute virtualenv paths in them, and exit 1 whether the
+  cause was a typo, a policy denial or a defect. Every command now reports one line with an exit code
+  that distinguishes them, and the traceback stays one flag away. The classifier walks the cause chain,
+  because the runtime wraps a timeout and an unknown capability in a workflow error and the cause is
+  the only place the specific failure survives. The runtime's carefully written refusals reach the
+  operator whole rather than being flattened;
+- `opensdl validate` certified configurations that could not run: a manifest naming a plugin that does
+  not exist, a workflow naming a capability the laboratory does not expose. Both now resolve, and `run`
+  performs the same check before dispatch, so a misspelled capability no longer costs a created run and
+  a failure event. An unknown capability also says what the laboratory does expose, rather than
+  repeating the identifier the author already knows they typed;
+- the HTTP API answered every failure with 400 and the exception's own text. A denial is now 403 and
+  names the rule and policy revision that refused it, an unregistered or leased resource is 409, a
+  timeout 504, an unknown capability 404, and a malformed body 422 — and no adapter text reaches the
+  wire, because an adapter's message can carry an endpoint or a credential and the API is
+  unauthenticated. The error responses are declared in OpenAPI, so a generated client can see them;
+- `GET /tools` advertised five tool names that existed nowhere else in the repository, with schemas
+  that declared required fields and no properties, while the MCP transport served five different
+  names. The catalogue is now the same one MCP registers, dispatches through the operator gateway, and
+  is callable over HTTP, so an agent that reads it can use it. The transport's own tests had never
+  run — the optional dependency was not installed anywhere, so its smoke test skipped, which is the
+  same green-without-running failure as the scene rebuild. It is installed now, and `opensdl serve-mcp`
+  gives the transport a way to be started;
 - several checks reported green while constraining nothing. The propagation graph, which exists to
   answer what a change affects, was invoked by no workflow, target or validator; 17% of tracked files
   matched no node at all, including every skill, every script and most root documents; it reported an

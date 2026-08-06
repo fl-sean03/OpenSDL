@@ -73,6 +73,7 @@ class ReferenceRuntime:
         environment: str = "simulation",
         run_id: str | None = None,
         run_context: dict[str, Any] | None = None,
+        campaign_id: str | None = None,
     ) -> RunRecord:
         effective_context = deepcopy(self.default_run_context)
         if run_context:
@@ -96,7 +97,7 @@ class ReferenceRuntime:
             created_payload: dict[str, Any] = {"workflow": workflow.model_dump(mode="json")}
             if effective_context:
                 created_payload["context"] = effective_context
-            self._emit("RunCreated", run=run, payload=created_payload)
+            self._emit("RunCreated", run=run, payload=created_payload, campaign_id=campaign_id)
         else:
             if existing.workflow_id != workflow.id:
                 raise ValueError(f"run {existing.id} belongs to workflow {existing.workflow_id}")
@@ -112,10 +113,10 @@ class ReferenceRuntime:
                 created_payload = {"workflow": workflow.model_dump(mode="json")}
                 if effective_context:
                     created_payload["context"] = effective_context
-                self._emit("RunCreated", run=run, payload=created_payload)
+                self._emit("RunCreated", run=run, payload=created_payload, campaign_id=campaign_id)
 
         self.repositories.update_run(run.id, state=RunState.RUNNING, error=None)
-        self._emit("RunStarted", run=run)
+        self._emit("RunStarted", run=run, campaign_id=campaign_id)
 
         step_outputs = {
             step_id: task.outputs
@@ -137,6 +138,7 @@ class ReferenceRuntime:
                             step_outputs=step_outputs,
                             operator_id=operator_id,
                             environment=environment,
+                            campaign_id=campaign_id,
                             existing_task=existing_tasks.get(step.id),
                         )
                         for step in pending
@@ -156,7 +158,12 @@ class ReferenceRuntime:
             completed = self.repositories.update_run(
                 run.id, state=RunState.COMPLETED, outputs=outputs
             )
-            self._emit("RunCompleted", run=completed, payload={"outputs": outputs})
+            self._emit(
+                "RunCompleted",
+                run=completed,
+                payload={"outputs": outputs},
+                campaign_id=campaign_id,
+            )
             self.artifact_store.put_json(
                 {
                     "run": completed.model_dump(mode="json"),
@@ -180,6 +187,7 @@ class ReferenceRuntime:
                 "RunInterventionRequired",
                 run=interrupted,
                 payload={"error": run_error, "reason": "execution_cancelled"},
+                campaign_id=campaign_id,
             )
             raise
         except Exception as exc:
@@ -189,6 +197,7 @@ class ReferenceRuntime:
                 "RunFailed",
                 run=failed,
                 payload={"error": error, "errorType": type(exc).__name__},
+                campaign_id=campaign_id,
             )
             if isinstance(
                 exc,
@@ -257,6 +266,7 @@ class ReferenceRuntime:
         step_outputs: dict[str, dict[str, Any]],
         operator_id: str,
         environment: str,
+        campaign_id: str | None,
         existing_task: TaskRecord | None,
     ) -> dict[str, Any]:
         async with self._semaphore:
@@ -281,6 +291,7 @@ class ReferenceRuntime:
                 run=run,
                 task=task,
                 payload=decision.model_dump(mode="json"),
+                campaign_id=campaign_id,
             )
             if not decision.allowed:
                 task.state = TaskState.FAILED
@@ -288,7 +299,8 @@ class ReferenceRuntime:
                 task.updated_at = utc_now()
                 self.repositories.upsert_task(task)
                 raise ExecutionDeniedError(
-                    f"execution of {step.capability} denied: {decision.reason}"
+                    f"execution of {step.capability} denied: {decision.reason}",
+                    decision=decision,
                 )
 
             resources = sorted(set(definition.required_resources + step.resources))
@@ -334,6 +346,7 @@ class ReferenceRuntime:
                         run=run,
                         task=task,
                         payload={"attempt": task.attempt, "inputs": resolved_inputs},
+                        campaign_id=campaign_id,
                     )
                     try:
                         result = await asyncio.wait_for(adapter.execute(request), timeout=timeout)
@@ -355,6 +368,7 @@ class ReferenceRuntime:
                                 "error": task_error,
                                 "reason": "execution_cancelled",
                             },
+                            campaign_id=campaign_id,
                         )
                         raise
                     except Exception as exc:
@@ -375,6 +389,7 @@ class ReferenceRuntime:
                                 run=run,
                                 task=task,
                                 payload={"attempt": task.attempt, "error": error},
+                                campaign_id=campaign_id,
                             )
                             if timed_out:
                                 raise WorkflowExecutionError(error) from exc
@@ -414,6 +429,7 @@ class ReferenceRuntime:
                                 "error": invalid_output_error,
                                 "reason": "invalid_output",
                             },
+                            campaign_id=campaign_id,
                         )
                         raise ValidationError(invalid_output_error) from exc
 
@@ -430,6 +446,7 @@ class ReferenceRuntime:
                             "output": result.output,
                             "adapter": adapter.name,
                         },
+                        campaign_id=campaign_id,
                     )
                     return result.output
                 raise AssertionError("retry loop exited unexpectedly")

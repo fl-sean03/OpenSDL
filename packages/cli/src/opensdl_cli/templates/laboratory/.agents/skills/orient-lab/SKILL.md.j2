@@ -23,9 +23,12 @@ newly reported equipment.
 4. Run `.agents/skills/orient-lab/run.sh [MANIFEST]` to validate files without opening the runtime
    store.
 5. Read only the workflow, tests, and local code needed for the user's task.
-6. Explain that `doctor`, capability listing, run inspection, and event queries currently initialize
-   or update the configured store. `doctor` can also reconcile incomplete runs.
-7. Run those commands only when the user requests operational evidence and accepts that behavior.
+6. `doctor`, capability listing, run inspection, and event queries read without writing: they
+   compose the laboratory read-only and refuse to create a store that is not there. `doctor`
+   reconciles incomplete runs only when asked with `--reconcile`, and reports what it moved.
+7. Never pass `--reconcile` while work may be in flight: it moves every running run to
+   `intervention_required` and releases its leases, which is recovery after a controller
+   stopped, not a health check.
 8. Report current evidence, mismatches, assumptions, and unavailable commands.
 
 ## Completion

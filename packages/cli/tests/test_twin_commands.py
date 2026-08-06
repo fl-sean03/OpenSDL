@@ -67,7 +67,7 @@ def test_twin_validate_reports_invalid_definition_without_traceback(
 
     result = CliRunner().invoke(cli.app, ["twin", "validate", str(definition_path)])
 
-    assert result.exit_code == 1
+    assert result.exit_code == cli.EXIT_INVALID
     assert "Twin validation failed: revision is required" in result.stderr
     assert "Traceback" not in result.output
 
@@ -88,7 +88,7 @@ def test_twin_project_uses_configured_system(monkeypatch) -> None:
     monkeypatch.setattr(
         cli.OpenSDLSystem,
         "from_manifest",
-        lambda manifest: system,
+        lambda manifest, **options: system,
     )
 
     result = CliRunner().invoke(
@@ -113,14 +113,14 @@ def test_twin_project_reports_incompatible_binding_without_traceback(monkeypatch
             )
         ),
     )
-    monkeypatch.setattr(cli.OpenSDLSystem, "from_manifest", lambda manifest: system)
+    monkeypatch.setattr(cli.OpenSDLSystem, "from_manifest", lambda manifest, **options: system)
 
     result = CliRunner().invoke(
         cli.app,
         ["twin", "project", "run-old", "--manifest", "lab.yaml"],
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == cli.EXIT_INVALID
     assert "Twin projection failed" in result.stderr
     assert "different twin definition" in result.stderr
     assert "Traceback" not in result.output

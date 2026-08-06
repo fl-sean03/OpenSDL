@@ -4,11 +4,19 @@ from typing import Any
 
 from pydantic import Field
 
+from opensdl_capabilities import validate_instance
 from opensdl_core import OpenSDLModel
 from opensdl_runtime import ReferenceRuntime
 from opensdl_storage import RepositoryStore
 
 from .context import ContextPackBuilder
+
+#: The largest event page one tool call may ask for. The event log is append-only and unbounded.
+MAX_EVENT_LIMIT = 1000
+
+#: The operator identity recorded for a tool call that does not assert one. It is not a credential;
+#: see `docs/reference/api.md` on caller-asserted `operator_id`.
+DEFAULT_TOOL_OPERATOR = "operator/tool"
 
 
 class ToolSpec(OpenSDLModel):
@@ -16,6 +24,77 @@ class ToolSpec(OpenSDLModel):
     description: str
     input_schema: dict[str, Any] = Field(default_factory=dict)
     side_effects: list[str] = Field(default_factory=list)
+
+
+#: The tool surface an agent reads before deciding what it is allowed to do.
+#:
+#: Every name here is dispatchable through `OperatorGateway.call_tool`, and `build_mcp_server`
+#: registers exactly these names against exactly these arguments. The catalogue previously
+#: published five dotted names — `lab.describe`, `capability.list`, `run.inspect`, `event.query`,
+#: `capability.execute` — that existed nowhere else in the project, while MCP registered five
+#: different ones and nothing dispatched either set. The underscored names win because they are the
+#: ones MCP already served and because a dot is not accepted by the tool-name grammar most MCP
+#: clients enforce. Every schema names its properties: `required` without `properties` told a
+#: caller a field was mandatory without telling it what to put there.
+TOOL_SPECS: tuple[ToolSpec, ...] = (
+    ToolSpec(
+        name="describe_lab",
+        description="Return current laboratory context.",
+        input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    ToolSpec(
+        name="list_capabilities",
+        description="List executable capabilities.",
+        input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    ToolSpec(
+        name="inspect_run",
+        description="Inspect a durable run, its tasks, and its events.",
+        input_schema={
+            "type": "object",
+            "properties": {"run_id": {"type": "string", "description": "Durable run identifier."}},
+            "required": ["run_id"],
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="query_events",
+        description="Query execution events.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string", "description": "Restrict to one run."},
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": MAX_EVENT_LIMIT,
+                    "default": 200,
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="execute_capability",
+        description="Execute one declared capability through policy and provenance.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "capability_id": {"type": "string", "description": "Declared capability."},
+                "inputs": {"type": "object", "description": "Capability inputs."},
+                "operator_id": {
+                    "type": "string",
+                    "description": "Subject policy evaluates and provenance records.",
+                    "default": DEFAULT_TOOL_OPERATOR,
+                },
+            },
+            "required": ["capability_id", "inputs"],
+            "additionalProperties": False,
+        },
+        side_effects=["may execute configured laboratory capability"],
+    ),
+)
+TOOL_SPECS_BY_NAME: dict[str, ToolSpec] = {spec.name: spec for spec in TOOL_SPECS}
 
 
 class OperatorGateway:
@@ -32,29 +111,45 @@ class OperatorGateway:
         self.context_builder = context_builder
 
     def tool_specs(self) -> list[ToolSpec]:
-        return [
-            ToolSpec(name="lab.describe", description="Return current laboratory context."),
-            ToolSpec(name="capability.list", description="List executable capabilities."),
-            ToolSpec(
-                name="run.inspect",
-                description="Inspect a durable run.",
-                input_schema={"type": "object", "required": ["run_id"]},
-            ),
-            ToolSpec(
-                name="event.query",
-                description="Query execution events.",
-                input_schema={"type": "object", "properties": {"run_id": {"type": "string"}}},
-            ),
-            ToolSpec(
-                name="capability.execute",
-                description="Execute one declared capability through policy and provenance.",
-                input_schema={"type": "object", "required": ["capability_id", "inputs"]},
-                side_effects=["may execute configured laboratory capability"],
-            ),
-        ]
+        return list(TOOL_SPECS)
+
+    async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
+        """Dispatch one advertised tool.
+
+        This is the whole point of publishing a catalogue: what `tool_specs` advertises is what
+        this method runs, so an agent that reads the surface and builds a call can make it. The
+        arguments are validated against the schema the caller was given, which is what turns a
+        typo into one contract error instead of a `TypeError` from a keyword expansion.
+        """
+        spec = TOOL_SPECS_BY_NAME.get(name)
+        if spec is None:
+            available = ", ".join(sorted(TOOL_SPECS_BY_NAME))
+            raise LookupError(f"unknown tool {name!r}; available: {available}")
+        given = dict(arguments or {})
+        validate_instance(given, spec.input_schema, label=f"{name} arguments")
+        if name == "describe_lab":
+            return self.describe_lab()
+        if name == "list_capabilities":
+            return self.list_capabilities()
+        if name == "inspect_run":
+            return self.inspect_run(given["run_id"])
+        if name == "query_events":
+            return self.query_events(run_id=given.get("run_id"), limit=given.get("limit", 200))
+        return await self.execute_capability(
+            given["capability_id"],
+            given["inputs"],
+            operator_id=given.get("operator_id", DEFAULT_TOOL_OPERATOR),
+            environment=self.context_builder.manifest.spec.environment,
+        )
 
     def describe_lab(self) -> dict[str, Any]:
         return self.context_builder.build().model_dump(mode="json")
+
+    def list_capabilities(self) -> list[dict[str, Any]]:
+        return [
+            definition.model_dump(mode="json")
+            for definition in self.context_builder.registry.list_capabilities()
+        ]
 
     def inspect_run(self, run_id: str) -> dict[str, Any]:
         run = self.repositories.get_run(run_id)
@@ -70,6 +165,22 @@ class OperatorGateway:
                 for event in self.repositories.list_events(run_id=run_id)
             ],
         }
+
+    def query_events(
+        self,
+        *,
+        run_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        validate_instance(
+            {"limit": limit},
+            TOOL_SPECS_BY_NAME["query_events"].input_schema,
+            label="query_events arguments",
+        )
+        return [
+            event.model_dump(mode="json")
+            for event in self.repositories.list_events(run_id=run_id, limit=limit)
+        ]
 
     async def execute_capability(
         self, capability_id: str, inputs: dict[str, Any], *, operator_id: str, environment: str

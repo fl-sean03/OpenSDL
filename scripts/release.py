@@ -11,7 +11,9 @@ from packaging.version import InvalidVersion, Version
 
 ROOT = Path(__file__).parents[1]
 PROJECT_VERSION = re.compile(r'(?m)^version = "[^"]+"$')
-OPENSDL_FLOOR = re.compile(r'("opensdl-[a-z0-9-]+>=)[^"]+(")')
+# Rewrite the floor and nothing else. Consuming to the closing quote would silently delete an
+# upper bound on every release bump, which is a worse failure than not writing one at all.
+OPENSDL_FLOOR = re.compile(r'("opensdl-[a-z0-9-]+>=)[^",]+')
 
 
 def workspace_project_paths(root: Path) -> list[Path]:
@@ -41,7 +43,7 @@ def update_release_version(
         (root / "packages/cli/src/opensdl_cli/templates").glob("**/pyproject.toml.j2")
     ):
         text = path.read_text(encoding="utf-8")
-        updated = OPENSDL_FLOOR.sub(rf"\g<1>{version}\2", text)
+        updated = OPENSDL_FLOOR.sub(rf"\g<1>{version}", text)
         if updated != text:
             path.write_text(updated, encoding="utf-8")
             changed.append(path)

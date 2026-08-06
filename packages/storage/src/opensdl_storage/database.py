@@ -13,7 +13,7 @@ from .db_models import Base, SchemaVersionRow
 
 
 class Database:
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, *, create: bool = True) -> None:
         kwargs: dict = {"future": True}
         if url == "sqlite:///:memory:":
             kwargs.update(
@@ -22,7 +22,8 @@ class Database:
             )
         elif url.startswith("sqlite:"):
             kwargs.update(connect_args={"check_same_thread": False})
-            self._ensure_sqlite_parent(url)
+            if create:
+                self._ensure_sqlite_parent(url)
         self.url = url
         self.engine: Engine = create_engine(url, **kwargs)
         self.session_factory = sessionmaker(self.engine, expire_on_commit=False, class_=Session)

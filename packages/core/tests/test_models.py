@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError as PydanticValidationError
 
 from opensdl_core import (
+    CampaignDefinition,
     CapabilityDefinition,
     ExecutorType,
     LifecycleError,
@@ -31,6 +32,52 @@ def test_capability_contract_round_trip() -> None:
         risk_class=RiskClass.R0,
     )
     assert CapabilityDefinition.model_validate_json(capability.model_dump_json()) == capability
+
+
+def campaign_definition(**overrides: object) -> CampaignDefinition:
+    fields: dict[str, object] = {
+        "id": "campaign.color",
+        "name": "Match a target color",
+        "objective": "minimize distance to the target RGB",
+        "workflow_id": "color-mix-and-score",
+        "optimizer": "grid",
+    }
+    fields.update(overrides)
+    return CampaignDefinition(**fields)  # pyright: ignore[reportArgumentType]
+
+
+def test_campaign_definition_declares_every_stopping_rule() -> None:
+    definition = campaign_definition(
+        target_score=0.5,
+        max_consecutive_failures=2,
+        max_duration_seconds=3600,
+        iteration_id_input="sample_id",
+    )
+    assert CampaignDefinition.model_validate_json(definition.model_dump_json()) == definition
+    assert campaign_definition().max_consecutive_failures == 3
+    assert campaign_definition().target_score is None
+    assert campaign_definition().max_duration_seconds is None
+    # Domain-neutral by default: nothing is injected into a computational workflow's inputs.
+    assert campaign_definition().iteration_id_input is None
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"max_iterations": 0},
+        {"max_consecutive_failures": 0},
+        {"max_duration_seconds": 0},
+        # A campaign definition cannot assert where it runs or who runs it: those come from the
+        # laboratory manifest and the caller, and a stored default would make them a claim.
+        {"environment": "production"},
+        {"operator_id": "software/campaign"},
+    ],
+)
+def test_campaign_definition_rejects_budgets_and_claims_it_cannot_honor(
+    overrides: dict[str, object],
+) -> None:
+    with pytest.raises(PydanticValidationError):
+        campaign_definition(**overrides)
 
 
 def test_lifecycle_rejects_invalid_transition() -> None:

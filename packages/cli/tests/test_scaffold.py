@@ -77,6 +77,87 @@ def test_laboratory_scaffold_is_complete_and_valid(tmp_path: Path) -> None:
     assert validate_workflow_file(root / "workflows/manual-check.yaml").steps
 
 
+def ignored(root: Path, *paths: str) -> dict[str, bool]:
+    """Ask Git itself which paths the generated `.gitignore` excludes.
+
+    Asserting on the file's text would pass for a pattern in the wrong order — `!.env.example`
+    before `.env.*` re-includes nothing — so the question is put to the tool that decides.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    return {
+        path: subprocess.run(
+            ["git", "check-ignore", "-q", "--no-index", path],
+            cwd=root,
+            check=False,
+        ).returncode
+        == 0
+        for path in paths
+    }
+
+
+def test_generated_laboratory_ignores_every_environment_file_but_the_example(
+    tmp_path: Path,
+) -> None:
+    """Environment variables are the only sanctioned credential channel in this alpha.
+
+    The template ignored `.env` alone while the documented multi-manifest workflow produces
+    `.env.production` and `.env.staging`, so the one file most likely to hold a real credential was
+    the one Git tracked.
+    """
+    root = create_laboratory(tmp_path / "my-lab", owner="example")
+
+    assert ignored(
+        root,
+        ".env",
+        ".env.production",
+        ".env.staging",
+        ".env.local",
+        ".env.example",
+    ) == {
+        ".env": True,
+        ".env.production": True,
+        ".env.staging": True,
+        ".env.local": True,
+        ".env.example": False,
+    }
+
+
+def test_generated_laboratory_ignores_a_lockfile_it_cannot_make_portable(tmp_path: Path) -> None:
+    """A lock is normally committed. This one records the machine that generated it.
+
+    The only way to install a generated laboratory today is `uv sync --find-links` against a local
+    wheelhouse, which writes that directory into `uv.lock` as a registry for all 22 OpenSDL
+    distributions. Committing it makes a fresh clone unresolvable and says nothing about why, so the
+    lock stays out of Git until the packages resolve from a real index — and the template says so,
+    with the step that reverses it.
+    """
+    root = create_laboratory(tmp_path / "my-lab", owner="example")
+
+    assert ignored(root, "uv.lock") == {"uv.lock": True}
+    recovery = (root / "DEVELOPMENT.md").read_text(encoding="utf-8")
+    assert "uv.lock" in recovery
+    assert ".gitignore" in recovery, "the note has to name the line to delete"
+
+
+def test_generated_laboratory_caps_its_framework_dependencies(tmp_path: Path) -> None:
+    """A floor with no ceiling is satisfied by every future release, including a breaking one.
+
+    OpenSDL is pre-1.0, so the next minor may change any contract it publishes. Without a cap an
+    unrelated `uv sync` carries a laboratory across that boundary silently.
+    """
+    root = create_laboratory(tmp_path / "my-lab", owner="example")
+    project = (root / "pyproject.toml").read_text(encoding="utf-8")
+
+    for distribution in (
+        "opensdl-cli",
+        "opensdl-adapter-simulated-lab",
+        "opensdl-adapter-local-compute",
+        "opensdl-adapter-human-task",
+    ):
+        assert f'"{distribution}>=0.1.0a0,<0.2.0"' in project
+    assert "==" in project, "the note has to name the pin that fixes it for a real run"
+
+
 @pytest.mark.asyncio
 async def test_laboratory_scaffold_runs_physical_compute_and_human_examples(
     tmp_path: Path,

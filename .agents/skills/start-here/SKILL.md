@@ -43,9 +43,11 @@ Begin with partial input. Ask for only the highest-value missing information.
     `develop-workflow`, `add-domain-pack`, or `debug-run` as appropriate. Use `design-lab` when the
     open question is physical or interface design rather than OpenSDL configuration.
 
-Do not run `doctor`, capability listing, inspection, or event queries merely for onboarding. Those
-commands currently open or update the configured runtime store. Use them only when the user asks
-for operational evidence and accepts that behavior.
+Do not run `doctor`, capability listing, inspection, or event queries merely for onboarding. They
+read without writing and will not create a store that is not there, but they report operational
+evidence rather than declared configuration, which is a different question from setting a
+laboratory up. Never pass `doctor --reconcile` during onboarding: it moves running runs to
+`intervention_required` and releases their leases.
 
 ## Completion
 

@@ -1288,6 +1288,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mcp" },
     { name = "packaging" },
     { name = "pyright" },
     { name = "pytest" },
@@ -1328,6 +1329,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mcp", specifier = ">=1.28,<2" },
     { name = "packaging", specifier = ">=24,<27" },
     { name = "pyright", specifier = ">=1.1.390,<2" },
     { name = "pytest", specifier = ">=8.3,<10" },

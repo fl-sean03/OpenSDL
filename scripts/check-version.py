@@ -8,7 +8,9 @@ import yaml
 
 
 ROOT = Path(__file__).parents[1]
-OPENSDL_FLOOR = re.compile(r'"(opensdl-[a-z0-9-]+)>=([^"]+)"')
+# Capture the floor only. A generated laboratory may cap its framework dependencies, and a
+# pattern that runs to the closing quote would read "0.1.0a0,<0.2.0" as the floor and fail.
+OPENSDL_FLOOR = re.compile(r'"(opensdl-[a-z0-9-]+)>=([^",]+)')
 
 
 def project_version(path: Path) -> str:

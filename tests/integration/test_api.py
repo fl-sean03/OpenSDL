@@ -2,14 +2,41 @@ import hashlib
 from pathlib import Path
 import shutil
 from importlib.metadata import version as distribution_version
+from typing import Any, Callable
 
+import pytest
 import yaml
 
 from fastapi.testclient import TestClient
 
 from opensdl_api import create_app
 from opensdl_controller import OpenSDLSystem
+from opensdl_core import RunRecord, RunState
+from opensdl_storage import Database, Repositories
 from opensdl_twin import TwinProjectionError, TwinService
+
+EXAMPLE = Path(__file__).parents[2] / "examples" / "simulated-color-mixing"
+VALID_INPUTS = {
+    "sample_id": "api",
+    "red_fraction": 0.5,
+    "blue_fraction": 0.5,
+    "total_mass_g": 5,
+    "target_rgb": [127.5, 0, 127.5],
+}
+MIX_INPUTS = {key: value for key, value in VALID_INPUTS.items() if key != "target_rgb"}
+
+
+def _copy_example(tmp_path: Path) -> Path:
+    target = tmp_path / "lab"
+    shutil.copytree(EXAMPLE, target, ignore=shutil.ignore_patterns(".opensdl", "__pycache__"))
+    return target
+
+
+def _edit(path: Path, change: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    change(document)
+    path.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return document
 
 
 def _write_twin(target: Path, scene_content: bytes) -> TwinService:
@@ -167,3 +194,176 @@ def test_api_serves_only_configured_twin_and_viewer_assets(
         invalid_projection = client.get("/twin/runs/run-1")
         assert invalid_projection.status_code == 422
         assert invalid_projection.json() == {"detail": "twin run projection failed"}
+
+
+@pytest.mark.integration
+def test_a_denied_request_is_not_reported_as_a_malformed_one(tmp_path: Path) -> None:
+    """Denial, malformed input, and a crash were all `400 {"detail": "<str(exc)>"}`.
+
+    A client had no way to tell "policy will never allow this" from "you sent nonsense", and the
+    only thing distinguishing them was prose lifted out of an exception.
+    """
+    lab = _copy_example(tmp_path)
+    _edit(
+        lab / "opensdl.yaml",
+        lambda document: document["spec"]["policy"].update(default_effect="deny", rules=[]),
+    )
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        denied = client.post(
+            "/capabilities/sim.mix_color/execute",
+            json={"inputs": MIX_INPUTS},
+        )
+
+    assert denied.status_code == 403, denied.text
+    assert "default policy effect" not in denied.text
+
+
+@pytest.mark.integration
+def test_an_unknown_capability_is_a_not_found(tmp_path: Path) -> None:
+    lab = _copy_example(tmp_path)
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        response = client.post("/capabilities/sim.mix_colour/execute", json={"inputs": {}})
+
+    assert response.status_code == 404, response.text
+
+
+@pytest.mark.integration
+def test_an_unavailable_resource_is_a_conflict(tmp_path: Path) -> None:
+    lab = _copy_example(tmp_path)
+    workflow = _edit(
+        lab / "workflow.yaml",
+        lambda document: document["steps"][0].update(resources=["instrument-nobody-registered"]),
+    )
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        response = client.post("/runs", json={"workflow": workflow, "inputs": VALID_INPUTS})
+
+    assert response.status_code == 409, response.text
+    assert "instrument-nobody-registered" not in response.text
+
+
+@pytest.mark.integration
+def test_a_declared_timeout_is_a_gateway_timeout(tmp_path: Path) -> None:
+    lab = _copy_example(tmp_path)
+    _edit(
+        lab / "opensdl.yaml",
+        lambda document: document["spec"]["adapters"][0]["config"].update(latency_seconds=2.0),
+    )
+    workflow = _edit(
+        lab / "workflow.yaml",
+        lambda document: document["steps"][0].update(timeout_seconds=0.05, retries=0),
+    )
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        response = client.post("/runs", json={"workflow": workflow, "inputs": VALID_INPUTS})
+
+    assert response.status_code == 504, response.text
+
+
+@pytest.mark.integration
+def test_a_workflow_that_is_not_a_workflow_is_unprocessable(tmp_path: Path) -> None:
+    lab = _copy_example(tmp_path)
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        response = client.post("/runs", json={"workflow": {"id": "not-a-workflow"}})
+
+    assert response.status_code == 422, response.text
+
+
+@pytest.mark.integration
+def test_the_event_query_limit_is_bounded(tmp_path: Path) -> None:
+    """An unbounded limit is a request for the entire permanent event log in one response."""
+    lab = _copy_example(tmp_path)
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        assert client.get("/events", params={"limit": 1_000_000}).status_code == 422
+        assert client.get("/events", params={"limit": 0}).status_code == 422
+        assert client.get("/events", params={"limit": 50}).status_code == 200
+
+
+@pytest.mark.integration
+def test_the_documented_contract_includes_the_failures_the_code_returns(tmp_path: Path) -> None:
+    """A generated client only knows the statuses OpenAPI declares. Every route said `200`."""
+    lab = _copy_example(tmp_path)
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        paths = client.get("/openapi.json").json()["paths"]
+
+    submit = set(paths["/runs"]["post"]["responses"])
+    execute = set(paths["/capabilities/{capability_id}/execute"]["post"]["responses"])
+    assert {"403", "404", "409", "422", "500", "504"} <= submit
+    assert {"403", "404", "409", "422", "500", "504"} <= execute
+    assert "404" in paths["/runs/{run_id}"]["get"]["responses"]
+    assert "404" in paths["/twin"]["get"]["responses"]
+    assert {"404", "409"} <= set(paths["/twin/scene.glb"]["get"]["responses"])
+    assert {"404", "422"} <= set(paths["/twin/runs/{run_id}"]["get"]["responses"])
+    assert "404" in paths["/viewer/{asset_path}"]["get"]["responses"]
+
+
+@pytest.mark.integration
+def test_the_advertised_tools_can_be_called_over_the_transport_that_advertises_them(
+    tmp_path: Path,
+) -> None:
+    """`GET /tools` published five names that appeared nowhere else in the project."""
+    lab = _copy_example(tmp_path)
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        catalogue = client.get("/tools").json()
+        names = [tool["name"] for tool in catalogue]
+        assert names == sorted(names, key=names.index)
+
+        for tool in catalogue:
+            assert tool["input_schema"]["type"] == "object"
+            declared = set(tool["input_schema"].get("required", []))
+            assert declared <= set(tool["input_schema"]["properties"]), tool["name"]
+
+        executed = client.post(
+            "/tools/execute_capability",
+            json={"arguments": {"capability_id": "sim.mix_color", "inputs": MIX_INPUTS}},
+        )
+        assert executed.status_code == 200, executed.text
+        run_id = executed.json()["run"]["id"]
+        assert client.post("/tools/describe_lab", json={}).status_code == 200
+        assert client.post("/tools/list_capabilities", json={}).status_code == 200
+        assert (
+            client.post("/tools/inspect_run", json={"arguments": {"run_id": run_id}}).json()["run"][
+                "id"
+            ]
+            == run_id
+        )
+        assert (
+            client.post("/tools/query_events", json={"arguments": {"limit": 5}}).status_code == 200
+        )
+        assert client.post("/tools/capability.execute", json={}).status_code == 404
+        assert client.post("/tools/inspect_run", json={"arguments": {}}).status_code == 422
+
+
+@pytest.mark.integration
+def test_the_server_reconciles_runs_a_stopped_controller_left_active(tmp_path: Path) -> None:
+    """A restarting server is exactly where crash recovery is wanted, and the only place left.
+
+    `OpenSDLSystem.start()` stopped reconciling implicitly, which was right — it made
+    `opensdl doctor` destroy the record of a live experiment. Without an explicit request here,
+    a controller that died mid-run leaves those runs `RUNNING` with their leases held forever.
+    """
+    lab = _copy_example(tmp_path)
+    database = Database(f"sqlite:///{lab / '.opensdl' / 'opensdl.db'}")
+    database.initialize()
+    Repositories(database).create_run(
+        RunRecord(
+            id="run-left-active",
+            workflow_id="color-mix-and-score",
+            state=RunState.RUNNING,
+            operator_id="operator/crashed",
+            environment="simulation",
+        )
+    )
+    database.dispose()
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        health = client.get("/health").json()
+        assert [run["id"] for run in health["reconciled_runs"]] == ["run-left-active"]
+        recovered = client.get("/runs/run-left-active").json()["run"]
+        assert recovered["state"] == "intervention_required"

@@ -1,5 +1,6 @@
 {
   "additionalProperties": false,
+  "description": "Declarative description of a closed loop: what to search, and when to stop searching.\n\nEvery field below `optimizer` names a `CampaignRunner.run` keyword argument and carries the\nsame default. The submission facts \u2014 which environment the work runs in, and which operator is\naccountable for it \u2014 are deliberately absent: they come from the laboratory manifest and the\ncaller, so a stored definition can never assert an environment its laboratory did not declare.",
   "properties": {
     "id": {
       "title": "Id",
@@ -41,6 +42,49 @@
       "default": true,
       "title": "Minimize",
       "type": "boolean"
+    },
+    "target_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Score"
+    },
+    "max_consecutive_failures": {
+      "default": 3,
+      "minimum": 1,
+      "title": "Max Consecutive Failures",
+      "type": "integer"
+    },
+    "max_duration_seconds": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Duration Seconds"
+    },
+    "iteration_id_input": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Iteration Id Input"
     },
     "metadata": {
       "additionalProperties": true,

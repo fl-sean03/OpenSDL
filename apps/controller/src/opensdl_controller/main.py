@@ -11,7 +11,22 @@ from .system import OpenSDLSystem
 
 async def _serve(manifest: Path) -> None:
     system = OpenSDLSystem.from_manifest(manifest)
-    await system.start()
+    # A controller starting up is the case reconciliation is for: any run still marked RUNNING was
+    # left behind by a previous process. It is asked for explicitly, and what it moved is printed
+    # rather than left for someone to discover in the event log.
+    reconciled = await system.start(reconcile=True)
+    if reconciled:
+        print(
+            json.dumps(
+                {
+                    "reconciled_runs": [
+                        {"id": run.id, "state": run.state.value, "error": run.error}
+                        for run in reconciled
+                    ]
+                },
+                indent=2,
+            )
+        )
     print(json.dumps(await system.doctor(), indent=2))
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

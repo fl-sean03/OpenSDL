@@ -112,6 +112,14 @@ class WorkflowDefinition(OpenSDLModel):
 
 
 class CampaignDefinition(OpenSDLModel):
+    """Declarative description of a closed loop: what to search, and when to stop searching.
+
+    Every field below `optimizer` names a `CampaignRunner.run` keyword argument and carries the
+    same default. The submission facts — which environment the work runs in, and which operator is
+    accountable for it — are deliberately absent: they come from the laboratory manifest and the
+    caller, so a stored definition can never assert an environment its laboratory did not declare.
+    """
+
     id: str
     name: str
     objective: str
@@ -121,6 +129,16 @@ class CampaignDefinition(OpenSDLModel):
     base_inputs: dict[str, Any] = Field(default_factory=dict)
     score_output: str = "score"
     minimize: bool = True
+    #: Stop once an observation reaches this score. `None` searches the whole budget.
+    target_score: float | None = None
+    #: Stop once this many iterations fail in a row: failure has stopped being routine.
+    max_consecutive_failures: int = Field(default=3, ge=1)
+    #: Wall-clock budget, checked before each iteration. `None` is unbounded.
+    max_duration_seconds: float | None = Field(default=None, gt=0)
+    #: Workflow input that receives a unique per-iteration identifier, for laboratories whose
+    #: workflows need one (a sample, a specimen, a plate well). `None` injects nothing, which is
+    #: what a computational workflow needs.
+    iteration_id_input: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

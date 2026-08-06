@@ -9,9 +9,23 @@ uv sync --find-links /path/to/OpenSDL/dist
 ./scripts/dev.sh
 ```
 
-Because the wheelhouse location can be recorded in `uv.lock`, use a stable registry or committed
-artifact source before treating the lockfile as portable. Set the repository variable
-`OPENSDL_PACKAGES_AVAILABLE=true` only after CI can resolve that source.
+## Why `uv.lock` is ignored, and how to start committing it
+
+A lockfile belongs in Git. This one does not yet. `uv sync --find-links` records the wheelhouse
+directory as the registry for every OpenSDL distribution, and that path exists only on the machine
+that ran the command, so a clone elsewhere cannot resolve the lock and is given no reason why.
+`.gitignore` therefore excludes `uv.lock`, and this repository has no pinned resolution until you
+reverse that:
+
+1. point the laboratory at an index or artifact source every clone can reach;
+2. delete the `uv.lock` line from `.gitignore`;
+3. `rm -f uv.lock && uv lock` so the new resolution carries no wheelhouse path — confirm with
+   `grep -c 'find-links\|registry = "\.\.' uv.lock`;
+4. commit the lock, then set the repository variable `OPENSDL_PACKAGES_AVAILABLE=true` so CI runs
+   the full job against it.
+
+Pin the framework versions in `pyproject.toml` in the same change. The generated floors have no
+upper bound, so a future OpenSDL release satisfies them whether or not it breaks this laboratory.
 
 Add organization-specific behavior under `src/{{ package }}/`. Install public
 or private adapters through normal Python dependencies and declare them in

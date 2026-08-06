@@ -43,6 +43,7 @@
     },
     "CapabilityBinding": {
       "additionalProperties": false,
+      "description": "Binds one capability identifier to the adapter that must provide it.\n\nA binding selects and enables; it carries no configuration. Configuration reaches an executor\nthrough `spec.adapters[].config`, which the composition root passes to the plugin factory.\n\nThere was a `config` field here. Nothing ever read it, and a per-capability `config:` is\nprecisely where an operator writes operating limits \u2014 the deployment obligation `SAFETY.md`\ndescribes. Enforcing an operating envelope is unbuilt design work, so the field is removed\nrather than left absorbing safety configuration in silence.",
       "properties": {
         "capability": {
           "title": "Capability",
@@ -56,11 +57,6 @@
           "default": true,
           "title": "Enabled",
           "type": "boolean"
-        },
-        "config": {
-          "additionalProperties": true,
-          "title": "Config",
-          "type": "object"
         }
       },
       "required": [

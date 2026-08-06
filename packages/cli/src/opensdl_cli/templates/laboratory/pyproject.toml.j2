@@ -2,11 +2,15 @@
 name = "{{ name }}"
 version = "0.1.0"
 requires-python = ">=3.12"
+# Capped at the next minor. OpenSDL is pre-1.0, so a minor release may change any contract it
+# publishes — a manifest field, a capability identifier, a CLI flag — and the changelog is the only
+# notice. The cap stops an unrelated `uv sync` from carrying this laboratory across that boundary.
+# Before a first real run, replace each ">=" with "==" at the version you validated against.
 dependencies = [
-  "opensdl-cli>=0.1.0a0",
-  "opensdl-adapter-simulated-lab>=0.1.0a0",
-  "opensdl-adapter-local-compute>=0.1.0a0",
-  "opensdl-adapter-human-task>=0.1.0a0",
+  "opensdl-cli>=0.1.0a0,<0.2.0",
+  "opensdl-adapter-simulated-lab>=0.1.0a0,<0.2.0",
+  "opensdl-adapter-local-compute>=0.1.0a0,<0.2.0",
+  "opensdl-adapter-human-task>=0.1.0a0,<0.2.0",
 ]
 
 [dependency-groups]

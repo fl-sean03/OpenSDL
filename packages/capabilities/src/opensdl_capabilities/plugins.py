@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import os
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from importlib import import_module
 from importlib.metadata import EntryPoint, entry_points
 from typing import Any
 
 from .adapter import CapabilityAdapter
 
+
+PLUGIN_ALLOWLIST_ENV = "OPENSDL_PLUGIN_ALLOWLIST"
 
 REFERENCE_ADAPTERS = {
     "simulated-lab": "opensdl_adapter_simulated_lab.adapter:SimulatedLabAdapter",
@@ -27,6 +30,10 @@ REFERENCE_DOMAIN_PACKS = {
     "chemistry": "opensdl_domain_chemistry.pack:get_pack",
     "physics": "opensdl_domain_physics.pack:get_pack",
 }
+
+
+class PluginNotAllowedError(PermissionError):
+    """A manifest named a plugin the deployment does not permit it to load."""
 
 
 class PluginManager:
@@ -83,6 +90,51 @@ class PluginManager:
         except KeyError as exc:
             available = ", ".join(sorted(points)) or "none"
             raise LookupError(f"unknown {kind} plugin {name!r}; available: {available}") from exc
+
+
+def plugin_allowlist(environ: Mapping[str, str] | None = None) -> frozenset[str] | None:
+    """Read the deployment's plugin allowlist from the environment.
+
+    Returns `None` when `OPENSDL_PLUGIN_ALLOWLIST` is unset, which leaves plugin loading
+    unconstrained — existing manifests keep working and nothing new fails closed. A set value
+    constrains loading, and a value that names nothing permits nothing: an operator who sets the
+    variable has asked for the control, and silently ignoring an empty value would remove it again.
+
+    The channel is the environment rather than the manifest on purpose. The threat this answers is a
+    manifest that was edited by an agent in the laboratory repository, and a control that the
+    manifest can grant itself is not a control.
+    """
+    raw = (environ if environ is not None else os.environ).get(PLUGIN_ALLOWLIST_ENV)
+    if raw is None:
+        return None
+    return frozenset(name.strip() for name in raw.split(",") if name.strip())
+
+
+def enforce_plugin_allowlist(
+    plugin_names: Iterable[str],
+    allowlist: frozenset[str] | None,
+) -> None:
+    """Refuse plugin names the deployment has not permitted. A `None` allowlist permits all."""
+    if allowlist is None:
+        return
+    refused = sorted({name for name in plugin_names} - allowlist)
+    if not refused:
+        return
+    permitted = ", ".join(sorted(allowlist)) if allowlist else "no plugin"
+    raise PluginNotAllowedError(
+        f"{PLUGIN_ALLOWLIST_ENV} permits {permitted}; the manifest binds {', '.join(refused)}"
+    )
+
+
+def validate_declared_adapter_plugins(plugin_names: Iterable[str]) -> None:
+    """Check the provenance of every declared plugin that claims a reference adapter name.
+
+    A laboratory's own adapters have no reference provenance to compare against and are left to the
+    allowlist. A plugin that claims one of the reference names must come from the reference
+    distribution, so an installed third party cannot shadow `simulated-lab` and be loaded in its
+    place — `PluginManager.load_adapter` prefers an installed entry point over the built-in import.
+    """
+    validate_reference_adapter_plugins(name for name in plugin_names if name in REFERENCE_ADAPTERS)
 
 
 def validate_reference_adapter_plugins(plugin_names: Iterable[str]) -> None:

@@ -3,7 +3,18 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .opensdl/
+# Environment variables are the only sanctioned credential channel in this alpha, and a
+# multi-manifest laboratory keeps one file per environment. Ignore all of them; keep the example.
 .env
+.env.*
+!.env.example
+# A lockfile is normally committed. This one is not portable yet: OpenSDL is unpublished, so the
+# only way to install this laboratory is `uv sync --find-links` against a wheelhouse in the
+# framework checkout, and uv records that local directory in uv.lock as the registry for every
+# OpenSDL distribution. A clone on another machine cannot resolve it and is told nothing useful.
+# Once the packages resolve from a real index, delete the `uv.lock` line below, re-lock, and commit
+# the result. DEVELOPMENT.md has the full sequence.
+uv.lock
 dist/
 build/
 *.egg-info/

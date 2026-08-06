@@ -70,8 +70,12 @@ ALLOWED: dict[str, set[str]] = {
         "opensdl_twin",
     },
     "opensdl_api": {"opensdl_controller", "opensdl_core"},
+    # The CLI is an application: it composes packages and serves their interfaces. It reaches
+    # opensdl_operators for the same reason it reaches opensdl_api — to serve a transport,
+    # not to borrow logic. An MCP transport nothing can start is dead code with a test.
     "opensdl_cli": {
         "opensdl_controller",
+        "opensdl_operators",
         "opensdl_provenance",
         "opensdl_schemas",
         "opensdl_api",

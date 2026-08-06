@@ -21,9 +21,10 @@ identity provenance records. Policy still applies, and a `deny` decision still b
 no operator-scoped rule constrains anyone who can reach the port.
 
 The shipped `Dockerfile` binds `0.0.0.0:8000`. Run the API bound to a loopback address, behind an
-authenticating reverse proxy, or on a segmented network reachable only by trusted callers. Treat
-error messages and workflow inputs as public: both flow verbatim into responses and into the
-permanent event log.
+authenticating reverse proxy, or on a segmented network reachable only by trusted callers. Error
+responses no longer echo exception text — every detail string is chosen in the route, because an
+adapter's own message can carry an endpoint or a credential. Workflow inputs are still recorded
+verbatim in the permanent event log, so treat those as readable by anyone who can read a run.
 
 Authentication and scoped service identities are v0.4 work on the
 [roadmap](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md).

@@ -33,10 +33,12 @@ uv run opensdl run workflows/first-run.yaml \
   --inputs '{"red_fraction":0.5,"blue_fraction":0.5,"sample_id":"demo","total_mass_g":5}'
 ```
 
-The local wheelhouse path can be recorded in `uv.lock`. Do not treat that lock as portable across
-clones. CI always validates the repository agent contract; its full job remains visibly skipped
-until the packages resolve from a stable source and the repository variable
-`OPENSDL_PACKAGES_AVAILABLE` is set to `true`.
+`uv sync --find-links` writes that local wheelhouse into `uv.lock` as a registry, so the lock is
+ignored by Git rather than shipped to clones that cannot resolve it. `DEVELOPMENT.md` has the four
+steps that reverse this once the packages come from a real index, and the pin to apply with them.
+CI always validates the repository agent contract; its full job remains visibly skipped until the
+packages resolve from a stable source and the repository variable `OPENSDL_PACKAGES_AVAILABLE` is
+set to `true`.
 
 The initial profile is simulator-only. Replace or extend adapters, capabilities,
 policies, domain models, workflows, and deployments for this organization.

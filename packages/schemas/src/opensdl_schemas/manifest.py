@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from opensdl_core import CapabilityDefinition, LabMetadata, OpenSDLModel, Resource
 
@@ -36,10 +36,32 @@ class AdapterConfig(OpenSDLModel):
 
 
 class CapabilityBinding(OpenSDLModel):
+    """Binds one capability identifier to the adapter that must provide it.
+
+    A binding selects and enables; it carries no configuration. Configuration reaches an executor
+    through `spec.adapters[].config`, which the composition root passes to the plugin factory.
+
+    There was a `config` field here. Nothing ever read it, and a per-capability `config:` is
+    precisely where an operator writes operating limits — the deployment obligation `SAFETY.md`
+    describes. Enforcing an operating envelope is unbuilt design work, so the field is removed
+    rather than left absorbing safety configuration in silence.
+    """
+
     capability: str
     adapter: str
     enabled: bool = True
-    config: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_binding_configuration(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "config" in data:
+            raise ValueError(
+                "capability bindings carry no configuration: 'config' was accepted and never "
+                "read. Adapter configuration belongs in spec.adapters[].config. OpenSDL has no "
+                "operating-envelope mechanism, so operating limits belong in the deployment "
+                "controls SAFETY.md describes, not in this manifest."
+            )
+        return data
 
 
 class PolicyRuleSpec(OpenSDLModel):

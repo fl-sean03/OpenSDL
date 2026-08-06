@@ -43,17 +43,28 @@ class CapabilityRegistry:
             if capability_id in allowed
         }
 
+    def _unknown(self, capability_id: str) -> CapabilityNotFoundError:
+        """A misspelled capability is the commonest authoring mistake, so say what exists.
+
+        The message used to be the identifier alone, which reads as an assertion that
+        something is wrong with a name the author already knows they typed.
+        """
+        available = ", ".join(sorted(self._capabilities)) or "none"
+        return CapabilityNotFoundError(
+            f"unknown capability {capability_id!r}; this laboratory exposes: {available}"
+        )
+
     def get_adapter(self, capability_id: str) -> CapabilityAdapter:
         try:
             return self._adapters[self._capability_adapter[capability_id]]
         except KeyError as exc:
-            raise CapabilityNotFoundError(capability_id) from exc
+            raise self._unknown(capability_id) from exc
 
     def get_definition(self, capability_id: str) -> CapabilityDefinition:
         try:
             return self._capabilities[capability_id]
         except KeyError as exc:
-            raise CapabilityNotFoundError(capability_id) from exc
+            raise self._unknown(capability_id) from exc
 
     def list_capabilities(self) -> list[CapabilityDefinition]:
         return sorted(self._capabilities.values(), key=lambda item: item.id)

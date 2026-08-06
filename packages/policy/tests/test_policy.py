@@ -235,3 +235,85 @@ def test_a_decision_carries_the_matched_rule_and_the_policy_version_into_the_rec
     assert decision.policy_version == "site/2026-08"
     # A rule without a reason still explains itself by naming the rule that decided.
     assert decision.reason == "matched policy rule allow-sim"
+
+
+# --- Verifiable policy evidence -------------------------------------------------------------
+#
+# `policy_version` is a free-form label an operator writes in the manifest. It is bound to nothing,
+# so every rule in a laboratory can change while the recorded evidence stays byte-identical. The
+# digest below is the content half of that record: it is computed from the effective ruleset the
+# engine actually evaluates, so a decision recorded before a rule change cannot be confused with one
+# recorded after it. The version stays in the record as the operator's claim; the digest is the part
+# that can be checked.
+
+
+def test_a_decision_carries_a_digest_of_the_ruleset_that_decided_it() -> None:
+    engine = PolicyEngine(rules=[allow("allow-sim")], version="site/2026-08")
+
+    decision = engine.evaluate(capability(), "software/test", "simulation")
+
+    assert decision.policy_digest == engine.digest
+    assert decision.policy_digest.startswith("sha256:")
+    assert len(decision.policy_digest) == len("sha256:") + 64
+
+
+def test_the_default_effect_decision_carries_the_same_digest() -> None:
+    """A denial by default is evidence too, and has to identify the ruleset that produced it."""
+    engine = PolicyEngine(rules=[allow("allow-live", environments=["live"])])
+
+    decision = engine.evaluate(capability(), "software/test", "simulation")
+
+    assert decision.rule_id is None
+    assert decision.policy_digest == engine.digest
+
+
+def test_changing_a_rule_changes_the_digest_while_the_version_stays_constant() -> None:
+    """The failure this exists to catch.
+
+    An operator edits a rule and leaves `spec.policy.version` alone — the normal case, since
+    nothing requires the version to move. Before the digest, the two `PolicyEvaluated` events were
+    indistinguishable.
+    """
+    before = PolicyEngine(rules=[allow("allow-sim", capability="sim.*")], version="site/2026-08")
+    after = PolicyEngine(rules=[allow("allow-sim", capability="*")], version="site/2026-08")
+
+    first = before.evaluate(capability(), "software/test", "simulation")
+    second = after.evaluate(capability(), "software/test", "simulation")
+
+    assert first.policy_version == second.policy_version
+    assert first.policy_digest != second.policy_digest
+
+
+def test_the_digest_covers_the_default_effect_and_rule_order() -> None:
+    """Everything that decides an outcome is in the digest, not only the rule bodies."""
+    rules = [allow("allow-live", environments=["live"])]
+
+    assert (
+        PolicyEngine(rules=rules, default_effect="deny").digest
+        != PolicyEngine(rules=rules, default_effect="allow").digest
+    )
+
+    first = allow("first", priority=10)
+    second = deny("second", priority=10)
+    assert (
+        PolicyEngine(rules=[first, second]).digest != PolicyEngine(rules=[second, first]).digest
+    ), "equal-priority rules are evaluated in declaration order, so order is content"
+
+
+def test_the_digest_is_stable_across_engines_and_ignores_the_version_label() -> None:
+    """Two deployments running the same rules produce comparable evidence.
+
+    The digest answers exactly one question — did the rules change? — so the free-form version
+    label is deliberately outside it. A laboratory that renames its policy version has not changed
+    what the policy does, and two laboratories running identical rules can be compared directly.
+    """
+    rules = [allow("allow-sim", capability="sim.*"), deny("deny-live", environments=["live"])]
+
+    assert (
+        PolicyEngine(rules=rules, version="site/a").digest
+        == PolicyEngine(rules=list(rules), version="site/b").digest
+    )
+    # Priority sorting is applied before hashing, so a reordered declaration of the same effective
+    # ruleset is the same ruleset.
+    ordered = [allow("a", priority=10), deny("b", priority=20)]
+    assert PolicyEngine(rules=ordered).digest == PolicyEngine(rules=list(reversed(ordered))).digest

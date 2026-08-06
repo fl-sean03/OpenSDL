@@ -31,7 +31,7 @@
 
 OpenSDL is a modular framework for defining laboratory capabilities, connecting physical and computational systems, executing reproducible workflows, preserving evidence, and progressively moving from manual operation to bounded closed-loop experimentation.
 
-It is built as normal scientific software: installable packages, deployable applications, versioned schemas, replaceable adapters, database migrations, simulations, tests, project generators, and complete runnable examples.
+It is built as normal scientific software: installable packages, deployable applications, versioned schemas, replaceable adapters, a relational schema and its initial migration, simulations, tests, project generators, and complete runnable examples.
 
 Everything here runs today in a simulator-only reference profile. It is an alpha. Read [project
 status](#project-status) for what is implemented, and [SAFETY.md](SAFETY.md) for where the framework
@@ -87,20 +87,20 @@ The v0.1 alpha includes:
 - a versioned laboratory manifest;
 - domain-neutral models for capabilities, resources, workflows, runs, tasks, events, artifacts, observations, decisions, authorizations, and incidents;
 - a durable reference runtime with DAG execution, retries, timeouts, resource leases, restart reconciliation, and policy checks;
-- SQLite and PostgreSQL-compatible metadata storage through SQLAlchemy;
+- SQLite metadata storage through SQLAlchemy, using portable column types and a PostgreSQL driver dependency; no PostgreSQL service is exercised by any test or CI job;
 - content-addressed local artifact storage;
 - adapter and optimizer plugin discovery through Python entry points;
 - deterministic virtual mixer, balance, colorimeter, and labware-transport capabilities;
-- safe local numerical-analysis capabilities;
-- structured human-task attestations for assisted workflows;
-- a closed-loop campaign runner and reference grid optimizer;
+- three fixed local numerical capabilities — Euclidean distance, summary statistics, and a quadratic — which are safe because they evaluate no caller-supplied expression, not because an evaluator is sandboxed;
+- a structured human-task record with a typed outcome, notes, and evidence fields, carrying a caller-supplied operator name that nothing verifies;
+- a campaign runner that scores each run and feeds the result back to an optimizer, plus a reference grid optimizer that discards the feedback and enumerates a fixed grid;
 - CLI, Python SDK, HTTP API, and optional MCP transport hook;
 - versioned digital-twin bindings, verified GLB delivery, persisted-run projection, and a read-only
   viewer;
 - JSON Schema generation and YAML validation;
 - run export as a portable RO-Crate-style ZIP;
 - a repository propagation graph for identifying affected contracts, code, tests, examples, and documentation;
-- materials, chemistry, and physics extension packs;
+- materials, chemistry, and physics extension packs, each exposing a small set of typed models as JSON Schema, with no units, no capabilities, and no committed schemas;
 - generators for organization laboratory repositories, adapters, capabilities, and domain packs;
 - unit, integration, end-to-end, and conformance tests.
 
@@ -269,6 +269,10 @@ uv run --locked opensdl adapter create my-balance \
   --destination ../my-lab/adapters
 ```
 
+Generation writes an installable package and does not install it. The laboratory must also depend on
+that package and declare it in its manifest before the runtime can find it. [Add an
+adapter](docs/guides/add-adapter.md) covers the whole path.
+
 Every operational adapter should include a simulator, conformance cases, typed failures, lifecycle behavior, and hardware validation notes.
 
 Generate a scientific domain pack:
@@ -307,6 +311,11 @@ The reference profile is simulator-only. Real deployments are responsible for ap
 This is an executable alpha, not production-qualified laboratory control software.
 
 The core loop, structured human-task path, simulated robotics path, and local compute path are implemented and tested. Current work is focused on production authentication, richer approval workflows, MADSci and SiLA 2 integrations, Slurm execution, expanded conformance, and the first low-risk hardware reference integration.
+
+No contract is stable between releases yet, no laboratory database can be upgraded in place, and
+there is no deprecation window. [Compatibility and versioning](docs/reference/compatibility.md)
+states exactly which surfaces are public, what each guarantees today, and what a laboratory should
+pin. Read it before depending on any of them.
 
 See [ROADMAP.md](ROADMAP.md), the [development backlog](docs/development/backlog.md),
 [DEVELOPMENT.md](DEVELOPMENT.md), and the evidence-based [VALIDATION.md](VALIDATION.md).

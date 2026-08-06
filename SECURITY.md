@@ -42,12 +42,30 @@ The framework assumes that:
 
 ## Secure defaults
 
-- deny by default for live environments;
-- no credentials in Git;
-- scoped, short-lived identities;
-- typed validation at every trust boundary;
-- durable request identifiers and receipts;
-- immutable event and artifact records;
-- restricted network egress;
-- dependency pinning, SBOMs, and signed releases for production;
-- human review for safety-sensitive changes.
+These are the defaults the project holds itself to. The alpha implements some of them and does not
+yet implement others. The status of each is stated so that a deployment can tell which controls it
+must supply itself. A requirement is no weaker for being unimplemented — an unimplemented
+requirement is one the operator carries.
+
+| Default | Status in the alpha |
+|---|---|
+| Deny by default for live environments | **Implemented.** The policy engine's default effect is configurable and the generated manifest sets `deny`, with an allow rule scoped to the `simulation` environment. |
+| Typed validation at every trust boundary | **Implemented.** Manifests, workflows, capability inputs, and capability outputs are validated against typed models and JSON Schema. Caller-supplied JSON Schema is compiled without a size or complexity bound. |
+| Durable request identifiers and receipts | **Partly implemented.** Every execution carries a durable request identifier and every run, task, and event is persisted. `AuthorizationReceipt` is defined but never written, and `ExecutionRequest.authorization_id` is never populated, so a dispatch record has no link to an authorization. |
+| Human review for safety-sensitive changes | **Partly implemented.** Pull-request review applies to every change, and `propagation.yaml` describes the blast radius of a change to a contract. No check invokes it and no gate identifies a change as safety-sensitive. |
+| No credentials in Git | **Not implemented.** There is no secret mechanism: no `${ENV}` interpolation in the manifest loader, no secret-provider interface, no `SecretStr`, and no secret scanning in `make lint` or CI. Adapter configuration travels verbatim from the manifest to the adapter, and the manifest is a committed file. The generated laboratory's `.gitignore` covers `.env` but not `.env.*`. |
+| Scoped, short-lived identities | **Not implemented.** There is no authentication or authorization anywhere. `operator_id` is a caller-supplied string on every interface, and it is both the policy subject and the recorded actor. |
+| Immutable event and artifact records | **Implemented for artifacts, not for events.** Artifact bytes are content-addressed and the digest is recomputed and compared on every read. Event rows carry no hash chain and no append-only constraint, so nothing detects an edited or deleted event, and `policy_version` on a recorded decision is a free-form manifest string bound to no rule content. |
+| Restricted network egress | **Not implemented.** Nothing in the framework constrains what an adapter, plugin, or domain pack connects to. Egress control belongs entirely to the deployment. |
+| Dependency pinning, SBOMs, and signed releases for production | **Partly implemented.** The framework pins its own dependencies through a committed `uv.lock` and CI runs with `--locked`. There is no SBOM, no release signing, no SAST, no secret scanning, and no dependency audit in CI. Dependabot covers `uv` and `github-actions` only; the viewer's npm dependencies and the Docker base images are unmonitored. The generated laboratory's CI template uses floating action tags and `uv sync` without `--locked`. |
+
+Two consequences are worth stating directly:
+
+- **The HTTP API is unauthenticated.** No route requires a credential, and two of them execute
+  capabilities. See the [API reference](docs/reference/api.md).
+- **Loading a manifest is a code-execution boundary.** A manifest's `adapters[].plugin` names an
+  installed entry point that the controller imports and calls. A validator for reference plugin
+  provenance exists but is not called on the loading path.
+
+Compatibility, deprecation, and upgrade guarantees are stated in
+[compatibility and versioning](docs/reference/compatibility.md).

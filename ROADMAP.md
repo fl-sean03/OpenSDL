@@ -13,18 +13,18 @@ running implementation list.
 - plugin registry for adapters, optimizers, and domain packs
 - reference policy engine
 - durable DAG runtime with retries, timeouts, leases, events, and recovery state
-- SQLite/PostgreSQL-compatible relational model
+- relational model on SQLite, using portable column types; no PostgreSQL service is exercised
 - content-addressed local artifact store
 - deterministic simulation and fault injection
 - simulated mixer, balance, colorimeter, and labware transport
-- safe local numerical compute adapter
-- structured human-task attestation adapter
-- campaign runner and grid optimizer
+- local compute adapter with three fixed numerical capabilities and no expression evaluator
+- human-task adapter recording a typed outcome and an unverified caller-supplied operator name
+- campaign runner that feeds scored results back to an optimizer, and a grid optimizer that ignores them
 - CLI, Python SDK, HTTP API, and optional MCP hook
 - run bundle export and research-graph projection
 - propagation graph implementation
 - organization-lab, adapter, and capability generators
-- materials, chemistry, and physics packs
+- materials, chemistry, and physics packs exposing typed models as JSON Schema, without units, capabilities, or committed schemas
 - complete simulator-only closed-loop example
 - unit, integration, end-to-end, and adapter-conformance tests
 
@@ -89,3 +89,7 @@ build-digital-twin skill remain open work. See
 ## Release criterion for 1.0
 
 OpenSDL reaches 1.0 only after multiple independent laboratories run the same public contracts through different physical and computational backends, migrations have been exercised across releases, and the compatibility suite has external adopters.
+
+No compatibility suite exists yet, and no laboratory database can currently be migrated at all.
+[Compatibility and versioning](docs/reference/compatibility.md) states what each public surface
+guarantees today and what the missing suite would have to cover.

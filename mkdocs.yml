@@ -39,6 +39,7 @@ nav:
       - Configuration: reference/configuration.md
       - CLI: reference/cli.md
       - API: reference/api.md
+      - Compatibility and versioning: reference/compatibility.md
   - Ecosystem: research/ecosystem.md
 plugins:
   - search

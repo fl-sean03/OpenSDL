@@ -29,6 +29,16 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   the unconstructed pair, the invariant written for one chain, the check that has never failed, and
   the failure reported only on stderr — together with deriving carried motion from its carrier so a
   class of defect cannot be expressed at all;
+- a compatibility and versioning policy stating, per public surface, what stability it carries today.
+  It records the specific defects rather than an intention: both `apiVersion` fields are literal pins
+  on models that forbid extra keys, so a newer document cannot be read by an older reader even when
+  the only difference is an added optional field and `v0alpha2` cannot be introduced additively;
+  generated schemas carry no `$id`, `$schema` or version and the drift gate compares bytes, so it
+  answers whether the schemas were regenerated rather than whether the contract changed; the version
+  check compares strings across the workspace without parsing a version at all; and no package has
+  ever been published or tagged, so a laboratory cannot install from an index. It also names a surface
+  the audit missed — `CapabilityDefinition.version` has no readers and a workflow step cannot request
+  a version, so a capability contract can change under a workflow already using it;
 - generated JSON Schemas for the twin definition and cue contracts, produced by a single composed
   generator that both `scripts/generate-schemas.py` and `opensdl schema generate` consume; and
 - an enforced Ruff formatting gate in `make lint` and CI.
@@ -53,6 +63,24 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Fixed
 
+- several statements described the target rather than the system. `SECURITY.md` presented nine
+  "secure defaults" in the present tense when four had no implementation; each now carries its
+  verified status, prefaced by the observation that an unimplemented requirement is one the operator
+  carries. The API reference said nothing about authentication for an API that has none on any of its
+  fifteen routes, two of which execute capabilities. `PolicyRule.operators` looked like per-operator
+  authorization while `operator_id` is a caller-asserted string, so a deny rule scoped to an operator
+  is bypassed by sending a different one. Adapter `abort` was listed as part of the implemented
+  contract when it has no callers, so an adapter author would have written a method that never fires.
+  Claims about PostgreSQL support, sandboxing, human attestation, closed-loop optimization and the
+  domain packs now say what the code does. No disclaimer was weakened; the corrections all run
+  toward less assurance, not more;
+- the adapter guide stopped at generation. `opensdl adapter create` produces a working package that
+  nothing installs, so the first real extension step ended in `unknown adapter plugin` — while
+  `opensdl validate` reported the same manifest valid. The guide now carries the path through
+  installation and registration, every command in it was executed and then replayed from a fresh
+  `opensdl init` to confirm it works verbatim, and it resolves the conflict between the two documented
+  adapter locations by explaining that a generated adapter is its own distribution and cannot live
+  inside the laboratory's import package;
 - the reference scene depicted lab automation placed in a human room rather than a self-driving
   laboratory. It was first an enclosed cell that hid the work, then an open bench with standing-height
   casework, a chair, a desktop workstation, waste bins and dispensers — a space whose every dimension

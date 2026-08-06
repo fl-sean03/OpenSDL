@@ -33,6 +33,12 @@ CI as portable across clones. The generated workflow always validates agent file
 repository variable `OPENSDL_PACKAGES_AVAILABLE=true` to enable its full job after the stable source
 is configured.
 
+The generated `pyproject.toml` declares OpenSDL dependency floors with no upper bound, and no OpenSDL
+contract is stable between releases. See
+[compatibility and versioning](../reference/compatibility.md) for what to pin before the first real
+run.
+
 Begin in simulation. Replace one capability at a time with an organization adapter while keeping
-the simulator and the same public workflow. Build any 3D scene on demand inside this lab repository;
+the simulator and the same public workflow. [Add an adapter](add-adapter.md) covers generating,
+installing, declaring, and running one. Build any 3D scene on demand inside this lab repository;
 the framework intentionally provides no equipment-model catalog.

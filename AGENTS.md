@@ -26,10 +26,13 @@ OpenSDL is a modular framework for computational and autonomous laboratories.
 - schemas: `uv run --locked python scripts/generate-schemas.py`
 
 `make test`, `make lint`, `make viewer`, `make docs`, and `make example` together cover every check
-CI enforces. A bare `uv run --locked pytest` is not the full suite: `testpaths` excludes `examples/`,
-so the surrogate tests are reachable only through `make test` or `make surrogate`. Narrower targets
-(`unit`, `integration`, `e2e`, `conformance`, `typecheck`, `boundaries`, `validate`, `surrogate`)
-and the raw command behind each target are in the `Makefile`.
+the pull-request CI job enforces. `make scene` covers the one that runs separately: the headless
+Blender rebuild proving the committed scene is reproducible from source. It needs the exact Blender
+version recorded in the scene's node inventory and takes several minutes. A bare
+`uv run --locked pytest` is not the full suite: `testpaths` excludes `examples/`, so the surrogate
+tests are reachable only through `make test` or `make surrogate`. Narrower targets
+(`unit`, `integration`, `e2e`, `conformance`, `typecheck`, `boundaries`, `validate`, `surrogate`,
+`propagation`, `scene`) and the raw command behind each target are in the `Makefile`.
 
 ## Architecture rules
 

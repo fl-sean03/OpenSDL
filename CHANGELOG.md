@@ -41,7 +41,11 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   a version, so a capability contract can change under a workflow already using it;
 - generated JSON Schemas for the twin definition and cue contracts, produced by a single composed
   generator that both `scripts/generate-schemas.py` and `opensdl schema generate` consume; and
-- an enforced Ruff formatting gate in `make lint` and CI.
+- an enforced Ruff formatting gate in `make lint` and CI; and
+- a scene workflow that runs the headless Blender rebuild in CI, pinned to the version the scene
+  itself records so the two cannot drift, with a pytest plugin that turns a skip into a failure. The
+  reproducibility claim was the strongest check the repository owned and the only one that had never
+  run: Blender is not installed on the runners, so the test took its skip path and reported green.
 
 ### Changed
 
@@ -63,6 +67,20 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Fixed
 
+- several checks reported green while constraining nothing. The propagation graph, which exists to
+  answer what a change affects, was invoked by no workflow, target or validator; 17% of tracked files
+  matched no node at all, including every skill, every script and most root documents; it reported an
+  empty result for a path that does not exist, so a typo was indistinguishable from no impact; and it
+  filed `packages/capabilities` under conformance alone, omitting the runtime, controller and CLI that
+  import it directly. It is now wired into `make lint`, covers every tracked file with a validator
+  that fails when coverage rots, and exits non-zero on a path that is not there. The boundary checker
+  silently skipped any package missing from its map, so a new package shipped unchecked — it now fails,
+  and checks 23 packages including one that had been invisible. The SDK suite stubbed the client's own
+  transport, so renaming an API route passed every test; it now runs against the real application, and
+  four separate route renames were confirmed to fail it and to have been missed before. The policy
+  suite was a single test reporting full branch coverage because the matcher is one `and`-joined
+  return; it is now fourteen, and six mutations of the engine that all slipped past the original are
+  each caught;
 - the runtime replayed physical actions it had recorded as ambiguous. Resuming a run rebuilt its
   completed work from succeeded tasks only, so a task left `intervention_required` by a restart or a
   cancellation — carrying the error string "physical outcome is unknown" — fell back into the pending

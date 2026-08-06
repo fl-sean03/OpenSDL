@@ -12,6 +12,9 @@ nodes:
   - id: storage-model
     description: Relational schema, repositories, and migrations
     paths: ["packages/storage/**", "database/**"]
+  - id: capability-contracts
+    description: Capability definitions, the registry, and the conformance harness
+    paths: ["packages/capabilities/**"]
   - id: simulation
     description: Deterministic simulation, fault injection, and replay
     paths: ["packages/simulation/**"]
@@ -35,16 +38,72 @@ nodes:
     paths: ["examples/**"]
   - id: conformance
     description: Cross-implementation compatibility tests
-    paths: ["tests/conformance/**", "packages/capabilities/**"]
+    paths: ["tests/conformance/**"]
   - id: cross-package-tests
     description: Integration, end-to-end, and repository-wide suites
     paths: ["tests/**"]
   - id: documentation
     description: Public guidance and architecture
-    paths: ["README.md", "ARCHITECTURE.md", "DEVELOPMENT.md", "docs/**"]
+    paths:
+      - "README.md"
+      - "ARCHITECTURE.md"
+      - "DEVELOPMENT.md"
+      - "ROADMAP.md"
+      - "VALIDATION.md"
+      - "SAFETY.md"
+      - "CHANGELOG.md"
+      - "mkdocs.yml"
+      - "docs/**"
+  - id: agent-interface
+    description: Repository instructions and the skills agents execute
+    paths:
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "**/AGENTS.md"
+      - "**/CLAUDE.md"
+      - ".agents/**"
+      - ".claude/**"
+  - id: repository-tooling
+    description: Build, validation, and release automation shared by humans and CI
+    paths:
+      - "Makefile"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".python-version"
+      - ".gitignore"
+      - "propagation.yaml"
+  - id: project-governance
+    description: Licensing, security reporting, and contribution policy
+    paths:
+      - "LICENSE"
+      - "NOTICE"
+      - "CITATION.cff"
+      - "CODE_OF_CONDUCT.md"
+      - "CONTRIBUTING.md"
+      - "GOVERNANCE.md"
+      - "SECURITY.md"
+      - ".github/CODEOWNERS"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/dependabot.yml"
+  - id: import-provenance
+    description: The immutable record of the imported source archive
+    paths:
+      - "IMPORT_PROVENANCE.md"
+      - "PACKAGE_MANIFEST.md"
+      - "package-manifest.json"
+      - "REPO_TREE.txt"
+      - "SHA256SUMS"
   - id: deployment
     description: Containers, CI, and development environments
-    paths: ["Dockerfile", "compose.yaml", "deployments/**", ".github/workflows/**"]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "compose.yaml"
+      - ".env.example"
+      - "deployments/**"
+      - ".github/workflows/**"
 edges:
   - source: core-contracts
     target: generated-schemas
@@ -55,6 +114,9 @@ edges:
   - source: core-contracts
     target: storage-model
     reason: persistence maps public records
+  - source: core-contracts
+    target: capability-contracts
+    reason: capability definitions extend public models
   - source: core-contracts
     target: simulation
     reason: simulated behavior uses lifecycle contracts
@@ -91,6 +153,21 @@ edges:
   - source: storage-model
     target: cross-package-tests
     reason: migrations require integration evidence
+  - source: capability-contracts
+    target: simulation
+    reason: simulated executors implement the capability interface
+  - source: capability-contracts
+    target: runtime
+    reason: the runtime resolves and executes registered capabilities
+  - source: capability-contracts
+    target: adapters
+    reason: adapters implement the capability adapter interface
+  - source: capability-contracts
+    target: operator-interfaces
+    reason: the controller, API, and CLI read the capability registry
+  - source: capability-contracts
+    target: conformance
+    reason: the conformance harness grades adapters against these contracts
   - source: simulation
     target: adapters
     reason: simulated adapters build on deterministic simulation
@@ -133,3 +210,21 @@ edges:
   - source: operator-interfaces
     target: documentation
     reason: command and API references must stay current
+  - source: operator-interfaces
+    target: agent-interface
+    reason: skills invoke the CLI, API, and SDK surfaces
+  - source: agent-interface
+    target: documentation
+    reason: public guidance describes the agent workflow
+  - source: repository-tooling
+    target: agent-interface
+    reason: skills run the repository's commands
+  - source: repository-tooling
+    target: deployment
+    reason: CI runs the same targets and scripts
+  - source: repository-tooling
+    target: documentation
+    reason: the development guide states the commands
+  - source: project-governance
+    target: documentation
+    reason: published policy must match the stated commitments

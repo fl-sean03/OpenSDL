@@ -186,8 +186,20 @@ def export(
 def propagate(
     paths: Annotated[list[str], typer.Argument(help="Changed repository paths")],
     graph: Annotated[Path, typer.Option("--graph", "-g")] = Path("propagation.yaml"),
+    allow_missing: Annotated[bool, typer.Option("--allow-missing")] = False,
 ) -> None:
     """Find contracts, code, tests, examples, and docs affected by a change."""
+    # An empty result and a path that does not exist are otherwise indistinguishable,
+    # so a typo reports "nothing is affected" and exits zero.  A deleted path is a
+    # legitimate question to ask, which is what --allow-missing is for.
+    if not allow_missing:
+        missing = sorted(path for path in paths if not Path(path).exists())
+        if missing:
+            console.print(
+                f"[red]no such path: {', '.join(missing)}[/red]\n"
+                "pass --allow-missing to report the blast radius of a deleted path"
+            )
+            raise typer.Exit(code=2)
     impact = PropagationGraph.from_file(graph).affected(paths)
     console.print_json(data=impact.model_dump(mode="json"))
 

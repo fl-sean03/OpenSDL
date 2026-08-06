@@ -36,8 +36,11 @@ make api           # serve the reference API
 make clean         # remove local generated state
 ```
 
-Together `make test`, `make lint`, `make viewer`, `make docs`, and `make example` cover every check
-CI enforces. Details worth knowing:
+Together `make test`, `make lint`, `make viewer`, `make docs`, and `make example` cover every
+check the pull-request CI job enforces. `make scene` covers the one that runs separately: the
+headless Blender rebuild that proves the committed scene bytes are reproducible from source.
+It needs the exact Blender version the scene records and takes several minutes, which is why it
+is not in the pull-request path. Details worth knowing:
 
 - `make test` depends on `make surrogate`, which installs the example adapter with `--with-editable`,
   runs `examples/digital-twin-surrogate/tests`, and runs `opensdl twin validate` against the twin

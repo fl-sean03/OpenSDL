@@ -45,6 +45,7 @@ jobs:
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
       - run: uv run --locked pyright
+      - run: uv run --locked python scripts/check-propagation.py
       - run: uv run --locked python scripts/validate-repository.py
       - run: uv run --locked python scripts/check-version.py
 

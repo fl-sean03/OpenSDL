@@ -1,9 +1,36 @@
+"""Enforce the declared import boundaries between workspace packages.
+
+Every importable package a distribution ships under ``src`` must appear in ``ALLOWED``. A package
+missing from the map is a failure, not a skip: an unmapped package would otherwise ship with no
+boundary at all, which is how the digital-twin surrogate adapter went unchecked. The reverse is
+also a failure, so a renamed or deleted package cannot leave a stale entry behind that silently
+stops constraining anything.
+"""
+
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
+
+# Directories that hold generated, vendored, or virtual-environment copies of real distributions.
+IGNORED_DIRECTORIES = {
+    ".git",
+    ".mypy_cache",
+    ".opensdl",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "htmlcov",
+    "node_modules",
+    "site",
+}
 
 ALLOWED: dict[str, set[str]] = {
     "opensdl_core": set(),
@@ -54,11 +81,32 @@ ALLOWED: dict[str, set[str]] = {
     "opensdl_adapter_local_compute": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_adapter_grid_optimizer": {"opensdl_runtime"},
     "opensdl_adapter_human_task": {"opensdl_core", "opensdl_capabilities"},
+    "opensdl_adapter_cell_surrogate": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_domain_materials": {"opensdl_core"},
     "opensdl_domain_chemistry": {"opensdl_core"},
     "opensdl_domain_physics": {"opensdl_core"},
 }
-INTERNAL = set(ALLOWED)
+
+
+def distribution_sources() -> Iterator[Path]:
+    """Yield the ``src`` directory of every distribution in the repository."""
+    for pyproject in ROOT.rglob("pyproject.toml"):
+        relative = pyproject.relative_to(ROOT)
+        if any(part in IGNORED_DIRECTORIES for part in relative.parts):
+            continue
+        source = pyproject.parent / "src"
+        if source.is_dir():
+            yield source
+
+
+def shipped_packages() -> dict[str, Path]:
+    """Map every importable package name to the directory the distribution ships."""
+    found: dict[str, Path] = {}
+    for source in sorted(distribution_sources()):
+        for package_dir in sorted(source.iterdir()):
+            if package_dir.is_dir() and (package_dir / "__init__.py").is_file():
+                found[package_dir.name] = package_dir
+    return found
 
 
 def imports(path: Path) -> set[str]:
@@ -73,21 +121,33 @@ def imports(path: Path) -> set[str]:
 
 
 def main() -> None:
+    packages = shipped_packages()
+    internal = set(ALLOWED) | set(packages)
     failures: list[str] = []
-    for source in ROOT.glob("**/src"):
-        for package_dir in source.iterdir():
-            if not package_dir.is_dir() or package_dir.name not in ALLOWED:
-                continue
-            allowed = ALLOWED[package_dir.name] | {package_dir.name}
-            for path in package_dir.rglob("*.py"):
-                forbidden = (imports(path) & INTERNAL) - allowed
-                if forbidden:
-                    failures.append(
-                        f"{path.relative_to(ROOT)} imports forbidden internal packages: {sorted(forbidden)}"
-                    )
+
+    for name in sorted(set(packages) - set(ALLOWED)):
+        failures.append(
+            f"{packages[name].relative_to(ROOT)} has no declared dependency boundary: "
+            f"add {name!r} to ALLOWED in scripts/check-boundaries.py"
+        )
+    for name in sorted(set(ALLOWED) - set(packages)):
+        failures.append(
+            f"{name!r} is declared in ALLOWED but no distribution ships it: "
+            "remove the stale entry from scripts/check-boundaries.py"
+        )
+
+    for name, package_dir in sorted(packages.items()):
+        allowed = ALLOWED.get(name, set()) | {name}
+        for path in sorted(package_dir.rglob("*.py")):
+            forbidden = (imports(path) & internal) - allowed
+            if forbidden:
+                failures.append(
+                    f"{path.relative_to(ROOT)} imports forbidden internal packages: {sorted(forbidden)}"
+                )
+
     if failures:
         raise SystemExit("\n".join(failures))
-    print("package dependency boundaries are valid")
+    print(f"package dependency boundaries are valid ({len(packages)} packages checked)")
 
 
 if __name__ == "__main__":

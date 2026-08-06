@@ -1,0 +1,109 @@
+name: Scene reproducibility
+
+# The reference scene is the strongest correctness claim the repository makes: the committed GLB
+# must rebuild byte-for-byte from `build_scene.py`. That check has always skipped in CI because no
+# workflow installed Blender, so `1 skipped` was the only outcome anyone ever saw. This job
+# installs the exact Blender release recorded in the scene inventory and runs the check with
+# `pytest_no_skip`, which turns a skip — a missing Blender, a point release, a renamed executable —
+# into a failure.
+#
+# It is a separate workflow because a full Blender install plus the rebuild costs roughly ten
+# minutes; running it on every pull request would dominate CI. It runs on every push to main, on
+# any pull request that touches the scene or its tests, weekly, and on demand.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "examples/digital-twin-surrogate/scene/**"
+      - "examples/digital-twin-surrogate/tests/**"
+      - "scripts/pytest_no_skip.py"
+      - ".github/workflows/scene.yml"
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The scene records the Blender that produced it. Reading the version from the asset rather
+      # than pinning it here means the workflow can never install a version the digests do not
+      # describe, and a scene rebuilt on a newer Blender updates this job automatically.
+      - name: Read the recorded Blender version
+        id: blender
+        run: |
+          version=$(python3 -c "import json,pathlib; print(json.loads(pathlib.Path('examples/digital-twin-surrogate/scene/assets/node-inventory.json').read_text())['generator']['blender'])")
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "unexpected recorded Blender version: $version" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "series=${version%.*}" >> "$GITHUB_OUTPUT"
+
+      # Blender links X11 and GL even in background mode; the test passes `-noaudio`, so no audio
+      # libraries are needed. Without these the binary fails to load rather than failing a check.
+      - name: Install the libraries headless Blender links
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes \
+            libgl1 libice6 libsm6 libx11-6 libxext6 libxfixes3 libxi6 libxrender1 libxxf86vm1
+
+      - name: Cache the Blender release
+        id: blender-cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/blender
+          key: blender-${{ runner.os }}-${{ steps.blender.outputs.version }}
+
+      - name: Install Blender
+        if: steps.blender-cache.outputs.cache-hit != 'true'
+        env:
+          VERSION: ${{ steps.blender.outputs.version }}
+          SERIES: ${{ steps.blender.outputs.series }}
+        run: |
+          set -euo pipefail
+          archive="blender-${VERSION}-linux-x64.tar.xz"
+          curl --fail --location --silent --show-error --retry 3 \
+            --output "/tmp/${archive}" \
+            "https://download.blender.org/release/Blender${SERIES}/${archive}"
+          mkdir -p ~/blender
+          tar -xJf "/tmp/${archive}" -C ~/blender --strip-components=1
+
+      - name: Put Blender on PATH and confirm the version
+        env:
+          EXPECTED: ${{ steps.blender.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "$HOME/blender" >> "$GITHUB_PATH"
+          reported=$("$HOME/blender/blender" --version | head -n 1)
+          echo "$reported"
+          case "$reported" in
+            "Blender ${EXPECTED}"*) ;;
+            *) echo "installed Blender does not match the recorded ${EXPECTED}" >&2; exit 1 ;;
+          esac
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.32"
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - run: uv sync --locked --all-packages --group dev
+
+      # `pytest_no_skip` fails the run if the scene test skips for any reason.
+      - name: Rebuild the reference scene and compare bytes
+        env:
+          PYTHONPATH: scripts
+        run: >-
+          uv run --locked --with-editable ./examples/digital-twin-surrogate/adapter
+          pytest -p pytest_no_skip -rs
+          examples/digital-twin-surrogate/tests/test_scene_reproducibility.py

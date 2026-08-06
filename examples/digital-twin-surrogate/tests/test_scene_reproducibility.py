@@ -17,7 +17,10 @@ BUILD_SCRIPT = SCENE_ROOT / "build_scene.py"
 # The build imports the spatial invariants from the same directory, so the rebuild needs both.
 SCENE_SCRIPTS = (BUILD_SCRIPT, SCENE_ROOT / "check_scene.py")
 
-# The build takes roughly ten seconds; the ceiling only guards against a hung headless Blender.
+# The build takes about five minutes: it constructs 2340 nodes, then runs every scalar checkpoint,
+# the spatial invariants and the eye trace across all 1176 frames before it exports anything.  The
+# ceiling guards against a hung headless Blender, so it has to sit far enough above that figure to
+# survive a slow CI runner, where the same work takes appreciably longer than on a workstation.
 BUILD_TIMEOUT_SECONDS = 900
 
 # Reproduced byte-for-byte: the glTF export is deterministic for a given Blender version.

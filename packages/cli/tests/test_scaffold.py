@@ -13,6 +13,15 @@ from opensdl_controller import OpenSDLSystem
 from opensdl_schemas import load_manifest, validate_workflow_file
 
 
+def skill_tree(root: Path) -> dict[str, bytes]:
+    """Every file under a skill directory, keyed by its path relative to that directory."""
+    return {
+        str(path.relative_to(root)): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
 def test_laboratory_scaffold_is_complete_and_valid(tmp_path: Path) -> None:
     root = create_laboratory(tmp_path / "my-lab", owner="example")
     manifest = load_manifest(root / "opensdl.yaml")
@@ -49,12 +58,13 @@ def test_laboratory_scaffold_is_complete_and_valid(tmp_path: Path) -> None:
         "orient-lab",
         "start-here",
     }
-    for name in skill_names:
+    for name in sorted(skill_names):
         adapter = root / ".claude/skills" / name
         canonical = root / ".agents/skills" / name
         assert adapter.is_dir()
-        if adapter.is_symlink():
-            assert adapter.resolve() == canonical.resolve()
+        # Unconditional: the previous `if adapter.is_symlink()` guard meant the mirror path,
+        # which is what non-symlink platforms actually get, asserted nothing.
+        assert skill_tree(adapter) == skill_tree(canonical)
     subprocess.run(
         [sys.executable, str(root / "scripts/validate-skills.py")],
         cwd=root,
@@ -118,20 +128,52 @@ def test_generated_domain_pack_is_installable_shape(tmp_path: Path) -> None:
     assert (root / "tests/test_pack.py").exists()
 
 
+@pytest.mark.parametrize("symlinks_available", [True, False])
+def test_claude_skills_match_their_canonical_agent_skills_on_both_platforms(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    symlinks_available: bool,
+) -> None:
+    """Both mechanisms have to produce the same skills.
+
+    A Linux checkout only ever takes the symlink branch, so asserting the mirror only when the
+    platform happens to produce one leaves the mirror untested everywhere it matters.
+    """
+    if not symlinks_available:
+        monkeypatch.setattr(Path, "symlink_to", reject_symlink)
+
+    root = create_laboratory(tmp_path / "lab", owner="example")
+    canonical_root = root / ".agents/skills"
+    mirror_root = root / ".claude/skills"
+    names = {path.name for path in canonical_root.iterdir() if path.is_dir()}
+
+    assert names
+    assert {path.name for path in mirror_root.iterdir()} == names
+    for name in sorted(names):
+        adapter = mirror_root / name
+        canonical = canonical_root / name
+        assert adapter.is_dir()
+        assert adapter.is_symlink() is symlinks_available
+        if symlinks_available:
+            assert adapter.resolve() == canonical.resolve()
+        assert skill_tree(adapter) == skill_tree(canonical)
+
+
+def reject_symlink(*args: object, **kwargs: object) -> None:
+    raise OSError("directory symlinks unavailable")
+
+
 def test_laboratory_scaffold_falls_back_to_validated_skill_mirrors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def reject_symlink(*args: object, **kwargs: object) -> None:
-        raise OSError("directory symlinks unavailable")
-
     monkeypatch.setattr(Path, "symlink_to", reject_symlink)
     root = create_laboratory(tmp_path / "mirrored-lab", owner="example")
     canonical = root / ".agents/skills/orient-lab"
     adapter = root / ".claude/skills/orient-lab"
     assert adapter.is_dir()
     assert not adapter.is_symlink()
-    assert (adapter / "SKILL.md").read_bytes() == (canonical / "SKILL.md").read_bytes()
+    assert skill_tree(adapter) == skill_tree(canonical)
 
     valid = subprocess.run(
         [sys.executable, str(root / "scripts/validate-skills.py")],

@@ -137,7 +137,7 @@ in the laboratory repository and bind it through the current alpha twin contract
 
 OpenSDL includes one reference surrogate-cell scene to test this path. Generated laboratory
 repositories do not receive a model catalog or generic equipment assets. The reference is an
-original, real-scale Flex-class reconstruction with a 40-second authored workflow sequence.
+original, real-scale Flex-class reconstruction with a full authored workflow sequence.
 
 ### Stop conditions
 

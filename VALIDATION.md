@@ -38,7 +38,7 @@ On 2026-08-03, the digital-twin contract, projection path, reference scene, and 
 focused checks on the source workspace:
 
 - the current CPython 3.12 source suite passed **237 tests**, and the example adapter overlay passed
-  **15 tests**;
+  **16 tests**;
 - a headless Blender 5.2.0 rebuild in a temporary directory reproduced `surrogate-cell.glb`, the
   node inventory, and the motion report byte for byte, and a 0.1 mm change to a source constant was
   confirmed to break that comparison. The scene is a purpose-built self-driving-laboratory frame;
@@ -49,7 +49,7 @@ focused checks on the source workspace:
   containment;
 - the viewer's **67-test** Vitest suite, Biome check, TypeScript typecheck, deterministic static
   build, and dependency audit passed;
-- the reference GLB contract check found every required node, covered its authored 960-frame range,
+- the reference GLB contract check found every required node, covered its authored 1176-frame range,
   and received no issues from the Khronos validator;
 - viewer tests covered browser-side scene-digest verification, missing-binding failure, authored-motion
   synchronization, and exact-reference demo selection; and
@@ -80,7 +80,7 @@ or safety claims.
 The workspace lock was generated and checked with uv 0.11.32. It records 106 packages for the 22
 workspace members. All normal project and CI commands consume the committed lock with `--locked`.
 
-The current complete source suite passed **237 tests** on CPython 3.12.3, with **15** additional
+The current complete source suite passed **237 tests** on CPython 3.12.3, with **16** additional
 tests in the reference example's editable adapter overlay. The complete suite also passed on the
 other supported Python versions, each in an isolated environment built from the committed lock:
 

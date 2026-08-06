@@ -24,7 +24,7 @@ The framework's reference scene proves this integration path. It does not establ
 modeling service for arbitrary laboratories.
 
 The reference is an original, real-scale Flex-class reconstruction based on published dimensions
-and operating behavior. Its 40-second sequence spans 960 frames at 24 frames per second and covers
+and operating behavior. Its 49-second sequence spans 1176 frames at 24 frames per second and covers
 Stacker presentation, gripper transfers, pipetting, orbital mixing, plate reading, and output.
 
 ## Authoring and runtime formats

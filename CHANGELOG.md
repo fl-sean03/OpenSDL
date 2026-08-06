@@ -13,7 +13,7 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 - SDK methods for twin definitions, verified scene bytes, and projected runs, plus caller-supplied
   stable run identifiers;
 - one complete, real-scale Flex-class surrogate-cell reference with original procedural geometry,
-  published equipment dimensions, Blender source, GLB output, provenance, 108 scene checks, and a
+  published equipment dimensions, Blender source, GLB output, provenance, 107 scene checks, and a
   committed 49-second, 1176-frame H.264 animation of the authored sequence;
 - a read-only Three.js viewer with local demonstration data, stored-run replay, timeline controls,
   semantic highlights, transfers, authored-motion synchronization, browser-side scene-digest

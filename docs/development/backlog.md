@@ -132,7 +132,7 @@ Check an item only when its stated evidence exists in the repository or a linked
 - [x] Add a read-only Three.js viewer with orbit, zoom, play, pause, reset, timeline scrubbing, cue
   metadata, semantic highlights, transfers, authored GLB motion, and an exact-reference demo.
 - [x] Rebuild the sole showcase as an original, real-scale Flex-class reconstruction with published
-  equipment dimensions, a 40-second authored sequence, and 70 scene checks.
+  equipment dimensions, a complete authored sequence, and spatial checks that run before export.
 - [ ] Add entity selection and explicit proposed, simulated, live, disconnected, and stale states.
 - [ ] Add scan and CAD ingestion with scale calibration, coordinate registration, decimation,
   confidentiality review, and unmapped-entity reporting.

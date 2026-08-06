@@ -29,6 +29,30 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   the unconstructed pair, the invariant written for one chain, the check that has never failed, and
   the failure reported only on stderr — together with deriving carried motion from its carrier so a
   class of defect cannot be expressed at all;
+- campaign resume. A campaign continues under the identifier already recorded for it instead of
+  starting a second one under the same name. History is reconstructed from the campaign's own events
+  and the runs they name, so a candidate whose run already completed is never dispatched again —
+  including where the controller died between the run finishing and the campaign recording it, in
+  which case the run record settles the iteration and the outcome event the dying process never wrote
+  is written on the way through. Iteration numbering continues, so a campaign and an iteration
+  identify one decision for the life of the campaign, and running an identifier twice without asking
+  to resume is refused rather than silently restarting numbering at zero. A resume is refused outright
+  when any iteration names a run whose recorded state does not establish what physically happened: the
+  run layer will not re-dispatch such a run, and a campaign continuing past it unattended would be
+  granting itself an acknowledgement the framework does not offer. There is deliberately no override.
+  Restoring what the optimizer learned is optional — state is handed back to an optimizer that can
+  take it, and otherwise the reconstructed observations are replayed, which is all a stateless method
+  needs. State recorded by a different optimizer class, or that the optimizer rejects, refuses the
+  resume before anything is dispatched rather than quietly running a differently-behaving search under
+  an identifier that already names one;
+- the optimizer contract moved out of the execution stack into `opensdl-core`, so publishing a
+  third-party optimizer costs a dependency on protocols and a few frozen models rather than on
+  storage, policy, workflows and SQLAlchemy. That dependency was the sole exception in the package
+  boundary map, and it is gone. `CampaignDefinition` moved with the contract and can now declare the
+  objectives, search space and constraints the runner accepts, resolved through the same call the
+  runner uses so the two cannot interpret them differently. The drift test between definition and
+  runner now checks both directions — the one-directional version could not see a runner argument
+  with no definition field, which is exactly how the gap stayed quiet;
 - an optimizer contract that can express Bayesian optimization: `suggest` and `observe` stay the
   whole requirement, and batch proposal, problem configuration and state export are optional
   capabilities an optimizer adds one at a time, detected rather than demanded. A campaign now declares

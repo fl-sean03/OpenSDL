@@ -8,31 +8,18 @@ because a clogged tip or an off-scale reading is routine in a laboratory and is 
 campaign records why it stopped, because "budget exhausted" and "target reached" are different
 outcomes and the log has to say which one happened.
 
-The optimizer contract is two required methods, `suggest` and `observe`, and four optional
-capabilities an optimizer may add one at a time. A grid sweep implements the two and nothing else.
-A Bayesian method needs more than a scalar score and a bare candidate dictionary, so each of the
-following is expressible without becoming ceremony for the method that does not need it:
+**The contract an optimizer implements is not here.** `Optimizer`, `CampaignObservation`,
+`CampaignProblem` and everything they are built from live in `opensdl_core.campaign`, so publishing
+a BoTorch or Ax optimizer costs a dependency on `opensdl-core` rather than on the whole execution
+stack. Every one of those names is re-exported below, so an import that named this module keeps
+working. What is genuinely here is execution: the runner, the result, and the projection of a
+campaign from the events it emitted.
 
-- **A batch.** `BatchOptimizer.suggest_batch` proposes several candidates at once, which is what
-  q-EI and any laboratory with more than one reactor requires. How many are proposed and how many
-  run at the same time are separate declarations: `batch_size` is a property of the method,
-  `max_parallel_runs` is a property of the laboratory, and it defaults to one.
-- **A declared problem.** `CampaignProblem` states the objectives, the search space, and the
-  feasibility constraints, and the campaign declares it rather than the plugin hiding it in private
-  configuration. That is what lets the framework refuse a candidate outside the space *before* a
-  run is created, a policy decision is taken, or a resource is leased.
-  `ConfigurableOptimizer.configure` hands the same declaration to the optimizer, so there is one
-  statement of the problem rather than two that can disagree.
-- **Uncertainty.** An objective carries a measured uncertainty and a `Suggestion` carries a
-  predicted one, spelled the way `Quantity` and `Observation` already spell it in core.
-- **Acquisition provenance.** A `Suggestion` carries the acquisition value and function, the model
-  that produced it, and the runs it rested on. The decision is recorded *before* the run it causes,
-  because that is when it was made, and `evidence_run_ids` names the runs it was based on rather
-  than the run it caused.
-
-An optimizer method may be `async def`, and a synchronous one runs on a worker thread: a surrogate
-refit inside `suggest` otherwise holds the only event loop in the process and stalls every timeout,
-lease and event write in the laboratory.
+A campaign runs for weeks, so it can be interrupted, and `run(resume=True)` continues one from its
+own record rather than from a caller's memory of it. What that has to be careful about is stated on
+`CampaignRunner.run`; the short version is that a resumed campaign never re-dispatches a candidate
+whose run already completed, never continues over a run whose physical outcome is unknown, and
+never silently becomes a different search under the same identifier.
 """
 
 from __future__ import annotations
@@ -40,31 +27,87 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
-from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, computed_field
 
-from opensdl_core import Decision, EventRecord, OpenSDLModel, WorkflowDefinition, new_id
+from opensdl_core import (
+    BatchOptimizer,
+    CampaignObservation,
+    CampaignObservationStatus,
+    CampaignProblem,
+    CandidateConstraint,
+    ConfigurableOptimizer,
+    Decision,
+    EventRecord,
+    IterationDecision,
+    Objective,
+    ObjectiveValue,
+    OpenSDLModel,
+    Optimizer,
+    OutcomeConstraint,
+    Parameter,
+    ParameterKind,
+    ResumableOptimizer,
+    RunRecord,
+    RunState,
+    SearchSpace,
+    StatefulOptimizer,
+    Suggestion,
+    WorkflowDefinition,
+    WorkflowExecutionError,
+    new_id,
+)
 from opensdl_storage import RepositoryStore
 
 from .engine import ReferenceRuntime
 
+#: Everything this module exports. The first block is the contract, which now lives in
+#: `opensdl_core.campaign` so that an optimizer plugin does not have to depend on storage, policy,
+#: workflows and SQLAlchemy to implement two methods. It is re-exported by name, rather than left
+#: to be an accident of the import above, so an existing `from opensdl_runtime.campaign import ...`
+#: keeps resolving and so removing one of these is a decision rather than a tidy-up.
+__all__ = [
+    "BatchOptimizer",
+    "CampaignObservation",
+    "CampaignObservationStatus",
+    "CampaignProblem",
+    "CandidateConstraint",
+    "ConfigurableOptimizer",
+    "IterationDecision",
+    "Objective",
+    "ObjectiveValue",
+    "Optimizer",
+    "OutcomeConstraint",
+    "Parameter",
+    "ParameterKind",
+    "ResumableOptimizer",
+    "SearchSpace",
+    "StatefulOptimizer",
+    "Suggestion",
+    "ACTIVE_CAMPAIGN_SCAN_LIMIT",
+    "CampaignIterationRecord",
+    "CampaignIterationState",
+    "CampaignReader",
+    "CampaignRecord",
+    "CampaignResult",
+    "CampaignRunner",
+    "CampaignState",
+    "CampaignStopReason",
+    "project_campaign",
+]
 
-class CampaignObservationStatus(StrEnum):
-    """Whether an iteration produced a usable score."""
 
-    SUCCEEDED = "succeeded"
-    #: The workflow failed, or it completed and produced no usable score. Either way the candidate
-    #: was attempted: physical work may have happened and the attempt is part of the record.
-    FAILED = "failed"
-    #: The campaign refused the candidate before submitting it, because it left the declared search
-    #: space or broke a declared constraint. Nothing was leased and nothing was consumed, which is
-    #: why this is not a failure: no physical work was attempted.
-    REJECTED = "rejected"
+#: Run states that establish what physically happened, so a campaign resume may read an outcome off
+#: them. Every other state — `intervention_required` above all, but equally a run still recorded as
+#: `running` because the controller died holding it — leaves the physical outcome unknown, and a
+#: resume refuses rather than continuing over it. This is the same rule `UNRESUMABLE_TASK_STATES`
+#: applies one layer down, read at the layer that decides whether to keep going unattended.
+_ESTABLISHED_RUN_STATES = frozenset({RunState.COMPLETED, RunState.FAILED})
 
 
 class CampaignStopReason(StrEnum):
@@ -80,414 +123,6 @@ class CampaignStopReason(StrEnum):
     FAILURE_LIMIT = "failure_limit"
     #: The wall-clock budget was spent.
     TIME_BUDGET_EXHAUSTED = "time_budget_exhausted"
-
-
-class ObjectiveValue(OpenSDLModel):
-    """A number and how sure the campaign is of it.
-
-    Used for a measured objective and for a predicted one, because core already spells uncertainty
-    this way on `Quantity` and `Observation` and a third spelling would help nobody.
-    """
-
-    value: float
-    uncertainty: float | None = Field(default=None, ge=0)
-
-
-class Objective(OpenSDLModel):
-    """One thing the campaign is searching for, and where a run reports it."""
-
-    name: str
-    #: Dotted path into the run outputs, as `score_output` has always been.
-    output: str
-    minimize: bool = True
-    #: Stop once a feasible observation reaches this value. `None` searches the whole budget.
-    target: float | None = None
-    #: Dotted path to the measured uncertainty of this objective. Declared, so a run that does not
-    #: report it is an error rather than a silently dropped column.
-    uncertainty_output: str | None = None
-
-
-class ParameterKind(StrEnum):
-    CONTINUOUS = "continuous"
-    INTEGER = "integer"
-    CATEGORICAL = "categorical"
-
-
-class Parameter(OpenSDLModel):
-    """One dimension of the search space.
-
-    A parameter states its own domain so the framework can check a candidate against it. Use the
-    constructors rather than the raw fields: they are the three combinations that are complete.
-    """
-
-    name: str
-    kind: ParameterKind
-    lower: float | None = None
-    upper: float | None = None
-    choices: list[Any] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def _domain_is_complete(self) -> Parameter:
-        if self.kind is ParameterKind.CATEGORICAL:
-            if not self.choices:
-                raise ValueError(f"categorical parameter {self.name} declares no choices")
-            if self.lower is not None or self.upper is not None:
-                raise ValueError(f"categorical parameter {self.name} cannot declare bounds")
-            return self
-        if self.choices:
-            raise ValueError(f"{self.kind.value} parameter {self.name} cannot declare choices")
-        if self.lower is None or self.upper is None:
-            raise ValueError(f"{self.kind.value} parameter {self.name} must declare both bounds")
-        if self.lower > self.upper:
-            raise ValueError(f"parameter {self.name} declares a lower bound above its upper bound")
-        return self
-
-    @classmethod
-    def continuous(cls, name: str, lower: float, upper: float) -> Parameter:
-        return cls(name=name, kind=ParameterKind.CONTINUOUS, lower=lower, upper=upper)
-
-    @classmethod
-    def integer(cls, name: str, lower: int, upper: int) -> Parameter:
-        return cls(name=name, kind=ParameterKind.INTEGER, lower=lower, upper=upper)
-
-    @classmethod
-    def categorical(cls, name: str, choices: Sequence[Any]) -> Parameter:
-        return cls(name=name, kind=ParameterKind.CATEGORICAL, choices=list(choices))
-
-    def violation(self, value: Any) -> str | None:
-        """Say how `value` leaves this parameter's domain, or `None` if it does not."""
-
-        if self.kind is ParameterKind.CATEGORICAL:
-            if value in self.choices:
-                return None
-            return f"{self.name}={value!r} is not one of {self.choices!r}"
-        number = _as_number(value)
-        if number is None:
-            return f"{self.name}={value!r} is not a number"
-        if self.kind is ParameterKind.INTEGER and not float(number).is_integer():
-            return f"{self.name}={value!r} is not an integer"
-        lower, upper = self.lower, self.upper
-        if lower is None or upper is None:  # pragma: no cover - the validator requires both
-            return None
-        if number < lower or number > upper:
-            return f"{self.name}={value!r} is outside [{lower:g}, {upper:g}]"
-        return None
-
-
-class SearchSpace(OpenSDLModel):
-    """The parameters a campaign is searching, declared by the campaign rather than the plugin.
-
-    An empty space validates nothing, which is how a campaign written against the two-method
-    optimizer contract keeps running unchanged.
-    """
-
-    parameters: list[Parameter] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def _names_are_unique(self) -> SearchSpace:
-        names = [parameter.name for parameter in self.parameters]
-        if len(names) != len(set(names)):
-            raise ValueError("a search space cannot declare the same parameter twice")
-        return self
-
-    def violations(self, candidate: Mapping[str, Any]) -> list[str]:
-        """Every way `candidate` leaves this space, in declaration order then by extra name."""
-
-        if not self.parameters:
-            return []
-        found: list[str] = []
-        declared = {parameter.name for parameter in self.parameters}
-        for parameter in self.parameters:
-            if parameter.name not in candidate:
-                found.append(f"the candidate declares no value for {parameter.name}")
-                continue
-            reason = parameter.violation(candidate[parameter.name])
-            if reason is not None:
-                found.append(reason)
-        found.extend(
-            f"{name} is not a parameter the search space declares"
-            for name in candidate
-            if name not in declared
-        )
-        return found
-
-
-class CandidateConstraint(OpenSDLModel):
-    """A linear feasibility requirement on the parameters, checked before anything is leased.
-
-    Linear rather than an arbitrary predicate because a constraint has to survive being written
-    down: a callable cannot be stored in a campaign definition, sent over an interface, or read
-    back out of the record. Sum-to-one, a budget, and an ordering are all linear. A requirement
-    that is not is expressed by the search space or refused by the optimizer.
-    """
-
-    name: str
-    weights: dict[str, float]
-    lower: float | None = None
-    upper: float | None = None
-    #: Floating-point slack. An equality constraint is `lower == upper`, and `0.1 + 0.9` is not
-    #: exactly `1.0` in binary.
-    tolerance: float = Field(default=1e-9, ge=0)
-    description: str = ""
-
-    @model_validator(mode="after")
-    def _is_bounded(self) -> CandidateConstraint:
-        if not self.weights:
-            raise ValueError(f"candidate constraint {self.name} weights no parameter")
-        if self.lower is None and self.upper is None:
-            raise ValueError(
-                f"candidate constraint {self.name} bounds nothing: declare lower, upper, or both"
-            )
-        if self.lower is not None and self.upper is not None and self.lower > self.upper:
-            raise ValueError(f"candidate constraint {self.name} declares an empty interval")
-        return self
-
-    def violation(self, candidate: Mapping[str, Any]) -> str | None:
-        total = 0.0
-        for name, weight in self.weights.items():
-            value = _as_number(candidate.get(name))
-            if value is None:
-                return f"{self.name}: the candidate carries no numeric {name}"
-            total += weight * value
-        if self.lower is not None and total < self.lower - self.tolerance:
-            return f"{self.name}: {total:g} is below {self.lower:g}"
-        if self.upper is not None and total > self.upper + self.tolerance:
-            return f"{self.name}: {total:g} is above {self.upper:g}"
-        return None
-
-
-class OutcomeConstraint(OpenSDLModel):
-    """A feasibility requirement on what a run produced, checked once it has produced it.
-
-    An observation that breaks one is still an observation: the work happened, the numbers are
-    real, and an optimizer doing constrained search needs them. It is excluded from the best and
-    cannot reach a target, and nothing else about it changes.
-    """
-
-    name: str
-    #: Dotted path into the run outputs.
-    output: str
-    lower: float | None = None
-    upper: float | None = None
-    description: str = ""
-
-    @model_validator(mode="after")
-    def _is_bounded(self) -> OutcomeConstraint:
-        if self.lower is None and self.upper is None:
-            raise ValueError(
-                f"outcome constraint {self.name} bounds nothing: declare lower, upper, or both"
-            )
-        return self
-
-    def violation(self, outputs: Mapping[str, Any]) -> str | None:
-        try:
-            raw = _get_path(dict(outputs), self.output)
-        except KeyError:
-            return (
-                f"{self.name}: the run reported no {self.output}, "
-                "so feasibility cannot be established"
-            )
-        value = _as_number(raw)
-        if value is None:
-            return f"{self.name}: {self.output}={raw!r} is not a number"
-        if self.lower is not None and value < self.lower:
-            return f"{self.name}: {self.output}={value:g} is below {self.lower:g}"
-        if self.upper is not None and value > self.upper:
-            return f"{self.name}: {self.output}={value:g} is above {self.upper:g}"
-        return None
-
-
-class CampaignProblem(OpenSDLModel):
-    """What a campaign declared it is searching: the objectives, the space, and feasibility.
-
-    This is the framework's copy, not the plugin's. It is checked against every candidate before
-    the candidate becomes a run, and it is handed to an optimizer that asks for it, so the search
-    space is stated once.
-    """
-
-    objectives: list[Objective]
-    space: SearchSpace = Field(default_factory=SearchSpace)
-    candidate_constraints: list[CandidateConstraint] = Field(default_factory=list)
-    outcome_constraints: list[OutcomeConstraint] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def _objectives_are_declared(self) -> CampaignProblem:
-        if not self.objectives:
-            raise ValueError("a campaign must declare at least one objective")
-        names = [objective.name for objective in self.objectives]
-        if len(names) != len(set(names)):
-            raise ValueError("a campaign cannot declare the same objective twice")
-        return self
-
-    @property
-    def primary(self) -> Objective:
-        """The objective a single `best` is chosen by. Multi-objective results are the front."""
-        return self.objectives[0]
-
-    def violations(self, candidate: Mapping[str, Any]) -> list[str]:
-        """Every reason this candidate must not be submitted, checked before anything is leased."""
-
-        found = self.space.violations(candidate)
-        found.extend(
-            reason
-            for reason in (
-                constraint.violation(candidate) for constraint in self.candidate_constraints
-            )
-            if reason is not None
-        )
-        return found
-
-    def infeasibilities(self, outputs: Mapping[str, Any]) -> list[str]:
-        """Every outcome constraint the finished run broke."""
-
-        return [
-            reason
-            for reason in (constraint.violation(outputs) for constraint in self.outcome_constraints)
-            if reason is not None
-        ]
-
-
-@dataclass(frozen=True)
-class Suggestion:
-    """One proposal, and the reasoning that produced it.
-
-    Everything but `parameters` is optional. An optimizer with nothing to say returns a plain
-    dictionary and the runner wraps it; an optimizer that fitted a model says what it predicted,
-    how sure it was, which acquisition function ranked the candidate, and which model did it. That
-    is what turns `Decision.rationale` from a template string into a decision record.
-    """
-
-    parameters: dict[str, Any]
-    #: Predicted objective values keyed by objective name, with the uncertainty of the prediction.
-    predictions: Mapping[str, ObjectiveValue] = field(default_factory=dict)
-    #: The acquisition value this candidate was ranked by. For a jointly optimized batch such as
-    #: q-EI this is the value of the batch, repeated, with `acquisition_function` naming it.
-    acquisition: float | None = None
-    acquisition_function: str = ""
-    #: Whatever identifies the model that proposed this: name, version, kernel, seed, fit size.
-    model: Mapping[str, Any] = field(default_factory=dict)
-    rationale: str = ""
-    #: The runs this proposal rested on. `None` means the history the runner supplied, which is the
-    #: honest default; a trust-region or windowed method states the subset it actually used.
-    evidence_run_ids: tuple[str, ...] | None = None
-
-
-@dataclass(frozen=True)
-class CampaignObservation:
-    """One attempted iteration.
-
-    A failed attempt is an observation, not an absence of one: it carries the candidate that was
-    tried and the error it produced, so an optimizer can avoid re-proposing it and an operator can
-    see what the campaign did.
-    """
-
-    iteration: int
-    candidate: dict[str, Any]
-    score: float | None = None
-    run_id: str | None = None
-    outputs: dict[str, Any] = field(default_factory=dict)
-    status: CampaignObservationStatus = CampaignObservationStatus.SUCCEEDED
-    error: str | None = None
-    #: Every declared objective this run reported, with its measured uncertainty. `score` is the
-    #: primary objective's value and stays the scalar view of the same thing.
-    objectives: Mapping[str, ObjectiveValue] = field(default_factory=dict)
-    #: Why this observation is infeasible: a broken outcome constraint, or — for a rejected
-    #: candidate — the reason the campaign refused to submit it.
-    constraint_violations: tuple[str, ...] = ()
-    #: What proposed this candidate, so an optimizer can compare its prediction to the outcome.
-    suggestion: Suggestion | None = None
-    #: Which proposed batch this candidate came from. Zero for a campaign that never batches.
-    batch: int = 0
-
-    def __post_init__(self) -> None:
-        if self.status is CampaignObservationStatus.SUCCEEDED:
-            if self.score is None:
-                raise ValueError("a succeeded observation must carry the score it produced")
-            if self.error is not None:
-                raise ValueError("a succeeded observation cannot carry an error")
-            return
-        if self.score is not None:
-            raise ValueError("a failed observation has no score")
-        if not self.error:
-            raise ValueError("a failed observation must record why it failed")
-        if self.status is CampaignObservationStatus.REJECTED and self.run_id is not None:
-            raise ValueError("a rejected candidate was never submitted, so it names no run")
-
-    @property
-    def succeeded(self) -> bool:
-        return self.status is CampaignObservationStatus.SUCCEEDED
-
-    @property
-    def attempted(self) -> bool:
-        """Whether the laboratory was asked to do the work. A rejected candidate was not."""
-        return self.status is not CampaignObservationStatus.REJECTED
-
-    @property
-    def feasible(self) -> bool:
-        """Whether every declared constraint held. A campaign that declares none is all feasible."""
-        return not self.constraint_violations
-
-
-@runtime_checkable
-class Optimizer(Protocol):
-    """Candidate source for a campaign. Two methods, and nothing else is required.
-
-    ``history`` holds every attempt in order, failures and rejections included. An optimizer that
-    filters history down to successes will propose a failing candidate forever.
-
-    `suggest` may return a plain parameter dictionary, as it always has, or a `Suggestion` carrying
-    the reasoning behind it. Either method may be declared `async def`; a synchronous one is run on
-    a worker thread so that a surrogate refit does not hold the laboratory's event loop.
-    """
-
-    def suggest(
-        self, history: list[CampaignObservation]
-    ) -> dict[str, Any] | Suggestion | None | Awaitable[dict[str, Any] | Suggestion | None]: ...
-
-    def observe(self, observation: CampaignObservation) -> None | Awaitable[None]: ...
-
-
-@runtime_checkable
-class BatchOptimizer(Protocol):
-    """An optimizer that can propose several candidates at once.
-
-    `count` is how many the campaign has budget for, never more. Returning fewer is meaningful and
-    allowed; returning more is truncated, because the iteration budget is what bounds physical
-    work. When an optimizer implements this the runner uses it for every proposal, including
-    batches of one, so there is one code path rather than two that can disagree.
-    """
-
-    def suggest_batch(
-        self, history: list[CampaignObservation], *, count: int
-    ) -> (
-        Sequence[dict[str, Any] | Suggestion]
-        | None
-        | Awaitable[Sequence[dict[str, Any] | Suggestion] | None]
-    ): ...
-
-
-@runtime_checkable
-class ConfigurableOptimizer(Protocol):
-    """An optimizer that is told the problem the campaign declared, once, before the loop.
-
-    This is what stops the search space from living in two places. It is also where a future
-    campaign resume restores optimizer state, because it is already the one hook that runs before
-    the first proposal.
-    """
-
-    def configure(self, problem: CampaignProblem) -> None | Awaitable[None]: ...
-
-
-@runtime_checkable
-class StatefulOptimizer(Protocol):
-    """An optimizer that can hand out what it learned.
-
-    The runner reads this once, when the campaign stops, and records it. Nothing restores it: a
-    campaign resume, and the matching `load_state`, is a separate piece of work. What this makes
-    true today is that a fitted model's state survives the process that fitted it.
-    """
-
-    def state(self) -> dict[str, Any] | Awaitable[dict[str, Any]]: ...
 
 
 @dataclass
@@ -586,6 +221,7 @@ class CampaignRunner:
         outcome_constraints: Sequence[OutcomeConstraint] = (),
         batch_size: int = 1,
         max_parallel_runs: int = 1,
+        resume: bool = False,
     ) -> CampaignResult:
         """Run a closed loop until a stopping rule fires, and record why it stopped.
 
@@ -593,14 +229,48 @@ class CampaignRunner:
         run record preserves them, so the caller must state the environment its manifest declares
         rather than inherit a default that would make the provenance record false.
 
-        The control arguments from ``base_inputs`` to ``iteration_id_input`` mirror
-        :class:`opensdl_core.CampaignDefinition` field for field, including defaults.
+        ``resume`` continues the campaign already recorded under ``campaign_id`` instead of
+        starting a new one. A campaign runs for weeks, so the process that started it is not
+        necessarily the process that finishes it, and the framework had restart reconciliation for
+        the thirty-second thing and none for the three-week thing. What resume guarantees:
 
-        The arguments below ``campaign_id`` declare the problem and the throughput, and have no
-        field on that definition yet. ``objectives`` replaces the ``score_output`` / ``minimize`` /
-        ``target_score`` triple with a list; supplying both a non-default triple and ``objectives``
-        is refused rather than silently resolved, except that ``target_score`` fills the primary
-        objective's target when the objective declares none.
+        - **History comes from the record, not from the caller.** Every observation is
+          reconstructed from the campaign's own events and the runs they name, so an optimizer with
+          no memory of the first process resumes knowing what the laboratory did.
+        - **Completed work is not repeated.** An iteration whose run finished is restored as the
+          success it was, including the case where the controller died between the run completing
+          and the campaign recording it — the run record is the authority, and the missing campaign
+          event is written on the way through.
+        - **An unknown physical outcome stops the resume.** If any iteration names a run whose
+          recorded state does not establish what happened — `intervention_required`, or any state
+          that is not terminal — the resume is refused rather than continued over. The run layer
+          refuses to re-dispatch such a task; a campaign that carried on unattended past it would
+          be granting itself an acknowledgement the framework does not yet offer.
+        - **Iteration numbering continues.** ``(campaign_id, iteration)`` identifies one decision
+          for the life of the campaign, across any number of restarts.
+        - **``max_iterations`` is the budget for the campaign, not for the invocation.** A resumed
+          campaign that has already spent it stops immediately without dispatching anything.
+          ``max_duration_seconds`` is the exception: it bounds this invocation, because the time a
+          campaign spent dead is not time it spent working.
+
+        Restoring what the optimizer learned is optional and additive. A campaign is resumable
+        without it: `ResumableOptimizer.load_state` is used when the optimizer offers it and state
+        was recorded, and otherwise the reconstructed observations are replayed through `observe`,
+        which is all a grid or any other stateless method needs. When state is restored the
+        observations are *not* also replayed, because the state already contains them.
+        `state()` is unvalidated data on the way back in, so a resume refuses — before dispatching
+        anything — when the recorded state was produced by a different optimizer class or when
+        `load_state` rejects it. Continuing would run a differently-behaving search under an
+        identifier that already names one.
+
+        Every argument except ``workflow``, ``optimizer`` and the submission facts mirrors a
+        :class:`opensdl_core.CampaignDefinition` field, name and default alike, and a test asserts
+        it in both directions — so a stored definition can describe any campaign this method can
+        run. ``objectives`` replaces the ``score_output`` / ``minimize`` / ``target_score`` triple
+        with a list; supplying both a non-default triple and ``objectives`` is refused rather than
+        silently resolved, except that ``target_score`` fills the primary objective's target when
+        the objective declares none. The definition resolves those arguments through the same
+        :meth:`opensdl_core.CampaignProblem.declare`, so the two cannot disagree.
 
         ``batch_size`` is how many candidates the optimizer is asked for at once — a property of
         the method. ``max_parallel_runs`` is how many of them execute at the same time — a property
@@ -629,52 +299,126 @@ class CampaignRunner:
         if max_parallel_runs < 1:
             raise ValueError("max_parallel_runs must be at least 1")
 
-        problem = _declare(
+        problem = CampaignProblem.declare(
             objectives=objectives,
             score_output=score_output,
             minimize=minimize,
             target_score=target_score,
-            search_space=search_space,
+            space=search_space,
             candidate_constraints=candidate_constraints,
             outcome_constraints=outcome_constraints,
         )
+        if resume and campaign_id is None:
+            raise ValueError(
+                "resume needs the campaign_id of the campaign being resumed; without it there is "
+                "nothing to continue and a new campaign would be started under a new identifier"
+            )
+        # A minted identifier cannot already name a campaign, so only a caller-supplied one is
+        # looked up. That lookup is what makes running the same identifier twice an error rather
+        # than a second campaign wearing the first one's name.
+        supplied_id = campaign_id
         campaign_id = campaign_id or new_id("campaign")
+        recorded = self._recorded(campaign_id) if supplied_id is not None else None
+        if recorded is not None and not resume:
+            raise ValueError(
+                f"campaign {campaign_id} is already recorded with {len(recorded.iterations)} "
+                f"iteration(s) and state '{recorded.state.value}'. Running it again would emit a "
+                "second CampaignStarted and number its iterations from zero, so "
+                "(campaign_id, iteration) would no longer identify one decision. Pass resume=True "
+                "to continue it, or a new campaign_id to start a new one."
+            )
+        if resume and recorded is None:
+            raise ValueError(
+                f"no campaign is recorded under {campaign_id}, so there is nothing to resume. "
+                "Check the identifier, or start the campaign without resume=True."
+            )
+
         history: list[CampaignObservation] = []
-        consecutive_failures = 0
+        catchup: list[EventRecord] = []
+        iteration = 0
+        batch = 0
+        if recorded is not None:
+            history, catchup = self._replay(recorded, problem=problem, operator_id=operator_id)
+            iteration = max((item.iteration for item in history), default=-1) + 1
+            batch = max((item.batch for item in history), default=-1) + 1
+        consecutive_failures = _trailing_failures(history)
         discarded = 0
         started_at = time.monotonic()
         stop_reason = CampaignStopReason.MAX_ITERATIONS
         stop_detail = f"ran the configured budget of {max_iterations} iterations"
-        self.repositories.append_event(
-            EventRecord(
-                type="CampaignStarted",
-                actor_id=operator_id,
-                campaign_id=campaign_id,
-                payload={
-                    "workflowId": workflow.id,
-                    "workflowVersion": workflow.version,
-                    "environment": environment,
-                    "operatorId": operator_id,
-                    "maxIterations": max_iterations,
-                    "scoreOutput": score_output,
-                    "minimize": minimize,
-                    "targetScore": target_score,
-                    "maxConsecutiveFailures": max_consecutive_failures,
-                    "maxDurationSeconds": max_duration_seconds,
-                    "iterationIdInput": iteration_id_input,
-                    "baseInputs": dict(base_inputs or {}),
-                    "problem": problem.model_dump(mode="json"),
-                    "batchSize": batch_size,
-                    "maxParallelRuns": max_parallel_runs,
-                },
+        header = {
+            "workflowId": workflow.id,
+            "workflowVersion": workflow.version,
+            "environment": environment,
+            "operatorId": operator_id,
+            "maxIterations": max_iterations,
+            "scoreOutput": score_output,
+            "minimize": minimize,
+            "targetScore": target_score,
+            "maxConsecutiveFailures": max_consecutive_failures,
+            "maxDurationSeconds": max_duration_seconds,
+            "iterationIdInput": iteration_id_input,
+            "baseInputs": dict(base_inputs or {}),
+            "problem": problem.model_dump(mode="json"),
+            "batchSize": batch_size,
+            "maxParallelRuns": max_parallel_runs,
+        }
+        if not resume:
+            self.repositories.append_event(
+                EventRecord(
+                    type="CampaignStarted",
+                    actor_id=operator_id,
+                    campaign_id=campaign_id,
+                    payload=header,
+                )
             )
-        )
         if isinstance(optimizer, ConfigurableOptimizer):
             await _call(optimizer.configure, problem)
 
-        iteration = 0
-        batch = 0
-        while iteration < max_iterations:
+        if recorded is not None:
+            # Everything that can refuse the resume has refused by now, and the optimizer is
+            # configured, so this is the first write: the resume is committed before the events
+            # that catch its record up to what the laboratory actually did.
+            restored, detail = await _restore_state(optimizer, recorded, campaign_id)
+            self.repositories.append_event(
+                EventRecord(
+                    type="CampaignResumed",
+                    actor_id=operator_id,
+                    campaign_id=campaign_id,
+                    payload={
+                        **header,
+                        "resumedFromIterations": len(history),
+                        "nextIteration": iteration,
+                        "nextBatch": batch,
+                        "recoveredIterations": [
+                            int(event.payload["iteration"]) for event in catchup
+                        ],
+                        "consecutiveFailures": consecutive_failures,
+                        "optimizerStateRestored": restored,
+                        "optimizerStateDetail": detail,
+                    },
+                )
+            )
+            for event in catchup:
+                self.repositories.append_event(event)
+            if not restored:
+                # The only way an optimizer that cannot restore state learns what already
+                # happened. An optimizer that did restore state has these observations in it
+                # already, and replaying them would fit every one of them twice.
+                for observation in history:
+                    await _call(optimizer.observe, observation)
+
+        resume_stop = (
+            _already_stopped(
+                history,
+                problem,
+                consecutive_failures=consecutive_failures,
+                max_consecutive_failures=max_consecutive_failures,
+            )
+            if recorded is not None
+            else None
+        )
+        while resume_stop is None and iteration < max_iterations:
             elapsed = time.monotonic() - started_at
             if max_duration_seconds is not None and elapsed >= max_duration_seconds:
                 stop_reason = CampaignStopReason.TIME_BUDGET_EXHAUSTED
@@ -752,6 +496,8 @@ class CampaignRunner:
             if stopped:
                 break
 
+        if resume_stop is not None:
+            stop_reason, stop_detail = resume_stop
         best = _best_observation(history, problem)
         state, state_error = await _read_state(optimizer)
         result = CampaignResult(
@@ -781,10 +527,79 @@ class CampaignRunner:
                     "pareto": [item.iteration for item in result.pareto_front],
                     "optimizerState": state,
                     "optimizerStateError": state_error,
+                    # Which optimizer produced that state. A resume compares it against the
+                    # optimizer it was handed and refuses a mismatch rather than loading one
+                    # method's model into another's.
+                    "optimizerType": _optimizer_type(optimizer),
                 },
             )
         )
         return result
+
+    def _recorded(self, campaign_id: str) -> CampaignRecord | None:
+        """The campaign already recorded under this identifier, or `None` if there is none."""
+
+        try:
+            return CampaignReader(self.repositories).get(campaign_id)
+        except KeyError:
+            return None
+
+    def _replay(
+        self,
+        recorded: CampaignRecord,
+        *,
+        problem: CampaignProblem,
+        operator_id: str,
+    ) -> tuple[list[CampaignObservation], list[EventRecord]]:
+        """Rebuild what a campaign did, from its own events and the runs those events name.
+
+        Returns the reconstructed history and the events that bring the campaign's record up to
+        date with the run record — the outcomes a controller that died mid-iteration never wrote.
+        Refuses, before returning anything, if any iteration names a run whose recorded state does
+        not establish what physically happened.
+
+        The run record is consulted for every iteration that names a run, not only for the ones
+        the campaign left open, because the campaign's own view of an iteration and the run's own
+        state are written by different code at different moments and a resume is exactly the
+        moment they can disagree.
+        """
+
+        runs: dict[str, RunRecord | None] = {}
+        for item in recorded.iterations:
+            if item.run_id is not None and item.run_id not in runs:
+                runs[item.run_id] = self.repositories.get_run(item.run_id)
+
+        for item in recorded.iterations:
+            run = runs.get(item.run_id) if item.run_id is not None else None
+            if run is None or run.state in _ESTABLISHED_RUN_STATES:
+                continue
+            raise WorkflowExecutionError(
+                f"cannot resume campaign {recorded.campaign_id}: iteration {item.iteration} ran "
+                f"{run.id}, which is recorded as '{run.state.value}', so OpenSDL does not know "
+                "whether the physical work happened. Recorded run error: "
+                f"{run.error or 'none recorded'}. Continuing the campaign unattended over that "
+                "would grant it an acknowledgement the run layer refuses to grant: "
+                "`run_workflow` will not re-dispatch that run either. A human must establish what "
+                "the equipment did. OpenSDL has no operation for acknowledging an intervention "
+                "yet, so record the finding outside the campaign and submit the remaining search "
+                "as a new campaign."
+            )
+
+        history: list[CampaignObservation] = []
+        catchup: list[EventRecord] = []
+        for item in recorded.iterations:
+            run = runs.get(item.run_id) if item.run_id is not None else None
+            observation, event = _restated(
+                item,
+                run,
+                problem=problem,
+                campaign_id=recorded.campaign_id,
+                operator_id=operator_id,
+            )
+            history.append(observation)
+            if event is not None:
+                catchup.append(event)
+        return history, catchup
 
     async def _propose(
         self,
@@ -984,7 +799,7 @@ class CampaignRunner:
                 run_id=run_id,
                 campaign_id=campaign_id,
             )
-            values = _measure(run.outputs, problem)
+            values = problem.measure(run.outputs)
         except Exception as exc:
             error = _describe(exc)
             submitted = self.repositories.get_run(run_id)
@@ -1072,25 +887,6 @@ class CampaignIterationState(StrEnum):
     REJECTED = "rejected"
 
 
-class IterationDecision(OpenSDLModel):
-    """Why this candidate was chosen, as the optimizer stated it at the time.
-
-    Everything here is optional because an optimizer that ranks nothing has nothing to declare.
-    What is never optional is `rationale` and `evidence_run_ids`: the runner writes a sentence and
-    names the runs the proposal rested on even when the optimizer says nothing at all.
-    """
-
-    rationale: str = ""
-    acquisition: float | None = None
-    acquisition_function: str = ""
-    predictions: dict[str, ObjectiveValue] = Field(default_factory=dict)
-    model: dict[str, Any] = Field(default_factory=dict)
-    evidence_run_ids: list[str] = Field(default_factory=list)
-    batch: int = 0
-    batch_index: int = 0
-    batch_size: int = 1
-
-
 class CampaignIterationRecord(OpenSDLModel):
     """One iteration as the event stream recorded it."""
 
@@ -1145,12 +941,18 @@ class CampaignRecord(OpenSDLModel):
     batch_size: int = 1
     max_parallel_runs: int = 1
     started_at: datetime | None = None
+    #: When this campaign was last resumed, and how many times it has been. A campaign that ran in
+    #: one process reports `None` and zero.
+    resumed_at: datetime | None = None
+    resume_count: int = 0
     completed_at: datetime | None = None
     stop_reason: CampaignStopReason | None = None
     stop_detail: str = ""
-    #: What the optimizer knew when the campaign stopped, if it was able to say. Nothing restores
-    #: it yet; it is recorded so that a resume has something to restore from.
+    #: What the optimizer knew when the campaign stopped, if it was able to say, and which
+    #: optimizer knew it. A resume hands the state back to an optimizer that can take it and
+    #: refuses when `optimizer_type` names a different one.
     optimizer_state: dict[str, Any] | None = None
+    optimizer_type: str = ""
     iterations: list[CampaignIterationRecord] = Field(default_factory=list)
     #: The best scoring feasible iteration. While a campaign is running this is the best so far,
     #: which is what an operator watching one wants; once it completes it is the one it recorded.
@@ -1185,12 +987,16 @@ def project_campaign(campaign_id: str, events: Sequence[EventRecord]) -> Campaig
     with `CampaignIterationCompleted`, and its `DecisionRecorded` carries the reasoning instead of
     an outcome. An event log is a record of what happened, so both are projected rather than one
     being declared wrong after the fact.
+
+    A `CampaignResumed` restates the header — a resumed campaign may be given a larger budget than
+    the one it started with — and puts the campaign back into `RUNNING`, because a campaign that
+    completed and was then resumed has not completed.
     """
 
     started = next((event for event in events if event.type == "CampaignStarted"), None)
     if started is None:
         raise KeyError(campaign_id)
-    header = started.payload
+    header: dict[str, Any] = dict(started.payload)
     iterations: dict[int, CampaignIterationRecord] = {}
 
     def _update(index: int, **changes: Any) -> None:
@@ -1198,9 +1004,16 @@ def project_campaign(campaign_id: str, events: Sequence[EventRecord]) -> Campaig
         iterations[index] = current.model_copy(update=changes)
 
     completed: EventRecord | None = None
+    resumed: EventRecord | None = None
+    resume_count = 0
     for event in events:
         payload = event.payload
-        if event.type == "CampaignIterationStarted":
+        if event.type == "CampaignResumed":
+            header = {**header, **payload}
+            completed = None
+            resumed = event
+            resume_count += 1
+        elif event.type == "CampaignIterationStarted":
             _update(
                 int(payload["iteration"]),
                 candidate=dict(payload.get("candidate") or {}),
@@ -1277,12 +1090,17 @@ def project_campaign(campaign_id: str, events: Sequence[EventRecord]) -> Campaig
         batch_size=int(header.get("batchSize") or 1),
         max_parallel_runs=int(header.get("maxParallelRuns") or 1),
         started_at=started.occurred_at,
+        resumed_at=resumed.occurred_at if resumed is not None else None,
+        resume_count=resume_count,
         completed_at=completed.occurred_at if completed is not None else None,
         stop_reason=(
             CampaignStopReason(completed.payload["stopReason"]) if completed is not None else None
         ),
         stop_detail=str(completed.payload.get("stopDetail", "")) if completed is not None else "",
         optimizer_state=completed.payload.get("optimizerState") if completed is not None else None,
+        optimizer_type=(
+            str(completed.payload.get("optimizerType") or "") if completed is not None else ""
+        ),
         iterations=ordered,
         best=_best_iteration(ordered, problem, minimize),
     )
@@ -1356,11 +1174,12 @@ class CampaignReader:
             self.repositories.list_events(campaign_id=campaign_id, limit=None),
         )
 
-    #: The two events that bound a campaign. Listing asks for these rather than reading every
-    #: event ever recorded, because run and task events now carry a campaign id too and a
-    #: campaign of a hundred runs contributes thousands of events that say nothing about
-    #: whether it started or finished.
-    LIFECYCLE_EVENT_TYPES = ("CampaignStarted", "CampaignCompleted")
+    #: The events that bound a campaign. Listing asks for these rather than reading every event
+    #: ever recorded, because run and task events now carry a campaign id too and a campaign of a
+    #: hundred runs contributes thousands of events that say nothing about whether it started or
+    #: finished. `CampaignResumed` is one of them: a campaign that completed and was then resumed
+    #: is running again, and a listing that could not see the resume would report it finished.
+    LIFECYCLE_EVENT_TYPES = ("CampaignStarted", "CampaignResumed", "CampaignCompleted")
 
     def list(self) -> list[CampaignRecord]:
         """Every campaign the store has a lifecycle event for, newest first."""
@@ -1442,43 +1261,267 @@ async def _read_state(optimizer: Optimizer) -> tuple[dict[str, Any] | None, str 
         return None, _describe(exc)
 
 
-def _declare(
-    *,
-    objectives: Sequence[Objective] | None,
-    score_output: str,
-    minimize: bool,
-    target_score: float | None,
-    search_space: SearchSpace | None,
-    candidate_constraints: Sequence[CandidateConstraint],
-    outcome_constraints: Sequence[OutcomeConstraint],
-) -> CampaignProblem:
-    """Build the declared problem from either the scalar arguments or the objective list."""
+def _optimizer_type(optimizer: object) -> str:
+    """Name the class behind an optimizer, so recorded state can be traced to what produced it."""
 
-    if objectives is None:
-        declared = [
-            Objective(
-                name=score_output,
-                output=score_output,
-                minimize=minimize,
-                target=target_score,
-            )
-        ]
-    else:
-        if score_output != "score" or minimize is not True:
-            raise ValueError(
-                "a campaign that declares objectives states minimize and the output path on each "
-                "one; score_output and minimize describe a single objective and cannot also apply"
-            )
-        declared = [item.model_copy(deep=True) for item in objectives]
-        if not declared:
-            raise ValueError("a campaign must declare at least one objective")
-        if target_score is not None and declared[0].target is None:
-            declared[0] = declared[0].model_copy(update={"target": target_score})
-    return CampaignProblem(
-        objectives=declared,
-        space=search_space or SearchSpace(),
-        candidate_constraints=list(candidate_constraints),
-        outcome_constraints=list(outcome_constraints),
+    kind = type(optimizer)
+    return f"{kind.__module__}.{kind.__qualname__}"
+
+
+async def _restore_state(
+    optimizer: Optimizer,
+    recorded: CampaignRecord,
+    campaign_id: str,
+) -> tuple[bool, str]:
+    """Hand back what a previous process recorded, or say why the resume proceeds without it.
+
+    Returns whether state was restored and a sentence for the record. Raises when the state exists
+    and cannot be restored safely — a different optimizer class, or a `load_state` that rejects the
+    payload. Both mean the resumed campaign would search differently from the campaign whose
+    identifier and record it is continuing, and the honest place to stop is before anything is
+    dispatched rather than after.
+    """
+
+    current = _optimizer_type(optimizer)
+    state = recorded.optimizer_state
+    if state is None:
+        return False, (
+            "the campaign recorded no optimizer state, so the recorded observations were "
+            "replayed instead"
+        )
+    if not isinstance(optimizer, ResumableOptimizer):
+        return False, (
+            f"{current} does not implement load_state, so the state recorded by "
+            f"{recorded.optimizer_type or 'the previous process'} was left alone and the recorded "
+            "observations were replayed instead"
+        )
+    if recorded.optimizer_type and recorded.optimizer_type != current:
+        raise ValueError(
+            f"cannot resume campaign {campaign_id}: its optimizer state was recorded by "
+            f"{recorded.optimizer_type} and this resume was handed {current}. Loading one "
+            "method's state into another would run a different search under an identifier that "
+            "already names one. Resume with the optimizer that recorded the state, or start a new "
+            "campaign."
+        )
+    try:
+        await _call(optimizer.load_state, dict(state))
+    except Exception as exc:
+        raise ValueError(
+            f"cannot resume campaign {campaign_id}: {current}.load_state rejected the state "
+            f"recorded when the campaign last stopped: {_describe(exc)}. Nothing has been "
+            "dispatched. Resume with an optimizer that can read that state, or start a new "
+            "campaign rather than continuing this one with a differently-behaving method."
+        ) from exc
+    return True, f"restored the optimizer state recorded by {current}"
+
+
+def _trailing_failures(history: Sequence[CampaignObservation]) -> int:
+    """The unbroken run of unsuccessful attempts at the end of a history.
+
+    The consecutive-failure limit is a statement about the laboratory, not about one process, so a
+    restart that reset this count would let an unattended loop fail past the limit it declared.
+    """
+
+    count = 0
+    for observation in reversed(history):
+        if observation.succeeded:
+            break
+        count += 1
+    return count
+
+
+def _already_stopped(
+    history: Sequence[CampaignObservation],
+    problem: CampaignProblem,
+    *,
+    consecutive_failures: int,
+    max_consecutive_failures: int,
+) -> tuple[CampaignStopReason, str] | None:
+    """Whether the replayed record already satisfies a stopping rule this invocation declares.
+
+    A resume evaluates the same rules against the same history the live loop would have, so a
+    campaign that already reached its target does not quietly do more physical work because a new
+    process started. Only `max_duration_seconds` is exempt, and it is exempt because the wall clock
+    a dead campaign consumed is not work it did.
+    """
+
+    if consecutive_failures >= max_consecutive_failures:
+        last = history[-1] if history else None
+        return (
+            CampaignStopReason.FAILURE_LIMIT,
+            f"{consecutive_failures} consecutive iterations had already failed when the campaign "
+            f"was resumed, so the failure is systematic rather than routine; last error: "
+            f"{last.error if last else 'none recorded'}",
+        )
+    for observation in history:
+        if observation.succeeded and _reaches_targets(observation, problem):
+            return CampaignStopReason.TARGET_REACHED, _target_detail(observation, problem)
+    return None
+
+
+def _restated(
+    item: CampaignIterationRecord,
+    run: RunRecord | None,
+    *,
+    problem: CampaignProblem,
+    campaign_id: str,
+    operator_id: str,
+) -> tuple[CampaignObservation, EventRecord | None]:
+    """One recorded iteration as an observation, plus the event that never got written.
+
+    An iteration the campaign left open is settled from the run it named, because the run record
+    is what the laboratory actually did and the campaign's silence is only what a dying process
+    failed to say. Settling it emits the missing outcome event, so the next reader of this campaign
+    sees the finished iteration rather than repeating this reconstruction.
+    """
+
+    suggestion = item.decision.as_suggestion(item.candidate) if item.decision else None
+    common: dict[str, Any] = {
+        "iteration": item.iteration,
+        "candidate": dict(item.candidate),
+        "suggestion": suggestion,
+        "batch": item.batch,
+    }
+    # An iteration whose run row is gone names no run, exactly as the live path does for a
+    # submission that was refused before the runtime created one.
+    named_run = run.id if run is not None else None
+    if item.state is CampaignIterationState.SUCCEEDED and item.score is not None:
+        return (
+            CampaignObservation(
+                **common,
+                score=item.score,
+                run_id=named_run,
+                outputs=dict(run.outputs) if run is not None else {},
+                objectives=dict(item.objectives),
+                constraint_violations=tuple(item.constraint_violations),
+            ),
+            None,
+        )
+    if item.state is CampaignIterationState.SUCCEEDED:
+        # Recorded as a success with no score. Nothing can be inferred from that, and inventing a
+        # score would put a number the laboratory never produced into the optimizer's history.
+        return (
+            CampaignObservation(
+                **common,
+                run_id=named_run,
+                status=CampaignObservationStatus.FAILED,
+                error="the campaign recorded this iteration as succeeded without a score",
+            ),
+            None,
+        )
+    if item.state is CampaignIterationState.REJECTED:
+        return (
+            CampaignObservation(
+                **common,
+                status=CampaignObservationStatus.REJECTED,
+                error=item.error or "; ".join(item.constraint_violations) or "candidate refused",
+                constraint_violations=tuple(item.constraint_violations),
+            ),
+            None,
+        )
+    if item.state is CampaignIterationState.FAILED:
+        return (
+            CampaignObservation(
+                **common,
+                run_id=named_run,
+                status=CampaignObservationStatus.FAILED,
+                error=item.error or "the campaign recorded a failure with no error",
+            ),
+            None,
+        )
+
+    # Left open by a process that did not survive to record the outcome.
+    if run is None:
+        return _recovered_failure(
+            common,
+            campaign_id=campaign_id,
+            operator_id=operator_id,
+            run_id=None,
+            error=(
+                "the campaign was interrupted before the run was created, so nothing was "
+                "dispatched for this iteration"
+            ),
+        )
+    if run.state is RunState.FAILED:
+        return _recovered_failure(
+            common,
+            campaign_id=campaign_id,
+            operator_id=operator_id,
+            run_id=run.id,
+            error=run.error or "the run failed and recorded no error",
+        )
+    try:
+        values = problem.measure(run.outputs)
+    except (KeyError, TypeError, ValueError) as exc:
+        return _recovered_failure(
+            common,
+            campaign_id=campaign_id,
+            operator_id=operator_id,
+            run_id=run.id,
+            error=_describe(exc),
+        )
+    violations = problem.infeasibilities(run.outputs)
+    score = values[problem.primary.name].value
+    return (
+        CampaignObservation(
+            **common,
+            score=score,
+            run_id=run.id,
+            outputs=dict(run.outputs),
+            objectives=values,
+            constraint_violations=tuple(violations),
+        ),
+        EventRecord(
+            type="CampaignIterationCompleted",
+            actor_id=operator_id,
+            run_id=run.id,
+            campaign_id=campaign_id,
+            payload={
+                "iteration": item.iteration,
+                "runId": run.id,
+                "score": score,
+                "objectives": {
+                    name: value.model_dump(mode="json") for name, value in values.items()
+                },
+                "constraintViolations": violations,
+                "batch": item.batch,
+                "recovered": True,
+            },
+        ),
+    )
+
+
+def _recovered_failure(
+    common: dict[str, Any],
+    *,
+    campaign_id: str,
+    operator_id: str,
+    run_id: str | None,
+    error: str,
+) -> tuple[CampaignObservation, EventRecord]:
+    """Settle an interrupted iteration whose run establishes that it did not produce a score."""
+
+    return (
+        CampaignObservation(
+            **common,
+            run_id=run_id,
+            status=CampaignObservationStatus.FAILED,
+            error=error,
+        ),
+        EventRecord(
+            type="CampaignIterationFailed",
+            actor_id=operator_id,
+            run_id=run_id,
+            campaign_id=campaign_id,
+            payload={
+                "iteration": common["iteration"],
+                "candidate": common["candidate"],
+                "runId": run_id,
+                "error": error,
+                "batch": common["batch"],
+                "recovered": True,
+            },
+        ),
     )
 
 
@@ -1495,26 +1538,6 @@ def _as_suggestion(proposed: Any) -> Suggestion:
     )
 
 
-def _measure(outputs: dict[str, Any], problem: CampaignProblem) -> dict[str, ObjectiveValue]:
-    """Read every declared objective out of the run, with the uncertainty it declared."""
-
-    measured: dict[str, ObjectiveValue] = {}
-    for objective in problem.objectives:
-        value = float(_get_path(outputs, objective.output))
-        uncertainty = None
-        if objective.uncertainty_output is not None:
-            uncertainty = float(_get_path(outputs, objective.uncertainty_output))
-        measured[objective.name] = ObjectiveValue(value=value, uncertainty=uncertainty)
-    return measured
-
-
-def _objective_of(observation: CampaignObservation, name: str) -> float | None:
-    measured = observation.objectives.get(name)
-    if measured is not None:
-        return measured.value
-    return observation.score
-
-
 def _dominates(
     left: CampaignObservation,
     right: CampaignObservation,
@@ -1524,7 +1547,7 @@ def _dominates(
 
     strictly_better = False
     for objective in objectives:
-        here, there = _objective_of(left, objective.name), _objective_of(right, objective.name)
+        here, there = left.objective(objective.name), right.objective(objective.name)
         if here is None or there is None:  # pragma: no cover - successes carry every objective
             return False
         if objective.minimize:
@@ -1547,7 +1570,7 @@ def _best_observation(
         return None
     primary = problem.primary
     chooser = min if primary.minimize else max
-    return chooser(eligible, key=lambda item: _objective_of(item, primary.name) or 0.0)
+    return chooser(eligible, key=lambda item: item.objective(primary.name) or 0.0)
 
 
 def _reaches_targets(observation: CampaignObservation, problem: CampaignProblem) -> bool:
@@ -1557,7 +1580,7 @@ def _reaches_targets(observation: CampaignObservation, problem: CampaignProblem)
     if not targeted or not observation.feasible:
         return False
     for objective in targeted:
-        value = _objective_of(observation, objective.name)
+        value = observation.objective(objective.name)
         target = objective.target
         if value is None or target is None:  # pragma: no cover - guarded above
             return False
@@ -1568,7 +1591,7 @@ def _reaches_targets(observation: CampaignObservation, problem: CampaignProblem)
 
 def _target_detail(observation: CampaignObservation, problem: CampaignProblem) -> str:
     reached = [
-        f"{item.name} {_objective_of(observation, item.name)} against a target of {item.target} "
+        f"{item.name} {observation.objective(item.name)} against a target of {item.target} "
         f"({'minimizing' if item.minimize else 'maximizing'})"
         for item in problem.objectives
         if item.target is not None
@@ -1587,23 +1610,6 @@ def _default_rationale(planned: _Planned, history_size: int) -> str:
             f"batch {planned.batch} for iteration {planned.iteration}, from {based}"
         )
     return f"optimizer proposed the candidate for iteration {planned.iteration} from {based}"
-
-
-def _as_number(value: Any) -> float | None:
-    """A real number, or `None`. `bool` is an `int` in Python and is not a measurement."""
-
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    return float(value)
-
-
-def _get_path(value: dict[str, Any], path: str) -> Any:
-    current: Any = value
-    for segment in path.split("."):
-        if not isinstance(current, dict) or segment not in current:
-            raise KeyError(f"campaign score output not found: {path}")
-        current = current[segment]
-    return current
 
 
 def _describe(exc: BaseException) -> str:

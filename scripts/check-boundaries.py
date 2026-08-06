@@ -83,7 +83,12 @@ ALLOWED: dict[str, set[str]] = {
     },
     "opensdl_adapter_simulated_lab": {"opensdl_core", "opensdl_capabilities", "opensdl_simulation"},
     "opensdl_adapter_local_compute": {"opensdl_core", "opensdl_capabilities"},
-    "opensdl_adapter_grid_optimizer": {"opensdl_runtime"},
+    # An optimizer plugin is an extension point third parties write, so it may depend only on the
+    # contract. This entry used to read `{"opensdl_runtime"}` and was the sole exception in this
+    # map: the optimizer contract lived in the runtime, so implementing two methods meant
+    # depending on storage, policy, workflows and SQLAlchemy. The contract moved to
+    # `opensdl_core.campaign`; the exception is gone.
+    "opensdl_adapter_grid_optimizer": {"opensdl_core"},
     "opensdl_adapter_human_task": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_adapter_cell_surrogate": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_domain_materials": {"opensdl_core"},

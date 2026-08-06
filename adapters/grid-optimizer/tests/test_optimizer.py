@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 import pytest
 
+import opensdl_adapter_grid_optimizer
 from opensdl_adapter_grid_optimizer import GridOptimizer
-from opensdl_runtime import (
+from opensdl_core import (
     BatchOptimizer,
     CampaignObservation,
     CampaignProblem,
@@ -14,6 +18,27 @@ from opensdl_runtime import (
     SearchSpace,
     StatefulOptimizer,
 )
+
+
+def test_the_reference_optimizer_depends_on_the_contract_and_not_on_the_execution_stack() -> None:
+    """What a third party publishing a BoTorch or Ax plugin has to install.
+
+    This adapter was the sole exception in `scripts/check-boundaries.py`: it alone was allowed to
+    import `opensdl_runtime`, because the optimizer contract lived there. Depending on the runtime
+    means depending on storage, policy, workflows and SQLAlchemy to implement two methods.
+    """
+
+    root = Path(opensdl_adapter_grid_optimizer.__file__ or "").parent
+    imported: set[str] = set()
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                imported.add(node.module.split(".")[0])
+
+    assert {name for name in imported if name.startswith("opensdl_")} == {"opensdl_core"}
 
 
 def problem(*parameters: Parameter) -> CampaignProblem:

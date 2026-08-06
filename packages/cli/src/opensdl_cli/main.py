@@ -568,6 +568,14 @@ def start_campaign(
     ] = 1,
     operator_id: Annotated[str, typer.Option()] = "software/campaign",
     campaign_id: Annotated[str | None, typer.Option("--campaign-id")] = None,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume",
+            help="Continue the campaign already recorded under --campaign-id instead of "
+            "starting a new one. Requires --campaign-id.",
+        ),
+    ] = False,
 ) -> None:
     """Run a closed-loop campaign in the foreground until a stopping rule fires.
 
@@ -581,6 +589,13 @@ def start_campaign(
     The environment is the one the manifest declares and is deliberately not an option here:
     policy is evaluated against it and every run records it, so a campaign that could state its
     own would write a provenance record its laboratory never authorized.
+
+    `--resume` continues a campaign already recorded under `--campaign-id`. Note what this
+    command does first: it reconciles, which moves any run still recorded as running to
+    `intervention_required`. So resuming after a hard kill converts the run that was in flight
+    into an ambiguous one, and the resume then refuses it by name. That composition is
+    intended — the process died holding that run, and nothing here knows what the equipment
+    did.
     """
     record = asyncio.run(
         _run_campaign(
@@ -600,6 +615,7 @@ def start_campaign(
             iteration_id_input=iteration_id_input,
             operator_id=operator_id,
             campaign_id=campaign_id,
+            resume=resume,
         )
     )
     console.print_json(data=record)
@@ -623,6 +639,7 @@ async def _run_campaign(
     max_parallel_runs: int,
     operator_id: str,
     campaign_id: str | None,
+    resume: bool,
 ) -> dict[str, Any]:
     system = OpenSDLSystem.from_manifest(manifest)
     try:
@@ -649,6 +666,7 @@ async def _run_campaign(
             batch_size=batch_size,
             max_parallel_runs=max_parallel_runs,
             campaign_id=campaign_id,
+            resume=resume,
         )
         return record.model_dump(mode="json")
     finally:

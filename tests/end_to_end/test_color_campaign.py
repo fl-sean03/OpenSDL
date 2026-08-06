@@ -179,3 +179,91 @@ async def test_a_candidate_that_breaks_the_declared_mixture_never_reaches_the_la
         assert rejected.payload["iteration"] == 0
     finally:
         await system.close()
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_an_interrupted_campaign_resumes_in_the_reference_laboratory(tmp_path: Path) -> None:
+    """The three-week failure, at reference-laboratory scale: a controller dies mid-sweep.
+
+    A campaign is the one thing OpenSDL runs unattended for longer than a process reliably lives,
+    so the question this answers is what a second process knows. It knows what the laboratory
+    recorded — and what it must not do is put a mixture through the mixer twice because the
+    optimizer that proposed it the first time is gone.
+    """
+
+    sweep = [
+        {"red_fraction": 0.0, "blue_fraction": 1.0},
+        {"red_fraction": 0.5, "blue_fraction": 0.5},
+        {"red_fraction": 1.0, "blue_fraction": 0.0},
+    ]
+
+    class DyingOptimizer:
+        """Enumerates the sweep and then stops answering, as a dying controller does."""
+
+        def __init__(self, *, die_after: int) -> None:
+            self.die_after = die_after
+            self.proposed = 0
+
+        def suggest(self, history: list[object]) -> dict[str, float] | None:
+            if self.proposed >= self.die_after:
+                raise RuntimeError("the controller process went away")
+            self.proposed += 1
+            return dict(sweep[len(history)])
+
+        def observe(self, observation: object) -> None:
+            return None
+
+    system = reference_lab(tmp_path)
+    await system.start()
+    try:
+        runner = CampaignRunner(system.runtime, system.repositories)
+        workflow = load_workflow(Path(system.manifest_path).parent / "workflow.yaml")
+        arguments: dict[str, object] = {
+            "environment": system.manifest.spec.environment,
+            "operator_id": "software/campaign",
+            "base_inputs": {"total_mass_g": 5.0, "target_rgb": [127.5, 0, 127.5]},
+            "objectives": [Objective(name="colour-distance", output="score")],
+            "search_space": mixture_space(),
+            "candidate_constraints": [sums_to_one()],
+            "max_iterations": 3,
+            "iteration_id_input": "sample_id",
+            "campaign_id": "campaign_colour_sweep",
+        }
+
+        with pytest.raises(RuntimeError, match="went away"):
+            await runner.run(workflow, DyingOptimizer(die_after=2), **arguments)  # pyright: ignore[reportArgumentType]
+
+        interrupted = system.repositories.list_runs()
+        assert len(interrupted) == 2
+        assert CampaignReader(system.repositories).get("campaign_colour_sweep").resume_count == 0
+
+        result = await runner.run(
+            workflow,
+            GridOptimizer({"candidates": sweep}),
+            resume=True,
+            **arguments,  # pyright: ignore[reportArgumentType]
+        )
+
+        # Three mixtures, three runs, one sample identifier each: the mixer was not asked to
+        # repeat anything it had already made.
+        runs = system.repositories.list_runs()
+        assert len(runs) == 3
+        assert {run.id for run in interrupted} <= {run.id for run in runs}
+        mixed = [run.inputs["sample_id"] for run in runs]
+        assert sorted(mixed) == [
+            "campaign_colour_sweep-000",
+            "campaign_colour_sweep-001",
+            "campaign_colour_sweep-002",
+        ]
+        assert [item.candidate for item in result.history] == sweep
+        assert result.best is not None
+        assert result.best.candidate == {"red_fraction": 0.5, "blue_fraction": 0.5}
+
+        record = CampaignReader(system.repositories).get("campaign_colour_sweep")
+        assert record.resume_count == 1
+        assert record.resumed_at is not None
+        assert record.succeeded == 3
+        assert [item.iteration for item in record.iterations] == [0, 1, 2]
+    finally:
+        await system.close()

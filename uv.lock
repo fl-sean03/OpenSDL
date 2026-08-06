@@ -885,11 +885,11 @@ name = "opensdl-adapter-grid-optimizer"
 version = "0.1.0a0"
 source = { editable = "adapters/grid-optimizer" }
 dependencies = [
-    { name = "opensdl-runtime" },
+    { name = "opensdl-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "opensdl-runtime", editable = "packages/runtime" }]
+requires-dist = [{ name = "opensdl-core", editable = "packages/core" }]
 
 [[package]]
 name = "opensdl-adapter-human-task"

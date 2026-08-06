@@ -1,6 +1,6 @@
 # Package boundaries
 
-- `opensdl-core`: models, identifiers, enums, errors, lifecycle.
+- `opensdl-core`: models, identifiers, enums, errors, lifecycle, and the campaign and optimizer contract.
 - `opensdl-schemas`: manifests, JSON Schemas, validation.
 - `opensdl-twin`: scene bindings, digests, event projection.
 - `opensdl-capabilities`: adapters, registry, plugins, conformance.

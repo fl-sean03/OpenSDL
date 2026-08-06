@@ -1,6 +1,236 @@
 {
+  "$defs": {
+    "CandidateConstraint": {
+      "additionalProperties": false,
+      "description": "A linear feasibility requirement on the parameters, checked before anything is leased.\n\nLinear rather than an arbitrary predicate because a constraint has to survive being written\ndown: a callable cannot be stored in a campaign definition, sent over an interface, or read\nback out of the record. Sum-to-one, a budget, and an ordering are all linear. A requirement\nthat is not is expressed by the search space or refused by the optimizer.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Weights",
+          "type": "object"
+        },
+        "lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower"
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper"
+        },
+        "tolerance": {
+          "default": 1e-09,
+          "minimum": 0,
+          "title": "Tolerance",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "weights"
+      ],
+      "title": "CandidateConstraint",
+      "type": "object"
+    },
+    "Objective": {
+      "additionalProperties": false,
+      "description": "One thing the campaign is searching for, and where a run reports it.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "output": {
+          "title": "Output",
+          "type": "string"
+        },
+        "minimize": {
+          "default": true,
+          "title": "Minimize",
+          "type": "boolean"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "uncertainty_output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Output"
+        }
+      },
+      "required": [
+        "name",
+        "output"
+      ],
+      "title": "Objective",
+      "type": "object"
+    },
+    "OutcomeConstraint": {
+      "additionalProperties": false,
+      "description": "A feasibility requirement on what a run produced, checked once it has produced it.\n\nAn observation that breaks one is still an observation: the work happened, the numbers are\nreal, and an optimizer doing constrained search needs them. It is excluded from the best and\ncannot reach a target, and nothing else about it changes.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "output": {
+          "title": "Output",
+          "type": "string"
+        },
+        "lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower"
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "output"
+      ],
+      "title": "OutcomeConstraint",
+      "type": "object"
+    },
+    "Parameter": {
+      "additionalProperties": false,
+      "description": "One dimension of the search space.\n\nA parameter states its own domain so the framework can check a candidate against it. Use the\nconstructors rather than the raw fields: they are the three combinations that are complete.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ParameterKind"
+        },
+        "lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower"
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper"
+        },
+        "choices": {
+          "items": {},
+          "title": "Choices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "title": "Parameter",
+      "type": "object"
+    },
+    "ParameterKind": {
+      "enum": [
+        "continuous",
+        "integer",
+        "categorical"
+      ],
+      "title": "ParameterKind",
+      "type": "string"
+    },
+    "SearchSpace": {
+      "additionalProperties": false,
+      "description": "The parameters a campaign is searching, declared by the campaign rather than the plugin.\n\nAn empty space validates nothing, which is how a campaign written against the two-method\noptimizer contract keeps running unchanged.",
+      "properties": {
+        "parameters": {
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          },
+          "title": "Parameters",
+          "type": "array"
+        }
+      },
+      "title": "SearchSpace",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
-  "description": "Declarative description of a closed loop: what to search, and when to stop searching.\n\nEvery field below `optimizer` names a `CampaignRunner.run` keyword argument and carries the\nsame default. The submission facts \u2014 which environment the work runs in, and which operator is\naccountable for it \u2014 are deliberately absent: they come from the laboratory manifest and the\ncaller, so a stored definition can never assert an environment its laboratory did not declare.",
+  "description": "Declarative description of a closed loop: what to search, and when to stop searching.\n\nEvery field below `optimizer_config` names a `CampaignRunner.run` keyword argument and carries\nthe same default, and a test asserts that in both directions. The submission facts \u2014 which\nenvironment the work runs in, which operator is accountable for it, which campaign identifier\nit writes under, and whether this invocation resumes an existing campaign \u2014 are deliberately\nabsent: they come from the laboratory manifest and the caller, so a stored definition can never\nassert an environment its laboratory did not declare, and cannot declare \"resume\" as though it\nwere a property of the search.",
   "properties": {
     "id": {
       "title": "Id",
@@ -27,12 +257,6 @@
       "title": "Optimizer Config",
       "type": "object"
     },
-    "max_iterations": {
-      "default": 10,
-      "exclusiveMinimum": 0,
-      "title": "Max Iterations",
-      "type": "integer"
-    },
     "base_inputs": {
       "additionalProperties": true,
       "title": "Base Inputs",
@@ -42,6 +266,12 @@
       "default": "score",
       "title": "Score Output",
       "type": "string"
+    },
+    "max_iterations": {
+      "default": 10,
+      "exclusiveMinimum": 0,
+      "title": "Max Iterations",
+      "type": "integer"
     },
     "minimize": {
       "default": true,
@@ -90,6 +320,58 @@
       ],
       "default": null,
       "title": "Iteration Id Input"
+    },
+    "objectives": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Objective"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Objectives"
+    },
+    "search_space": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SearchSpace"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_constraints": {
+      "items": {
+        "$ref": "#/$defs/CandidateConstraint"
+      },
+      "title": "Candidate Constraints",
+      "type": "array"
+    },
+    "outcome_constraints": {
+      "items": {
+        "$ref": "#/$defs/OutcomeConstraint"
+      },
+      "title": "Outcome Constraints",
+      "type": "array"
+    },
+    "batch_size": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Batch Size",
+      "type": "integer"
+    },
+    "max_parallel_runs": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Max Parallel Runs",
+      "type": "integer"
     },
     "metadata": {
       "additionalProperties": true,

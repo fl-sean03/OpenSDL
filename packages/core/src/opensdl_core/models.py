@@ -146,41 +146,6 @@ class WorkflowDefinition(OpenSDLModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class CampaignDefinition(OpenSDLModel):
-    """Declarative description of a closed loop: what to search, and when to stop searching.
-
-    Every field below `optimizer` names a `CampaignRunner.run` keyword argument and carries the
-    same default. The submission facts — which environment the work runs in, and which operator is
-    accountable for it — are deliberately absent: they come from the laboratory manifest and the
-    caller, so a stored definition can never assert an environment its laboratory did not declare.
-    """
-
-    id: str
-    name: str
-    objective: str
-    workflow_id: str
-    optimizer: str
-    #: Configuration handed to the optimizer plugin when it is constructed. Without it a
-    #: stored definition names an optimizer it cannot configure, so a campaign file would
-    #: always need a companion argument to be executable.
-    optimizer_config: dict[str, Any] = Field(default_factory=dict)
-    max_iterations: int = Field(default=10, gt=0)
-    base_inputs: dict[str, Any] = Field(default_factory=dict)
-    score_output: str = "score"
-    minimize: bool = True
-    #: Stop once an observation reaches this score. `None` searches the whole budget.
-    target_score: float | None = None
-    #: Stop once this many iterations fail in a row: failure has stopped being routine.
-    max_consecutive_failures: int = Field(default=3, ge=1)
-    #: Wall-clock budget, checked before each iteration. `None` is unbounded.
-    max_duration_seconds: float | None = Field(default=None, gt=0)
-    #: Workflow input that receives a unique per-iteration identifier, for laboratories whose
-    #: workflows need one (a sample, a specimen, a plate well). `None` injects nothing, which is
-    #: what a computational workflow needs.
-    iteration_id_input: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
 class ExecutionRequest(OpenSDLModel):
     request_id: str = Field(default_factory=lambda: new_id("request"))
     capability_id: str

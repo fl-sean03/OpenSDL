@@ -25,6 +25,7 @@ from opensdl_core import (
     Resource,
     RunState,
     WorkflowDefinition,
+    WorkflowExecutionError,
     WorkflowStep,
 )
 from opensdl_policy import PolicyEngine, PolicyRule
@@ -112,6 +113,23 @@ class ScoreAdapter(CapabilityAdapter):
                 },
                 output_schema=PROBE_OUTPUT_SCHEMA,
                 required_resources=["probe-bench"],
+                simulator_available=True,
+            ),
+            # Declares a timeout and, by omission, the strict retry safety. A probe that stops
+            # answering therefore leaves the task — and the run over it — recorded as
+            # `intervention_required`: the runtime stopped waiting and established nothing about
+            # the equipment. It is what a campaign resume has to refuse to walk past.
+            CapabilityDefinition(
+                id="test.score_unanswering",
+                name="Score a candidate on equipment that can stop answering",
+                executor_type=ExecutorType.SIMULATOR,
+                input_schema={
+                    "type": "object",
+                    "required": ["x"],
+                    "properties": {"x": {"type": "number"}},
+                },
+                output_schema=PROBE_OUTPUT_SCHEMA,
+                timeout_seconds=0.02,
                 simulator_available=True,
             ),
         ]
@@ -208,10 +226,12 @@ def build_campaign(
     adapter: ScoreAdapter,
     *,
     policy: PolicyEngine | None = None,
+    repositories: Repositories | None = None,
 ) -> tuple[CampaignRunner, Repositories]:
-    database = Database("sqlite:///:memory:")
-    database.initialize()
-    repositories = Repositories(database)
+    if repositories is None:
+        database = Database("sqlite:///:memory:")
+        database.initialize()
+        repositories = Repositories(database)
     registry = CapabilityRegistry()
     registry.register(adapter)
     runtime = ReferenceRuntime(
@@ -1377,43 +1397,81 @@ def test_an_observation_cannot_claim_a_state_it_is_not_in() -> None:
         )
 
 
+#: Fields of `CampaignDefinition` that deliberately have no `CampaignRunner.run` argument.
+#: Identity is a property of the document; the reference fields name what the runner is handed as
+#: an object, because the runner receives an optimizer already constructed and how to construct one
+#: is a property of the definition rather than an argument.
+DEFINITION_ONLY_FIELDS = {
+    "id",
+    "name",
+    "objective",
+    "metadata",
+    "workflow_id",
+    "optimizer",
+    "optimizer_config",
+}
+
+#: `CampaignRunner.run` arguments that deliberately have no `CampaignDefinition` field.
+#: `workflow` and `optimizer` are the objects the reference fields above name. The submission
+#: facts come from the laboratory manifest and the operator, not from a stored search: a definition
+#: that asserted its own environment could assert one its laboratory never declared. `resume` is a
+#: property of one invocation — whether *this* call continues an existing campaign — and a stored
+#: document that declared it would mean something different on every run.
+RUNNER_ONLY_ARGUMENTS = {
+    "self",
+    "workflow",
+    "optimizer",
+    "environment",
+    "operator_id",
+    "campaign_id",
+    "resume",
+}
+
+
+def _is_empty(value: object) -> bool:
+    """Whether a default means "nothing declared", however the two sides spell it."""
+
+    return value is None or value == () or value == [] or value == {} or value == SearchSpace()
+
+
 def test_the_campaign_definition_and_the_runner_do_not_drift() -> None:
     """`CampaignDefinition` is the published schema for what `CampaignRunner.run` accepts.
 
-    Identity fields (`id`, `name`, `objective`, `metadata`) and the reference fields the runner
-    takes as objects rather than names (`workflow_id`, `optimizer`, `optimizer_config`) are
-    excluded: the runner receives an optimizer already constructed, so how to construct one is a
-    property of the definition and not an argument. Submission facts —
-    `environment`, `operator_id`, `campaign_id` — are deliberately absent from the definition: they
-    come from the laboratory manifest and the operator, not from the declared search.
+    Checked in both directions. The forward direction — every definition field has a runner
+    argument — is what the first version of this test asserted, and it cannot see the failure that
+    actually happened: `objectives`, `search_space` and both constraint lists were added to the
+    runner with no field on the definition, so a stored definition could not describe a real
+    campaign and no test noticed. Anything either side gains from here has to be named in one of
+    the two exclusion sets above, with the reason written down.
     """
 
-    excluded = {
-        "id",
-        "name",
-        "objective",
-        "metadata",
-        "workflow_id",
-        "optimizer",
-        "optimizer_config",
-    }
     parameters = inspect.signature(CampaignRunner.run).parameters
+    fields = CampaignDefinition.model_fields
+
     checked = 0
-    for name, model_field in CampaignDefinition.model_fields.items():
-        if name in excluded:
+    for name, model_field in fields.items():
+        if name in DEFINITION_ONLY_FIELDS:
             continue
         assert name in parameters, f"CampaignDefinition.{name} has no CampaignRunner.run argument"
         default = parameters[name].default
         declared = model_field.get_default(call_default_factory=True)
-        # `base_inputs` is the one place the two spell "nothing" differently.
-        if default is None and declared == {}:
-            checked += 1
-            continue
-        assert default == declared, f"default for {name} differs between definition and runner"
+        if not (_is_empty(default) and _is_empty(declared)):
+            assert default == declared, f"default for {name} differs between definition and runner"
         checked += 1
-    assert checked == len(CampaignDefinition.model_fields) - len(excluded)
+    assert checked == len(fields) - len(DEFINITION_ONLY_FIELDS)
+
+    for name in parameters:
+        if name in RUNNER_ONLY_ARGUMENTS:
+            continue
+        assert name in fields, (
+            f"CampaignRunner.run takes {name!r} and CampaignDefinition cannot declare it, so a "
+            "stored campaign definition cannot describe a campaign that uses it"
+        )
+
     assert {"environment", "operator_id"} <= set(parameters)
-    assert not {"environment", "operator_id", "campaign_id"} & set(CampaignDefinition.model_fields)
+    assert not {"environment", "operator_id", "campaign_id"} & set(fields)
+    assert DEFINITION_ONLY_FIELDS <= set(fields)
+    assert RUNNER_ONLY_ARGUMENTS <= set(parameters)
 
 
 @pytest.mark.asyncio
@@ -1620,3 +1678,607 @@ async def test_only_a_campaign_without_a_completion_is_reported_active(tmp_path)
 
     assert [item.campaign_id for item in active] == ["campaign-live"]
     assert finished.campaign_id not in {item.campaign_id for item in active}
+
+
+class DyingOptimizer:
+    """Proposes from a list and then stops answering, the way a dying controller process does.
+
+    A campaign that is interrupted is interrupted somewhere, and the place that is hardest to
+    resume from is between "the work was done" and "the record says so". Raising out of `suggest`
+    reproduces the easier half of that — a campaign with a start, some completed iterations, and no
+    completion — without touching the runner's internals.
+    """
+
+    def __init__(self, candidates: list[dict[str, Any]], *, die_after: int) -> None:
+        self.candidates = [dict(item) for item in candidates]
+        self.die_after = die_after
+        self.proposed = 0
+
+    def suggest(self, history: list[CampaignObservation]) -> dict[str, Any] | None:
+        if self.proposed >= self.die_after:
+            raise RuntimeError("the controller process went away")
+        tried = [item.candidate for item in history]
+        for candidate in self.candidates:
+            if candidate not in tried:
+                self.proposed += 1
+                return dict(candidate)
+        return None
+
+    def observe(self, observation: CampaignObservation) -> None:
+        return None
+
+
+class SurrogateOptimizer:
+    """An optimizer with something to restore: a fitted count it cannot rebuild from history."""
+
+    def __init__(self, candidates: list[dict[str, Any]], *, version: str = "1") -> None:
+        self.candidates = [dict(item) for item in candidates]
+        self.version = version
+        self.fits = 0
+        self.observed: list[CampaignObservation] = []
+        self.configured: CampaignProblem | None = None
+        self.loaded: dict[str, Any] | None = None
+
+    def configure(self, problem: CampaignProblem) -> None:
+        self.configured = problem
+
+    def suggest(self, history: list[CampaignObservation]) -> dict[str, Any] | None:
+        tried = [item.candidate for item in history]
+        for candidate in self.candidates:
+            if candidate not in tried:
+                return dict(candidate)
+        return None
+
+    def observe(self, observation: CampaignObservation) -> None:
+        self.observed.append(observation)
+        self.fits += 1
+
+    def state(self) -> dict[str, Any]:
+        return {"fits": self.fits, "version": self.version}
+
+    def load_state(self, state: dict[str, Any]) -> None:
+        if state.get("version") != self.version:
+            raise ValueError(f"state was fitted by version {state.get('version')}")
+        self.loaded = dict(state)
+        self.fits = int(state["fits"])
+
+
+class InterruptedEventStore(Repositories):
+    """A store whose campaign event write fails once, after the run it describes has finished.
+
+    This is the interruption that matters: the laboratory did the work, the run record says so,
+    and the campaign's own record of the outcome was never written. A resume that trusted only its
+    own events would re-dispatch a candidate that has already been through the equipment.
+    """
+
+    def __init__(self, database: Database, *, event_type: str, iteration: int) -> None:
+        super().__init__(database)
+        self.event_type = event_type
+        self.iteration = iteration
+        self.raised = False
+
+    def append_event(self, event: EventRecord) -> EventRecord:
+        if (
+            not self.raised
+            and event.type == self.event_type
+            and event.payload.get("iteration") == self.iteration
+        ):
+            self.raised = True
+            raise RuntimeError("the event store went away before the outcome was recorded")
+        return super().append_event(event)
+
+
+def campaign_events(repositories: Repositories, campaign_id: str, type_: str) -> list[EventRecord]:
+    return [
+        event
+        for event in repositories.list_events(campaign_id=campaign_id, limit=None)
+        if event.type == type_
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_second_campaign_under_the_same_identifier_is_refused(tmp_path) -> None:
+    """Re-running one is not resuming it: it restarts iteration numbering under the same name.
+
+    Without this the second invocation emits a second `CampaignStarted`, numbers its iterations
+    from zero again, and `(campaign_id, iteration)` stops identifying a decision.
+    """
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    await runner.run(
+        workflow,
+        ListOptimizer(candidates(1.0, 2.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_once",
+        max_iterations=2,
+    )
+
+    with pytest.raises(ValueError, match="resume=True"):
+        await runner.run(
+            workflow,
+            ListOptimizer(candidates(1.0, 2.0)),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_once",
+            max_iterations=2,
+        )
+
+    assert len(campaign_events(repositories, "campaign_once", "CampaignStarted")) == 1
+    assert [call["x"] for call in adapter.calls] == [1.0, 2.0]
+
+
+@pytest.mark.asyncio
+async def test_resuming_a_campaign_nothing_recorded_is_refused(tmp_path) -> None:
+    """A typo in the identifier would otherwise silently start a fresh campaign under it."""
+
+    runner, _ = build_campaign(tmp_path, ScoreAdapter())
+
+    with pytest.raises(ValueError, match="no campaign is recorded"):
+        await runner.run(
+            scoring_workflow(),
+            ListOptimizer(candidates(1.0)),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_typo",
+            max_iterations=1,
+            resume=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resume_requires_the_identifier_of_the_campaign_being_resumed(tmp_path) -> None:
+    runner, _ = build_campaign(tmp_path, ScoreAdapter())
+
+    with pytest.raises(ValueError, match="campaign_id"):
+        await runner.run(
+            scoring_workflow(),
+            ListOptimizer(candidates(1.0)),
+            environment="simulation",
+            operator_id="operator/alice",
+            max_iterations=1,
+            resume=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_an_interrupted_campaign_resumes_without_repeating_completed_work(tmp_path) -> None:
+    """The failure this exists to prevent: a resumed campaign putting a sample through twice.
+
+    The first process runs two of four iterations and dies. The second is a different optimizer
+    object with no memory of any of it, and it has to learn what was done from the record the
+    laboratory kept — not from a caller's account of it.
+    """
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0, 4.0)
+
+    with pytest.raises(RuntimeError, match="went away"):
+        await runner.run(
+            workflow,
+            DyingOptimizer(plan, die_after=2),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_interrupted",
+            max_iterations=4,
+        )
+    assert [call["x"] for call in adapter.calls] == [1.0, 2.0]
+    interrupted = CampaignReader(repositories).get("campaign_interrupted")
+    assert interrupted.state is CampaignState.RUNNING
+
+    optimizer = ListOptimizer(plan)
+    result = await runner.run(
+        workflow,
+        optimizer,
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_interrupted",
+        max_iterations=4,
+        resume=True,
+    )
+
+    # Each candidate reached the equipment exactly once, across both processes.
+    assert [call["x"] for call in adapter.calls] == [1.0, 2.0, 3.0, 4.0]
+    assert [item.candidate["x"] for item in result.history] == [1.0, 2.0, 3.0, 4.0]
+    assert [item.iteration for item in result.history] == [0, 1, 2, 3]
+    assert result.stop_reason is CampaignStopReason.MAX_ITERATIONS
+    assert result.best is not None and result.best.candidate == {"x": 1.0}
+
+    # The two iterations the first process ran were replayed into the new optimizer, because it
+    # had no state to restore and would otherwise be searching from nothing.
+    assert [item.candidate["x"] for item in optimizer.observed] == [1.0, 2.0, 3.0, 4.0]
+
+    decisions = campaign_events(repositories, "campaign_interrupted", "DecisionRecorded")
+    numbered = [event.payload["decision"]["iteration"] for event in decisions]
+    assert numbered == [0, 1, 2, 3], "a resumed campaign must not restart iteration numbering"
+    assert len(campaign_events(repositories, "campaign_interrupted", "CampaignStarted")) == 1
+    assert len(campaign_events(repositories, "campaign_interrupted", "CampaignResumed")) == 1
+
+    projected = CampaignReader(repositories).get("campaign_interrupted")
+    assert projected.state is CampaignState.COMPLETED
+    assert projected.succeeded == 4
+    assert projected.resume_count == 1
+    assert projected.resumed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_a_resume_recovers_an_outcome_the_dying_controller_never_recorded(tmp_path) -> None:
+    """The run finished; the campaign's record of it did not. Resume reads the run, not a guess.
+
+    Reconstructing history from campaign events alone would show this iteration still running and
+    its candidate untried, so a stateless optimizer would propose it again and the laboratory would
+    repeat work it has already done.
+    """
+
+    database = Database("sqlite:///:memory:")
+    database.initialize()
+    store = InterruptedEventStore(database, event_type="CampaignIterationCompleted", iteration=1)
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter, repositories=store)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0)
+
+    with pytest.raises(RuntimeError, match="event store went away"):
+        await runner.run(
+            workflow,
+            ListOptimizer(plan),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_halfrecorded",
+            max_iterations=3,
+        )
+    assert [call["x"] for call in adapter.calls] == [1.0, 2.0]
+    stranded = CampaignReader(repositories).get("campaign_halfrecorded")
+    assert stranded.iterations[1].state is CampaignIterationState.RUNNING
+
+    result = await runner.run(
+        workflow,
+        ListOptimizer(plan),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_halfrecorded",
+        max_iterations=3,
+        resume=True,
+    )
+
+    assert [call["x"] for call in adapter.calls] == [1.0, 2.0, 3.0]
+    assert [item.candidate["x"] for item in result.history] == [1.0, 2.0, 3.0]
+    recovered = result.history[1]
+    assert recovered.succeeded and recovered.score == 2.0
+    assert recovered.outputs == {"score": 2.0}
+
+    projected = CampaignReader(repositories).get("campaign_halfrecorded")
+    assert projected.iterations[1].state is CampaignIterationState.SUCCEEDED
+    assert projected.iterations[1].score == 2.0
+    catchup = campaign_events(repositories, "campaign_halfrecorded", "CampaignIterationCompleted")
+    assert [event.payload["iteration"] for event in catchup] == [0, 1, 2]
+    assert [event.payload.get("recovered", False) for event in catchup] == [False, True, False]
+
+
+@pytest.mark.asyncio
+async def test_a_resume_refuses_to_continue_over_a_run_whose_outcome_is_unknown(tmp_path) -> None:
+    """A campaign resume must not launder what the run layer refused to launder.
+
+    The probe stopped answering, so the runtime cancelled its wait and recorded that it does not
+    know whether the equipment acted. `run_workflow` will not re-dispatch that task; a campaign
+    that resumed over it and carried on unattended would be granting itself an acknowledgement the
+    run layer does not offer.
+    """
+
+    adapter = ScoreAdapter(delay_seconds=5.0)
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = probe_workflow(
+        capability="test.score_unanswering", outputs={"score": "${steps.score.output.score}"}
+    )
+
+    stalled = await runner.run(
+        workflow,
+        ListOptimizer(candidates(1.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_ambiguous",
+        max_iterations=1,
+    )
+    assert stalled.failures
+    run_id = stalled.history[0].run_id
+    assert run_id is not None
+    assert repositories.get_run(run_id).state is RunState.INTERVENTION_REQUIRED  # pyright: ignore[reportOptionalMemberAccess]
+
+    with pytest.raises(WorkflowExecutionError) as refused:
+        await runner.run(
+            workflow,
+            ListOptimizer(candidates(1.0, 2.0)),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_ambiguous",
+            max_iterations=2,
+            resume=True,
+        )
+
+    message = str(refused.value)
+    assert "campaign_ambiguous" in message
+    assert run_id in message
+    assert RunState.INTERVENTION_REQUIRED.value in message
+    assert len(adapter.calls) == 1, "the refusal must happen before anything is dispatched"
+    assert not campaign_events(repositories, "campaign_ambiguous", "CampaignResumed")
+
+
+@pytest.mark.asyncio
+async def test_a_stateless_optimizer_resumes_by_replaying_what_happened(tmp_path) -> None:
+    """A grid has no model to restore, and resume does not require one."""
+
+    from opensdl_adapter_grid_optimizer import GridOptimizer
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    grid = {"parameters": {"x": [1.0, 2.0, 3.0]}}
+
+    first = await runner.run(
+        workflow,
+        GridOptimizer(grid),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_grid",
+        max_iterations=1,
+    )
+    assert first.stop_reason is CampaignStopReason.MAX_ITERATIONS
+
+    resumed = GridOptimizer(grid)
+    result = await runner.run(
+        workflow,
+        resumed,
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_grid",
+        max_iterations=3,
+        resume=True,
+    )
+
+    assert [call["x"] for call in adapter.calls] == [1.0, 2.0, 3.0]
+    assert [item.iteration for item in result.history] == [0, 1, 2]
+    assert result.optimizer_state is None
+    # `configure` still ran: a resumed campaign checks the grid against the declared space exactly
+    # as a fresh one does, and an optimizer that cannot restore state is not thereby unconfigured.
+    assert resumed.problem is not None
+    started = campaign_events(repositories, "campaign_grid", "CampaignResumed")[0]
+    assert started.payload["optimizerStateRestored"] is False
+    assert "recorded no optimizer state" in started.payload["optimizerStateDetail"]
+
+
+@pytest.mark.asyncio
+async def test_a_resumable_optimizer_is_given_back_the_state_it_recorded(tmp_path) -> None:
+    """What replay cannot recover: a fitted model, a trust region, an RNG stream."""
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0)
+
+    first = SurrogateOptimizer(plan)
+    completed = await runner.run(
+        workflow,
+        first,
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_surrogate",
+        max_iterations=2,
+    )
+    assert completed.optimizer_state == {"fits": 2, "version": "1"}
+
+    second = SurrogateOptimizer(plan)
+    result = await runner.run(
+        workflow,
+        second,
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_surrogate",
+        max_iterations=3,
+        resume=True,
+    )
+
+    assert second.loaded == {"fits": 2, "version": "1"}
+    assert second.configured is not None
+    # The two recorded iterations were restored as state, so they are not also replayed through
+    # `observe`: an optimizer that counted both would have fitted every observation twice.
+    assert [item.candidate["x"] for item in second.observed] == [3.0]
+    assert second.fits == 3
+    assert result.optimizer_state == {"fits": 3, "version": "1"}
+    resumed = campaign_events(repositories, "campaign_surrogate", "CampaignResumed")[0]
+    assert resumed.payload["optimizerStateRestored"] is True
+
+
+@pytest.mark.asyncio
+async def test_state_the_optimizer_cannot_load_refuses_the_resume(tmp_path) -> None:
+    """A campaign that quietly carried on with an unfitted model would be a different search.
+
+    It would run under the same identifier, against the same record, and nothing in the log would
+    say the model behind the second half was not the model behind the first.
+    """
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0)
+
+    await runner.run(
+        workflow,
+        SurrogateOptimizer(plan, version="1"),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_stale",
+        max_iterations=2,
+    )
+
+    with pytest.raises(ValueError) as refused:
+        await runner.run(
+            workflow,
+            SurrogateOptimizer(plan, version="2"),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_stale",
+            max_iterations=3,
+            resume=True,
+        )
+
+    message = str(refused.value)
+    assert "campaign_stale" in message
+    assert "state was fitted by version 1" in message
+    assert len(adapter.calls) == 2, "nothing may be dispatched under a state that did not load"
+    assert not campaign_events(repositories, "campaign_stale", "CampaignResumed")
+
+
+@pytest.mark.asyncio
+async def test_state_recorded_by_a_different_optimizer_is_refused(tmp_path) -> None:
+    """`state()` is unvalidated caller data on the way back in, so its author is checked."""
+
+    class OtherSurrogate(SurrogateOptimizer):
+        pass
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0)
+
+    await runner.run(
+        workflow,
+        SurrogateOptimizer(plan),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_swapped",
+        max_iterations=2,
+    )
+
+    with pytest.raises(ValueError) as refused:
+        await runner.run(
+            workflow,
+            OtherSurrogate(plan),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_swapped",
+            max_iterations=3,
+            resume=True,
+        )
+
+    message = str(refused.value)
+    assert "SurrogateOptimizer" in message and "OtherSurrogate" in message
+    assert not campaign_events(repositories, "campaign_swapped", "CampaignResumed")
+
+
+@pytest.mark.asyncio
+async def test_a_resumed_campaign_that_has_spent_its_budget_stops_without_dispatching(
+    tmp_path,
+) -> None:
+    """`max_iterations` is the budget for the campaign identifier, not for the invocation."""
+
+    adapter = ScoreAdapter()
+    runner, _ = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+
+    await runner.run(
+        workflow,
+        ListOptimizer(candidates(1.0, 2.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_spent",
+        max_iterations=2,
+    )
+
+    result = await runner.run(
+        workflow,
+        ListOptimizer(candidates(1.0, 2.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_spent",
+        max_iterations=2,
+        resume=True,
+    )
+
+    assert len(adapter.calls) == 2
+    assert result.stop_reason is CampaignStopReason.MAX_ITERATIONS
+    assert [item.iteration for item in result.history] == [0, 1]
+
+
+@pytest.mark.asyncio
+async def test_a_resumed_campaign_carries_its_failure_streak_across_the_restart(tmp_path) -> None:
+    """A restart that reset the streak would keep an unattended loop failing past its own limit."""
+
+    adapter = ScoreAdapter(fail_on={1.0, 2.0, 3.0})
+    runner, _ = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0, 4.0)
+
+    with pytest.raises(RuntimeError, match="went away"):
+        await runner.run(
+            workflow,
+            DyingOptimizer(plan, die_after=2),
+            environment="simulation",
+            operator_id="operator/alice",
+            campaign_id="campaign_streak",
+            max_iterations=4,
+            max_consecutive_failures=3,
+        )
+
+    result = await runner.run(
+        workflow,
+        ListOptimizer(plan),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_streak",
+        max_iterations=4,
+        max_consecutive_failures=3,
+        resume=True,
+    )
+
+    assert result.stop_reason is CampaignStopReason.FAILURE_LIMIT
+    assert [item.candidate["x"] for item in result.history] == [1.0, 2.0, 3.0]
+    assert len(result.failures) == 3
+
+
+@pytest.mark.asyncio
+async def test_a_resume_re_reads_the_stopping_rules_against_what_already_happened(
+    tmp_path,
+) -> None:
+    """A campaign that already reached its target does not do more physical work on a restart.
+
+    The stopping rules are declared for the campaign, and the replayed history is the campaign's
+    history, so a resume evaluates them against it exactly as the live loop would have. Only the
+    wall-clock budget is exempt, because the time a dead campaign spent is not time it worked.
+    """
+
+    adapter = ScoreAdapter()
+    runner, _ = build_campaign(tmp_path, adapter)
+    workflow = scoring_workflow()
+    plan = candidates(1.0, 2.0, 3.0)
+
+    first = await runner.run(
+        workflow,
+        ListOptimizer(plan),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_reached",
+        max_iterations=3,
+        target_score=1.5,
+    )
+    assert first.stop_reason is CampaignStopReason.TARGET_REACHED
+    assert [call["x"] for call in adapter.calls] == [1.0]
+
+    result = await runner.run(
+        workflow,
+        ListOptimizer(plan),
+        environment="simulation",
+        operator_id="operator/alice",
+        campaign_id="campaign_reached",
+        max_iterations=3,
+        target_score=1.5,
+        resume=True,
+    )
+
+    assert result.stop_reason is CampaignStopReason.TARGET_REACHED
+    assert "1.0 against a target of 1.5" in result.stop_detail
+    assert [call["x"] for call in adapter.calls] == [1.0]
+    assert [item.iteration for item in result.history] == [0]

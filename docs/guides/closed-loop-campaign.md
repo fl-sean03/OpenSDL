@@ -16,8 +16,22 @@ An optimizer that proposes several candidates at once declares a batch size; a l
 execute several at once declares its parallelism, which defaults to one, because how many candidates
 a method proposes and how many instruments a laboratory has are different questions.
 
-Two things a production campaign still cannot do. There is no resume: an optimizer's state is
-recorded when the campaign stops and nothing reads it back, so a fitted surrogate does not survive a
-restart. And the runner does not schedule around resource leases, so two candidates needing the same
-exclusive instrument are dispatched together and one fails as busy — which is why parallelism
-defaults to one and why raising it requires knowing the laboratory can support it.
+A campaign resumes. `opensdl campaign start --resume --campaign-id ...` continues the campaign
+already recorded under that identifier: history is reconstructed from its own events and the runs
+they name, iteration numbering continues, and a candidate whose run already completed is never
+dispatched again — including when the controller died between the run finishing and the campaign
+recording it, where the run record settles the iteration. An optimizer that implements `load_state`
+is handed back what it recorded; one that does not, such as the grid, has the observations replayed
+into it instead. Running the same identifier twice without `--resume` is refused.
+
+A resume stops rather than continuing when any iteration names a run whose physical outcome the
+record does not establish — an `intervention_required` run above all. The run layer refuses to
+re-dispatch such a run, and a campaign that carried on past it would be granting itself an
+acknowledgement OpenSDL does not offer. There is deliberately no override. A person establishes what
+the equipment did, and until an operation exists for recording that, the remaining search is
+submitted as a new campaign.
+
+One thing a production campaign still cannot do: the runner does not schedule around resource
+leases, so two candidates needing the same exclusive instrument are dispatched together and one
+fails as busy. That is why parallelism defaults to one, and why raising it means knowing the
+laboratory can carry it.

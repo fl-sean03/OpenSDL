@@ -64,7 +64,7 @@ These are the contracts a laboratory can depend on, and what each carries today.
 | Generated JSON Schemas | `packages/schemas/jsonschema/`, 13 files | Regenerated on every model change. No identity, no version, no compatibility check. |
 | Capability contracts | `CapabilityDefinition` and the identifiers adapters declare | No guarantee. Identifiers are plain strings and there is no registry. |
 | Adapter plugin interface | `CapabilityAdapter`, entry-point group `opensdl.adapters` | No guarantee. Abstract methods may be added. |
-| Optimizer plugin interface | `Optimizer` protocol in `opensdl-runtime`, group `opensdl.optimizers` | No guarantee. It is `suggest(history)` and `observe(observation)` with no state contract, so an optimizer that must persist a surrogate model has nowhere to put it. |
+| Optimizer plugin interface | `Optimizer` protocol in `opensdl-core`, group `opensdl.optimizers` | No guarantee. `suggest(history)` and `observe(observation)` are still the whole requirement; `BatchOptimizer`, `ConfigurableOptimizer`, `StatefulOptimizer` and `ResumableOptimizer` are optional and detected by `isinstance`, so adding a member to any of them silently stops matching every plugin that implements the others. It moved out of `opensdl-runtime` so a plugin depends on the contract rather than the execution stack; `opensdl-runtime` re-exports every name. |
 | Domain-pack interface | `get_pack()`, group `opensdl.domain_packs` | No guarantee. The return value is an untyped mapping. |
 | CLI | `opensdl` commands and options | No guarantee. Output is human-readable text and JSON with no declared shape. |
 | HTTP API | 18 routes in `opensdl-api` | No guarantee. No version prefix, no content negotiation, no authentication. |
@@ -163,6 +163,10 @@ These are the events created since the policy was written. Each is also in `CHAN
 | A `deny` rule an earlier `allow` fully covers | Loaded and never fired | Refused at load with both rules named | Give the deny a lower priority number than the allow, or narrow the allow |
 | `DecisionRecorded` event | Written after the run, only for a successful iteration, carrying its score; `evidence_run_ids` named the run it caused | Written before the run, for every proposed candidate, carrying acquisition provenance and no score; `evidence_run_ids` names the runs it rested on | Nothing — projection reads both forms |
 | Campaign event types | Five types | Adds `CampaignIterationCompleted` and `CampaignCandidateRejected` | Nothing, unless you consume the event stream by type |
+| Optimizer contract location | Imported from `opensdl_runtime` | Defined in `opensdl_core`; `opensdl_runtime` re-exports every name | Nothing. Change a plugin's dependency to `opensdl-core` to stop pulling in the execution stack |
+| `CampaignDefinition` | Declared the stopping rules only | Adds `objectives`, `search_space`, the constraints, `batch_size` and `max_parallel_runs`, and refuses a definition declaring both `objectives` and a non-default `score_output`/`minimize` | Nothing, unless a definition sets both — state the direction and output path on each objective instead |
+| Running one `campaign_id` twice | Emitted a second `CampaignStarted` and restarted iteration numbering at zero | Refused, naming `resume=True` | Pass `resume=True` to continue, or a new identifier to start fresh |
+| Campaign event types | Seven types | Adds `CampaignResumed` | Nothing, unless you consume the stream by type |
 | Manifest values containing `${anything-else:...}` | Passed through as literal text | Refused, naming `env:` as the only implemented provider | Remove the prefix or set `env:` |
 | `${...}` anywhere under `spec.policy` | Passed through as literal text | Refused | Write the policy value in the manifest |
 | `schema_versions` table | Created and stamped `"0001"` | Dropped by revision `0002`; `alembic_version` records the version | Nothing. Migration is automatic |

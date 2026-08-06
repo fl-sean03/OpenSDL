@@ -4,9 +4,14 @@ This is not a method anyone should search with. It exists so the closed loop has
 behaves identically on every machine, and so the optimizer contract has one published
 implementation to check itself against.
 
-It implements three of the four optional capabilities and deliberately not the fourth: a grid has
-no model, so it has no state worth preserving and does not implement `state()`. That is the point
-of the capabilities being optional.
+It implements two of the five optional capabilities and deliberately not the other three: a grid
+has no model, so it has no state worth preserving and implements neither `state()` nor
+`load_state()`. A resumed campaign replays it from its recorded observations instead, which is why
+restoring state is optional. That is the point of the capabilities being optional.
+
+It depends on `opensdl-core` and on nothing else, which is the whole claim the contract makes to a
+third party: publishing a BoTorch or Ax optimizer costs a dependency on declarations and protocols,
+not on the laboratory's storage, policy and workflow machinery.
 """
 
 from __future__ import annotations
@@ -14,7 +19,7 @@ from __future__ import annotations
 from itertools import product
 from typing import Any
 
-from opensdl_runtime import CampaignObservation, CampaignProblem, Suggestion
+from opensdl_core import CampaignObservation, CampaignProblem, Suggestion
 
 
 class GridOptimizer:

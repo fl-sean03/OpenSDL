@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
 dependencies = [
-  "opensdl-runtime"
+  "opensdl-core"
 ]
 
 [project.entry-points."opensdl.optimizers"]

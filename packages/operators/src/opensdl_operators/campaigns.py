@@ -85,6 +85,7 @@ class CampaignLauncher:
         outcome_constraints: Sequence[OutcomeConstraint] = (),
         batch_size: int = 1,
         max_parallel_runs: int = 1,
+        resume: bool = False,
     ) -> CampaignRecord:
         """Run a campaign to a stopping rule and return the record projected from its events.
 
@@ -92,13 +93,12 @@ class CampaignLauncher:
         every run records it, so a campaign that stated its own would write a false provenance
         record. `operator_id` names who is accountable for an unattended loop.
 
-        The arguments from `base_inputs` to `iteration_id_input` mirror `CampaignRunner.run`, which
-        mirrors `opensdl_core.CampaignDefinition`. `optimizer_config` has no field on that
-        definition, so a stored campaign definition cannot yet configure its own optimizer; that
-        gap is the reason this takes arguments rather than a definition file. The declared problem
-        and the throughput arguments below `campaign_id` have no field on it either, and are passed
-        straight through so that starting a campaign from outside Python is not the surface that
-        loses them.
+        Every argument below `optimizer_config` mirrors `CampaignRunner.run`, which mirrors
+        `opensdl_core.CampaignDefinition`, so this surface is not where a stored definition loses
+        anything. `resume` continues the campaign already recorded under `campaign_id` rather than
+        starting a second one under the same name: a campaign runs for weeks and the process that
+        starts one does not have to be the process that finishes it. Running the same
+        `campaign_id` twice without it is refused.
         """
         loaded = self.load_optimizer(optimizer, optimizer_config)
         result = await CampaignRunner(self.runtime, self.repositories).run(
@@ -121,5 +121,6 @@ class CampaignLauncher:
             outcome_constraints=outcome_constraints,
             batch_size=batch_size,
             max_parallel_runs=max_parallel_runs,
+            resume=resume,
         )
         return CampaignReader(self.repositories).get(result.campaign_id)

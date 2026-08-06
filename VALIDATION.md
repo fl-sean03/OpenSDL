@@ -2,166 +2,129 @@
 
 **Release candidate:** `0.1.0a0`
 
-**Validation date:** 2026-08-03
+**Validation date:** 2026-08-06
 
-**Scope:** locked source workspace, simulator and digital-twin checks, and current wheel smoke test
+**Scope:** locked source workspace, simulator and digital-twin checks, and the checks hosted CI runs
+on every change
 
 OpenSDL is an executable public alpha. This report records the checks run against the prepared Git
 repository. Deployment teams must produce separate evidence for their equipment, infrastructure,
 and operating procedures.
 
-## Agent-native extension validation
+## How to read this report
 
-On 2026-08-03, the repository instruction, skill, and generated-laboratory extension passed on
-CPython 3.12.3:
+Claims are grouped by **how they are kept true**, not by subsystem, because that difference turned
+out to matter more than the subject.
 
-- **72 tests**, including skill metadata and adapters, generated-lab context and cold rendering,
-  installed CLI and API version reporting, release-version propagation, plugin-entry-point
-  collision checks, and rejection of an unused physical adapter before its lifecycle starts;
-- Ruff, Pyright, package boundaries, schema freshness, repository validation, release-version
-  consistency, the five-iteration simulation example, and a strict documentation build;
-- all eleven canonical skills through the Agent Skills validator;
-- a wheelhouse-installed generated lab with manifest and workflow validation, doctor, two tests,
-  and a completed simulator workflow;
-- a pre-twin, isolated `0.1.0a1` release rehearsal that built 21 wheels and 21 source archives,
-  reported the synchronized CLI and API version, preserved immutable import evidence, and refused a
-  second build into the nonempty artifact directory; and
-- a native fresh Codex session that selected orientation and simulation-development skills and
-  stopped rather than inventing unsupported physical cancel or resume commands.
+The strongest check this repository owns — a headless rebuild proving the committed scene bytes are
+reproducible from source — was true and **unenforced** for the project's entire life. Blender is not
+installed on the hosted runners, so the test took its skip path and CI reported green. Reading that
+report did not distinguish "this passed" from "this did not run". Everything below is therefore
+labelled with what keeps it true, and a claim that nothing keeps true is stated separately rather
+than listed beside the ones that are checked.
 
-The Python 3.13 and 3.14 matrix was not rerun locally for this extension; hosted CI remains the
-cross-version evidence source. The upstream Starlette `TestClient` warning described below remains.
+## Enforced on every change
 
-## Digital-twin alpha validation
+These run in hosted CI and fail the build.
 
-On 2026-08-03, the digital-twin contract, projection path, reference scene, and viewer passed these
-focused checks on the source workspace:
+| Check | Workflow | What it establishes |
+|---|---|---|
+| Complete source suite on CPython 3.12, 3.13 and 3.14 | `ci.yml` | Package units, migrations, API and controller integration, adapter conformance, and the simulated closed loop, each in an environment built from the committed lock |
+| Reference-example adapter overlay | `ci.yml` | The digital-twin example against its own editable adapter |
+| `opensdl twin validate` | `ci.yml` | The reference twin definition matches its declared scene digest |
+| Ruff lint and formatting, Pyright | `ci.yml` | Zero errors or warnings |
+| Package import boundaries | `ci.yml` | Every shipped package is declared and stays inside its declared dependencies; an unmapped package fails rather than being skipped |
+| Propagation-graph coverage | `ci.yml` | Every tracked file matches a node, so the blast-radius tool cannot go blind again |
+| Generated JSON Schema freshness | `ci.yml` | The 13 committed schemas match the models |
+| Repository structure | `ci.yml` | TOML, YAML, JSON, agent instructions, the 11 canonical skills, and every relative Markdown link |
+| Release-version consistency | `ci.yml`, `release.yml` | One version across 22 workspace members, the citation file, and generated dependency floors |
+| Viewer suite, typecheck, build and asset drift | `ci.yml` | 67 Vitest tests, Biome, TypeScript, a deterministic static build, and the committed bundle matching its source |
+| Adapter conformance | `conformance.yml` | The reference adapter conformance profile |
+| Five-iteration simulated campaign | `conformance.yml` | The complete closed loop, with no hardware, cloud account, model API or broker |
+| Strict documentation build | `docs.yml` | `mkdocs build --strict` |
+| **Headless scene rebuild** | `scene.yml` | A Blender 5.2.0 rebuild in a temporary directory reproduces the GLB, node inventory and motion report **byte for byte**. The workflow reads the required version from the scene's own node inventory, so the two cannot drift, and a `pytest` plugin turns a skip into a failure |
 
-- the current CPython 3.12 source suite passed **237 tests**, and the example adapter overlay passed
-  **16 tests**;
-- a headless Blender 5.2.0 rebuild in a temporary directory reproduced `surrogate-cell.glb`, the
-  node inventory, and the motion report byte for byte, and a 0.1 mm change to a source constant was
-  confirmed to break that comparison. The scene is a purpose-built self-driving-laboratory frame;
-  its current form is recorded under the rebuild below;
-- `opensdl twin validate` loaded the example definition and matched its declared scene digest;
-- targeted package, CLI, and API tests covered model validation, safe scene loading, deterministic
-  projection, run-to-twin binding pins, stable run identifiers, twin routes, and viewer-path
-  containment;
-- the viewer's **67-test** Vitest suite, Biome check, TypeScript typecheck, deterministic static
-  build, and dependency audit passed;
-- the reference GLB contract check found every required node, covered its authored 1176-frame range,
-  and received no issues from the Khronos validator;
-- viewer tests covered browser-side scene-digest verification, missing-binding failure, authored-motion
-  synchronization, and exact-reference demo selection; and
-- the generated motion report marked every check as passed. Most are scalar checks on deck, labware,
-  gripper, tip, liquid, lid, Stacker, and Heater-Shaker values; the rest compare bodies to each
-  other — carry rigidity, grip contact, mesh interpenetration against the modules and labware, and
-  mechanism continuity — and run before the export.
+The scene workflow runs on every push to `main`, on any change to the scene or its tests, and weekly.
+It is separate from the pull-request job because it installs Blender and takes several minutes.
+`make scene` runs the same check locally.
 
-Those relational checks are new. The previous seventy validated scalars only, which is why a scene
-with the carriage passing through the enclosure glazing, jaw paddles intersecting seating surfaces,
-and the pipette dispensing between well rows passed every check and shipped. Interpenetration
-measured against an independent harness fell from 134 records across 20 object pairs to 60 across 5,
-and every remaining pair is either a declared allowlist entry or resting contact within the 0.25 mm
-margin.
+## Measured on 2026-08-06
 
-The jaw-mechanism checks were added after a defect that even the relational checks missed: the jaw
-paddles tracked the carriage exactly and gripped the plate correctly, but no geometry connected them
-to the wrist, so they read as floating bars. Carry rigidity and grip contact both passed on that
-scene. Only a render showed it. The checks now walk the wrist-to-pad chain and require each
-consecutive pair to overlap on all three axes at every authored jaw width.
+Run against the current source workspace. These are evidence about the repository on that date rather
+than continuous guarantees.
 
-The GLB digest in `twin.yaml` matched both the generated node inventory and the scene file. This is
-contract and visualization evidence. It does not add physical, kinematic, collision, performance,
-or safety claims.
+- the reference scene is a purpose-built self-driving-laboratory frame: **2340 exported nodes**, 32
+  authored animations, and a 1176-frame authored timeline at 24 frames per second;
+- the generated motion report marked all **107** checks as passed. Most are scalar checks on deck,
+  labware, gripper, tip, liquid, lid and module values; one measures the machine's stillness either
+  side of the single cut; the remainder compare bodies to each other — carry rigidity, grip contact,
+  mesh interpenetration, and mechanism continuity from the carriage through to the bridge rail — and
+  run before the export. An eye-trace check additionally projects the active subject through the
+  camera every frame and requires it to stay clear of the frame edges;
+- the reference GLB received no issues from the Khronos validator;
+- a laboratory generated by `opensdl init` installs from a local wheelhouse, validates, runs its
+  workflow, and passes its tests. The adapter guide's full path — generate an adapter, install it,
+  register it, run a workflow through it — was executed and then replayed from a fresh `opensdl init`
+  to confirm the documented commands work verbatim;
+- a store created by the pre-Alembic path was captured from a real campaign run, reproduced the
+  documented migration failure, and was then adopted and upgraded on that same file, after which a
+  full campaign ran against it;
+- a declared timeout was measured against a deliberately blocking adapter before and after the
+  worker-thread change: 2.011 seconds with no error became 0.116 seconds and a recorded timeout, and
+  a concurrent run stopped waiting on a blocker it had nothing to do with.
 
-## Source workspace
+## Asserted, not verified
 
-The workspace lock was generated and checked with uv 0.11.32. It records 106 packages for the 22
-workspace members. All normal project and CI commands consume the committed lock with `--locked`.
+Stated plainly, because the distance between a documented claim and a kept one is what this report
+exists to expose.
 
-The current complete source suite passed **237 tests** on CPython 3.12.3, with **16** additional
-tests in the reference example's editable adapter overlay. The complete suite also passed on the
-other supported Python versions, each in an isolated environment built from the committed lock:
-
-- CPython 3.13.14: **237 passed**, plus the overlay tests; and
-- CPython 3.14.6: **237 passed**, plus the overlay tests.
-
-Boundary checks, generated-schema freshness, and `opensdl twin validate` also passed on all three
-interpreters.
-
-That suite covers package units, migrations, API and controller integration, adapter conformance, and
-the complete simulated color campaign. Focused runtime cases cover policy denial, retries, timeout
-diagnostics, lease release, cancellation intervention, and restart reconciliation. Provenance tests
-cover exports with more than 500 events, artifact metadata, unique bundle members, and RO-Crate
-entries.
-
-The following checks also passed:
-
-- Ruff and Pyright with zero errors or warnings;
-- internal package-dependency boundaries;
-- freshness of 13 public JSON Schemas, including the twin definition and cue contracts;
-- Ruff formatting, now enforced by `make lint` and CI rather than advisory;
-- TOML, YAML, JSON, repository-skill metadata, and relative Markdown links;
-- strict MkDocs build;
-- Python bytecode compilation;
-- shell syntax for project scripts and skill helpers;
-- all eleven repository skills with the Agent Skills validator;
-- the three reference-adapter conformance cases;
-- the five-iteration simulated color campaign; and
-- reruns after the example created persistent local state.
-
-The last check found and fixed an order-dependent test defect. Integration fixtures now exclude the
-example's ignored `.opensdl/` runtime state when copying the laboratory definition.
-
-## Distribution smoke test
-
-uv 0.11.32 built **22 wheels and 22 source archives** from the current workspace into a fresh
-temporary output directory, including a populated `opensdl-twin` wheel. A clean Python 3.12
-environment installed all 22 wheels without importing the source checkout.
-
-That environment passed these checks:
-
-- `opensdl version` returned `0.1.0a0`;
-- the twin, controller, API, and SDK public modules imported successfully;
-- the wheel-installed CLI validated the reference `twin.yaml` and its scene digest;
-- the SDK exposed its public core contracts;
-- `opensdl init` generated a separate laboratory repository;
-- the generated manifest and first workflow validated;
-- `opensdl doctor` reported healthy simulated, compute, database, and artifact-store components; and
-- the generated workflow completed with four successful tasks and a zero distance score.
-
-These files are build-validation artifacts. This report does not approve a tagged package release or
-publication to a registry. SBOM generation, artifact signing, internal dependency constraints, and
-package-license-file review remain release work.
+- **PostgreSQL.** The models use portable column types and a driver is declared. No PostgreSQL
+  service is exercised by any test or CI job. Foreign keys are the one place the two backends
+  provably diverge: SQLite ignores them unless a pragma is set per connection, which nothing sets,
+  while PostgreSQL always enforces them.
+- **Retry safety is expressible but not enforced.** A capability declares whether repeating it is
+  safe and the runtime honours the declaration, but the conformance profile does not require an
+  operational adapter to make one. `SAFETY.md`'s requirement is satisfiable rather than checked.
+- **Plugin trust.** Loading a manifest executes the code it names. Reference-adapter provenance is
+  checked on the composition path and an allowlist is available, but a laboratory that sets no
+  allowlist trusts whatever is installed.
+- **Secret handling.** A manifest names credentials with `${env:NAME}`, refuses to resolve one to
+  nothing, and writes resolved values back as references. Nothing prevents a credential being typed
+  into a manifest directly: there is no secret scanning in `make lint` or CI, and an adapter that
+  echoes its own configuration through `health()` or an exception is not filtered.
+- **Nothing has been published or tagged.** `git tag -l` is empty and the release workflow builds
+  distributions without publishing, so a laboratory cannot install OpenSDL from an index and a
+  generated lock records a local wheelhouse path.
+- **Security tooling.** No SAST, no secret scanning, no dependency audit. Dependabot covers `uv` and
+  GitHub Actions; the viewer's npm dependencies and the container base images are unmonitored.
 
 ## Validated execution profiles
 
 | Profile | Status | Evidence |
 |---|---|---|
-| Python 3.12, 3.13, and 3.14 | Verified | Locked full suite and the reference-example overlay passed on all three interpreters, with boundary, schema-freshness, and twin-validation checks |
-| Simulator-only local laboratory | Verified | Unit, integration, E2E, conformance, example, and clean wheel-installed run |
-| Structured human attestation | Verified as a synchronous reference path | Adapter and generated-workflow tests |
-| SQLite metadata and local artifacts | Verified | Storage, migration, controller, API, campaign, and clean-install checks |
-| PostgreSQL metadata | Models and migrations implemented | No live PostgreSQL service was exercised |
-| HTTP API | Verified | FastAPI lifecycle and endpoint integration test |
-| CLI and Python packages | Verified on Python 3.12 | Current source tests, 22 wheels and source archives, clean 22-wheel installation, public imports, CLI version, and twin validation |
-| Optional MCP transport | Import boundary tested | The MCP SDK and a live transport were not exercised |
-| Container image | Verified | Podman built the pinned Dockerfile; image CLI and `doctor` checks passed |
+| Python 3.12, 3.13 and 3.14 | Verified continuously | Locked full suite and the example overlay on all three interpreters, with boundary, propagation, schema-freshness and twin-validation checks |
+| Simulator-only local laboratory | Verified continuously | Unit, integration, end-to-end, conformance, and the complete campaign |
+| Digital-twin scene reproducibility | Verified continuously | Headless Blender rebuild comparing exported bytes, with a skip treated as a failure |
+| Structured human attestation | Verified as a synchronous reference path | Adapter and generated-workflow tests. The attestation records a caller-supplied name that nothing verifies |
+| SQLite metadata and local artifacts | Verified continuously | Storage, migration, controller, API and campaign tests, plus a comparison of the migrated schema against the declared models |
+| PostgreSQL metadata | Models and migrations implemented | No live service exercised; see *Asserted, not verified* |
+| HTTP API | Verified continuously | FastAPI lifecycle and endpoint integration tests, including status-code differentiation and viewer-path containment. The API has no authentication |
+| Optional MCP transport | Verified continuously | The transport is installed, and its registrations including the write path are exercised |
+| CLI and Python packages | Verified on Python 3.12 | Source tests, wheels and source archives for every member, clean installation, public imports, and twin validation |
+| Container image | Verified once | Podman built the pinned Dockerfile; image CLI and `doctor` checks passed. The image runs as root and binds every interface |
 | Physical equipment | Not validated | No hardware qualification or commissioning was attempted |
 
 ## Known warnings and tool limits
 
-All three test runs emit one upstream Starlette warning about its `TestClient` dependency transition.
-The tests pass, and OpenSDL emits no project-code deprecation warnings.
+Test runs emit one upstream Starlette warning about its `TestClient` dependency transition. OpenSDL
+emits no project-code deprecation warnings.
 
-The repository validator parsed every workflow as YAML, but `actionlint` was not installed locally.
-GitHub Actions provides the final workflow-parser and runner check after the first push.
+GitHub Actions provides the final workflow-parser and runner check; the repository validator parses
+workflow YAML but does not run `actionlint` locally.
 
-Before the twin addition, a pre-publication pattern scan found no likely secrets, private keys, or
-unfinished-code markers in the then-current 295 nonignored source files. This historical scan is
-supporting evidence, not a substitute for a current dedicated secret scan, GitHub secret scanning,
-or push protection.
+A pre-publication pattern scan found no likely secrets, private keys, or unfinished-code markers in
+the then-current source files. That scan is supporting evidence, not a substitute for a dedicated
+secret scan, GitHub secret scanning, or push protection.
 
 ## Explicit non-claims
 
@@ -170,9 +133,12 @@ This validation does not establish:
 - production readiness or high availability;
 - safety integrity or regulatory compliance;
 - suitability for hazardous operations;
+- authenticated or authorized access. The HTTP API has none, and the actor identity every interface
+  records is a string the caller asserts, so a policy rule scoped to an operator constrains nobody;
 - correct behavior of arbitrary third-party adapters;
 - live PostgreSQL, S3, Slurm, Kubernetes, SiLA 2, MADSci, or robotics compatibility;
-- an end-to-end cancellation or equipment-abort protocol;
+- an end-to-end cancellation or equipment-abort protocol. A timeout bounds how long the runtime waits
+  and does not stop equipment; abandoned adapter work continues;
 - performance guarantees; or
 - package-registry release readiness.
 

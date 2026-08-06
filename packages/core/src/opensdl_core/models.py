@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .enums import (
     ArtifactKind,
     AuthorizationEffect,
     ExecutorType,
     OperatorType,
+    RetrySafety,
     RiskClass,
     RunState,
     TaskState,
@@ -84,10 +85,44 @@ class CapabilityDefinition(OpenSDLModel):
     side_effects: list[str] = Field(default_factory=list)
     timeout_seconds: float | None = Field(default=None, gt=0)
     max_retries: int = Field(default=0, ge=0)
+    #: Whether repeating this operation is safe when the runtime cannot establish whether the
+    #: first attempt took effect. The runtime reads it twice — before repeating a dispatch, and
+    #: when deciding what a timed-out task is allowed to claim — and both readings come from this
+    #: one declaration so they cannot disagree.
+    #:
+    #: **The default is the strict one, and that is a deliberate incompatibility.** Every
+    #: capability written before this field existed omits it, so a permissive default would have
+    #: preserved today's behaviour exactly and left the hazard in place for every capability
+    #: nobody revisits — silently, because an author who never heard of the field would ship a
+    #: dispense the runtime repeats. `SAFETY.md` makes retry safety the adapter's statement to
+    #: make; an omission is the absence of that statement, not a relaxed version of it. The
+    #: asymmetry decides it: defaulting strict costs an unrevisited capability some automatic
+    #: retries and turns some of its timeouts into interventions, while defaulting permissive
+    #: costs an unrevisited physical capability a repeated dispense. Every shipped adapter
+    #: declares honestly, so the strict default binds only definitions nobody has considered.
+    retry_safety: RetrySafety = RetrySafety.NOT_REPEATABLE
     supports_cancellation: bool = False
     simulator_available: bool = False
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def retry_budget_must_be_declared_safe(self) -> CapabilityDefinition:
+        """Refuse a retry budget the same definition says can never be spent.
+
+        `max_retries` and `retry_safety` are one statement about the same behaviour. A definition
+        asking for automatic attempts while declaring that repeating it is never safe cannot be
+        honoured either way round, and the runtime resolving it silently is how a declared budget
+        becomes a surprise at an instrument.
+        """
+        if self.max_retries > 0 and self.retry_safety is RetrySafety.NOT_REPEATABLE:
+            raise ValueError(
+                f"capability {self.id} declares max_retries={self.max_retries} and "
+                f"retry_safety='{self.retry_safety.value}', which contradict each other: the "
+                "runtime will never spend that budget. Declare the retry safety this operation "
+                "actually has, or set max_retries=0."
+            )
+        return self
 
 
 class WorkflowStep(OpenSDLModel):

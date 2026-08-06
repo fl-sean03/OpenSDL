@@ -8,6 +8,7 @@ from opensdl_core import (
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
+    RetrySafety,
     RiskClass,
     utc_now,
 )
@@ -70,6 +71,13 @@ class HumanTaskAdapter(CapabilityAdapter):
                 risk_class=RiskClass.R1,
                 side_effects=["records a human attestation in run provenance"],
                 simulator_available=False,
+                # The computation here is trivially repeatable; the thing it records is not. An
+                # attestation is a claim that one named person did one thing once, so writing it
+                # twice puts two records of one human act into permanent provenance, and nothing
+                # downstream can tell which of them is the duplicate. If the record provably was
+                # never written, writing it is simply correct — hence the conditional form rather
+                # than a flat refusal.
+                retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED,
                 tags=["human", "assisted"],
             )
         ]

@@ -42,3 +42,25 @@ creates each index only if it is absent, because a `create_all()` store already 
 
 `tests/integration/test_migrations.py` compares the schema Alembic produces against the schema the
 models declare. A model change without a matching revision fails there.
+
+### Declaring what a revision destroys
+
+`Database.initialize()` applies the history whenever a laboratory is opened for writing, so a
+revision that drops something runs inside an ordinary campaign unless somebody stops it. Every
+revision therefore declares what it does, and the template generates both lines:
+
+```python
+opensdl_kind: str = "additive"  # or "destructive"
+opensdl_destroys: tuple[str, ...] = ()  # "table:name", "column:table.name", "type:table.column"
+```
+
+The declaration is checked, not trusted. `tests/integration/test_migrations.py` applies each
+revision to a store at its predecessor and reads what it removed off the schema it left behind,
+using the same comparison as `alembic revision --autogenerate`. A revision that drops a table,
+drops a column or changes a column's type is destructive whatever it declares, and `opensdl_destroys`
+has to name exactly what it takes. A revision that issues raw SQL is destructive too: a `DELETE`
+empties a column and leaves the schema identical, so no comparison can clear it.
+
+Revision `0002` is destructive — it drops `schema_versions`, the hand-rolled version table
+`alembic_version` replaced. Every laboratory applies it, a new one included, because `0001` creates
+that table and `0002` removes it.

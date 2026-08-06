@@ -548,6 +548,24 @@ def start_campaign(
         str | None,
         typer.Option(help="Workflow input that receives a unique per-iteration identifier."),
     ] = None,
+    batch_size: Annotated[
+        int,
+        typer.Option(
+            "--batch-size",
+            min=1,
+            help="How many candidates the optimizer proposes at once. Requires an optimizer "
+            "that implements suggest_batch.",
+        ),
+    ] = 1,
+    max_parallel_runs: Annotated[
+        int,
+        typer.Option(
+            "--max-parallel-runs",
+            min=1,
+            help="How many candidates execute at once. A property of the laboratory, not of "
+            "the method: raising it starts instruments concurrently.",
+        ),
+    ] = 1,
     operator_id: Annotated[str, typer.Option()] = "software/campaign",
     campaign_id: Annotated[str | None, typer.Option("--campaign-id")] = None,
 ) -> None:
@@ -573,6 +591,8 @@ def start_campaign(
             base_inputs=_json_input(base_inputs),
             score_output=score_output,
             max_iterations=max_iterations,
+            batch_size=batch_size,
+            max_parallel_runs=max_parallel_runs,
             minimize=minimize,
             target_score=target_score,
             max_consecutive_failures=max_consecutive_failures,
@@ -599,6 +619,8 @@ async def _run_campaign(
     max_consecutive_failures: int,
     max_duration_seconds: float | None,
     iteration_id_input: str | None,
+    batch_size: int,
+    max_parallel_runs: int,
     operator_id: str,
     campaign_id: str | None,
 ) -> dict[str, Any]:
@@ -624,6 +646,8 @@ async def _run_campaign(
             max_consecutive_failures=max_consecutive_failures,
             max_duration_seconds=max_duration_seconds,
             iteration_id_input=iteration_id_input,
+            batch_size=batch_size,
+            max_parallel_runs=max_parallel_runs,
             campaign_id=campaign_id,
         )
         return record.model_dump(mode="json")

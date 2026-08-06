@@ -29,6 +29,17 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   the unconstructed pair, the invariant written for one chain, the check that has never failed, and
   the failure reported only on stderr — together with deriving carried motion from its carrier so a
   class of defect cannot be expressed at all;
+- an optimizer contract that can express Bayesian optimization: `suggest` and `observe` stay the
+  whole requirement, and batch proposal, problem configuration and state export are optional
+  capabilities an optimizer adds one at a time, detected rather than demanded. A campaign now declares
+  what it is searching — objectives with their own direction, target and measured uncertainty, a search
+  space, and linear constraints on both candidates and outcomes — so a candidate outside the space is
+  refused before a run is created, a policy decision taken, or a resource leased, rather than after all
+  three. A suggestion carries its predicted value with uncertainty, the acquisition value and function,
+  the model that produced it, and the runs it rested on. How many candidates the optimizer proposes and
+  how many execute at once are separate numbers, because the first is a property of the method and the
+  second of the laboratory; the second defaults to one, so adding a batch cannot silently start
+  instruments concurrently. A synchronous `suggest` runs off the event loop;
 - a compatibility and versioning policy stating, per public surface, what stability it carries today.
   It records the specific defects rather than an intention: both `apiVersion` fields are literal pins
   on models that forbid extra keys, so a newer document cannot be read by an older reader even when
@@ -49,6 +60,11 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Changed
 
+- a decision is recorded *before* the run it selects, for every candidate proposed including ones
+  that go on to fail or be refused, and it names the runs it was based on rather than the run it
+  caused. The record used to be written afterwards with the score already in it, which inverted the
+  provenance: it could not answer what the system knew when it chose. Projection reads both forms, so
+  campaigns already in a store still read correctly;
 - laboratory manifests can declare a twin definition and optional viewer root;
 - generated laboratory repositories include shared context files and onboarding guidance;
 - the digital-twin architecture now fixes the framework boundary at one reference showcase while
@@ -67,6 +83,40 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Breaking
 
+- capabilities declare `retry_safety`, and the default is `not_repeatable`. The runtime had no way to
+  know whether repeating a physical action was safe, so it guessed — and it guessed differently in two
+  places: a transport failure was retried within the declared budget, while a timeout recorded a clean
+  failure. One declaration now answers both. Three values, because two cannot hold the common real
+  case: `repeatable`, `not_repeatable`, and `repeatable_if_not_dispatched` for an operation that may be
+  re-sent only on evidence the command never left the client — a refused connection, a rejected
+  handshake, raised as `NotDispatchedError`. A timeout is never such evidence, because the runtime
+  stopping its wait establishes nothing about the equipment. The default is the safe reading rather
+  than the compatible one: a definition that says nothing has told the runtime nothing, and an omission
+  is the absence of the statement `SAFETY.md` demands rather than a relaxed version of it. Pre-1.0 with
+  no operational adapter shipped is the cheapest this choice will ever be. Measured blast radius of the
+  default alone: four test capabilities that declared a retry budget, and nothing else. Declaring
+  `max_retries` above zero alongside `not_repeatable` is refused when the definition is constructed,
+  because the two fields are one statement and a runtime that silently resolved the contradiction is
+  how a declared budget becomes a surprise at an instrument;
+- a timed-out task is recorded `intervention_required` unless its capability declares itself
+  repeatable, and a run holding such a task likewise. `failed` claimed the action had not happened,
+  when cancelling a coroutine never stopped an instrument — and since adapter work moved to a worker
+  thread, abandoned work provably continues. `failed` is also deliberately resumable, so the one path
+  that under-reported its own uncertainty was the one path that would silently re-dispatch. The run
+  state is now derived from its tasks, so a run can never contradict what its own tasks record;
+- a `deny` policy rule that an earlier `allow` fully covers is refused when the manifest loads, naming
+  both rules. Such a rule was dead code: policy is first-match-wins and deny does not override allow,
+  so an operator adding a narrow deny beneath a broad allow got no error, no warning and no effect.
+  Evaluation semantics are unchanged — that is a separate decision — and the analysis is deliberately
+  conservative: partial shadowing and coverage by two allows together are not claimed, so a manifest
+  that loads is not proof its deny rules fire, and the error says so;
+- a store behind a destructive revision is refused when a laboratory is opened for writing, with
+  `opensdl migrate` as the deliberate opt-in. Each revision declares whether it destroys anything, and
+  a test verifies the declaration rather than trusting it: it applies the revision alone and diffs
+  against the reflected before-schema, so a table appearing in that diff means the revision dropped it.
+  That check immediately found that revision `0002` is destructive — it drops `schema_versions` — which
+  every laboratory passes through, including one created today, so `0002` is exempted by name with the
+  reason recorded beside it rather than by any rule about age;
 - `spec.capabilities[].config` is removed from the laboratory manifest. It was accepted and never
   read, and a per-capability `config:` is exactly where an operator would write the operating limits
   `SAFETY.md` asks a deployment to enforce. Silently ignored safety configuration is worse than an

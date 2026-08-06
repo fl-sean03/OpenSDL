@@ -9,6 +9,7 @@ from opensdl_core import (
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
+    RetrySafety,
     RiskClass,
     utc_now,
 )
@@ -18,6 +19,11 @@ _NUMBER_ARRAY = {
     "type": "array",
     "items": {"type": "number"},
 }
+
+#: These are pure functions of their inputs, evaluated in this process. There is no equipment to
+#: leave in an unknown state, so repeating one after an abandoned wait costs a few microseconds
+#: and nothing else. This is the one executor class where `REPEATABLE` needs no qualification.
+_RETRY_SAFETY = RetrySafety.REPEATABLE
 
 
 class LocalComputeAdapter(CapabilityAdapter):
@@ -42,6 +48,7 @@ class LocalComputeAdapter(CapabilityAdapter):
                     "additionalProperties": False,
                 },
                 risk_class=RiskClass.R0,
+                retry_safety=_RETRY_SAFETY,
             ),
             CapabilityDefinition(
                 id="compute.summary",
@@ -71,6 +78,7 @@ class LocalComputeAdapter(CapabilityAdapter):
                     "additionalProperties": False,
                 },
                 risk_class=RiskClass.R0,
+                retry_safety=_RETRY_SAFETY,
             ),
             CapabilityDefinition(
                 id="compute.quadratic",
@@ -94,6 +102,7 @@ class LocalComputeAdapter(CapabilityAdapter):
                     "additionalProperties": False,
                 },
                 risk_class=RiskClass.R0,
+                retry_safety=_RETRY_SAFETY,
             ),
         ]
 

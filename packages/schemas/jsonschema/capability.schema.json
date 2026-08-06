@@ -13,6 +13,16 @@
       "title": "ExecutorType",
       "type": "string"
     },
+    "RetrySafety": {
+      "description": "Whether repeating an operation is safe when its first attempt's outcome is unknown.\n\nThis is the \"retry safety\" `SAFETY.md` requires every operational adapter to define. It is\nasked at one moment only: the runtime dispatched the operation, and it cannot establish\nwhether that dispatch took effect. A timeout, a dropped connection, a cancelled wait and a\nrestarted controller all land there. The runtime cannot infer the answer \u2014 an API success is\nnot proof a physical action occurred, and an API failure is not proof it did not \u2014 so the\ncapability declares it.\n\nIt says nothing about whether an operation is *correct* to repeat, only whether repeating it\ncan hurt. A measurement that returns a different value each time is still `REPEATABLE`.",
+      "enum": [
+        "repeatable",
+        "repeatable_if_not_dispatched",
+        "not_repeatable"
+      ],
+      "title": "RetrySafety",
+      "type": "string"
+    },
     "RiskClass": {
       "enum": [
         "R0",
@@ -94,6 +104,10 @@
       "minimum": 0,
       "title": "Max Retries",
       "type": "integer"
+    },
+    "retry_safety": {
+      "$ref": "#/$defs/RetrySafety",
+      "default": "not_repeatable"
     },
     "supports_cancellation": {
       "default": false,

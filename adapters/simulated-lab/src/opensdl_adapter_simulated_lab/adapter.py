@@ -9,10 +9,20 @@ from opensdl_core import (
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
+    RetrySafety,
     RiskClass,
     utc_now,
 )
 from opensdl_simulation import FaultPlan, SimulationState
+
+#: Every capability below acts on a dictionary in this process. Nothing is aspirated, moved, or
+#: heated, so an abandoned wait leaves no equipment in an unknown state and repeating the call
+#: costs nothing. That is why these are `REPEATABLE`, and it is the *only* reason: an adapter
+#: driving the same semantic operations on real hardware would declare `NOT_REPEATABLE` for
+#: `sim.mix_color` and at most `REPEATABLE_IF_NOT_DISPATCHED` for `sim.move_labware`, because a
+#: mixer that may already have dispensed and an arm that may already have moved are not
+#: recoverable by trying again. Copy the semantics from this adapter; do not copy this line.
+_SIMULATED = RetrySafety.REPEATABLE
 
 
 class SimulatedLabAdapter(CapabilityAdapter):
@@ -73,6 +83,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
                 required_resources=["virtual-mixer"],
                 side_effects=["updates virtual sample state"],
                 simulator_available=True,
+                retry_safety=_SIMULATED,
             ),
             CapabilityDefinition(
                 id="sim.measure_color",
@@ -103,6 +114,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
                 risk_class=RiskClass.R0,
                 required_resources=["virtual-colorimeter"],
                 simulator_available=True,
+                retry_safety=_SIMULATED,
             ),
             CapabilityDefinition(
                 id="sim.measure_mass",
@@ -128,6 +140,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
                 risk_class=RiskClass.R0,
                 required_resources=["virtual-balance"],
                 simulator_available=True,
+                retry_safety=_SIMULATED,
             ),
             CapabilityDefinition(
                 id="sim.move_labware",
@@ -159,6 +172,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
                 required_resources=["virtual-robot"],
                 side_effects=["updates virtual labware location"],
                 simulator_available=True,
+                retry_safety=_SIMULATED,
             ),
             CapabilityDefinition(
                 id="sim.locate_labware",
@@ -183,6 +197,7 @@ class SimulatedLabAdapter(CapabilityAdapter):
                 risk_class=RiskClass.R0,
                 required_resources=["virtual-robot"],
                 simulator_available=True,
+                retry_safety=_SIMULATED,
             ),
         ]
 

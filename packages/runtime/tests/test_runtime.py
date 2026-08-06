@@ -6,7 +6,7 @@ from typing import Any, Literal
 import pytest
 
 from opensdl_adapter_local_compute import LocalComputeAdapter
-from opensdl_capabilities import CapabilityAdapter, CapabilityRegistry
+from opensdl_capabilities import CapabilityAdapter, CapabilityRegistry, NotDispatchedError
 from opensdl_core import (
     CapabilityDefinition,
     ExecutionDeniedError,
@@ -16,6 +16,7 @@ from opensdl_core import (
     LifecycleError,
     Resource,
     ResourceBusyError,
+    RetrySafety,
     RunRecord,
     RunState,
     TaskRecord,
@@ -42,6 +43,10 @@ class ProbeAdapter(CapabilityAdapter):
         timeout_seconds: float | None = None,
         required_resources: list[str] | None = None,
         output: dict[str, Any] | None = None,
+        # A probe is a simulator, so the honest declaration is that repeating it harms nothing.
+        # Tests that need the other two declarations pass them explicitly.
+        retry_safety: RetrySafety = RetrySafety.REPEATABLE,
+        failure: type[Exception] = RuntimeError,
     ) -> None:
         super().__init__()
         self.failures = failures
@@ -52,6 +57,8 @@ class ProbeAdapter(CapabilityAdapter):
             ["probe-resource"] if required_resources is None else required_resources
         )
         self.output = {"ok": True} if output is None else output
+        self.retry_safety = retry_safety
+        self.failure = failure
         self.calls = 0
         # A `threading.Event`, not an `asyncio.Event`: adapter code runs on the adapter's own loop
         # in its own thread, so an asyncio primitive shared with the calling loop is a cross-loop
@@ -73,6 +80,7 @@ class ProbeAdapter(CapabilityAdapter):
                 required_resources=list(self.required_resources),
                 timeout_seconds=self.timeout_seconds,
                 max_retries=self.max_retries,
+                retry_safety=self.retry_safety,
                 simulator_available=True,
             )
         ]
@@ -83,7 +91,7 @@ class ProbeAdapter(CapabilityAdapter):
         if self.delay_seconds:
             await asyncio.sleep(self.delay_seconds)
         if self.calls <= self.failures:
-            raise RuntimeError(f"transient failure {self.calls}")
+            raise self.failure(f"transient failure {self.calls}")
         return ExecutionResult(request_id=request.request_id, output=dict(self.output))
 
 
@@ -118,6 +126,10 @@ class BlockingAdapter(CapabilityAdapter):
                     "properties": {"ok": {"type": "boolean"}},
                 },
                 timeout_seconds=self.timeout_seconds,
+                # The blocking *shape* is a vendor SDK's; the work is a busy-wait with no effect
+                # on anything, so this capability is honestly repeatable. That keeps the timeout
+                # measured below on the branch where an abandoned wait is recorded as a failure.
+                retry_safety=RetrySafety.REPEATABLE,
             )
         ]
 
@@ -153,6 +165,7 @@ class AwaitingAdapter(CapabilityAdapter):
                     "properties": {"ok": {"type": "boolean"}},
                 },
                 timeout_seconds=30.0,
+                retry_safety=RetrySafety.REPEATABLE,
             )
         ]
 
@@ -319,6 +332,13 @@ async def test_cancelled_execution_is_not_retried_and_requires_intervention(
 
 @pytest.mark.asyncio
 async def test_timeout_records_diagnostic_and_releases_lease(tmp_path) -> None:
+    """A timeout on a capability that declares repeating it safe is an ordinary failure.
+
+    The physical outcome is no better established here than in the test below. What differs is
+    that the capability has said the ambiguity has no consequence, so `FAILED` — which is
+    resumable — claims nothing the declaration does not already permit.
+    """
+
     adapter = ProbeAdapter(delay_seconds=30, timeout_seconds=0.01)
     runtime, repositories = build_probe_runtime(tmp_path, adapter)
     expected = "execution of test.probe timed out after 0.01 seconds on attempt 1"
@@ -341,6 +361,161 @@ async def test_timeout_records_diagnostic_and_releases_lease(tmp_path) -> None:
     assert task_failed.payload["error"] == expected
     assert run_failed.payload["error"] == expected
     assert repositories.acquire_leases(["probe-resource"], "replacement-after-timeout", 60)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "retry_safety",
+    [RetrySafety.NOT_REPEATABLE, RetrySafety.REPEATABLE_IF_NOT_DISPATCHED],
+)
+async def test_a_timeout_the_capability_cannot_repeat_requires_intervention(
+    tmp_path, retry_safety: RetrySafety
+) -> None:
+    """A timed-out task must not claim a clean failure it cannot support.
+
+    `asyncio.wait_for` abandons the runtime's wait; it does not stop the instrument, and since
+    adapter work moved onto its own thread the abandoned call provably keeps running. So nothing
+    reported an outcome and nothing established one. Recording `FAILED` would say the action did
+    not happen, and `FAILED` is resumable, so a resume would dispatch the action again — the
+    behaviour the A1 fix exists to prevent, reached by a different road.
+    """
+
+    adapter = ProbeAdapter(delay_seconds=30, timeout_seconds=0.01, retry_safety=retry_safety)
+    runtime, repositories = build_probe_runtime(tmp_path / retry_safety.value, adapter)
+
+    with pytest.raises(WorkflowExecutionError) as raised:
+        await runtime.execute_capability("test.probe", {})
+
+    message = str(raised.value)
+    assert isinstance(raised.value.__cause__, TimeoutError)
+    assert adapter.calls == 1
+    assert "timed out after 0.01 seconds on attempt 1" in message
+    assert "physical outcome is unknown" in message
+    assert retry_safety.value in message
+    run = repositories.list_runs()[0]
+    task = repositories.list_tasks(run.id)[0]
+    assert run.state == RunState.INTERVENTION_REQUIRED
+    assert task.state == TaskState.INTERVENTION_REQUIRED
+    assert run.error == message
+    assert task.error == message
+    assert task.attempt == 1
+    events = repositories.list_events(run_id=run.id, limit=None)
+    task_event = next(event for event in events if event.type == "TaskInterventionRequired")
+    run_event = next(event for event in events if event.type == "RunInterventionRequired")
+    assert task_event.payload["reason"] == "execution_timed_out"
+    assert task_event.payload["error"] == message
+    assert run_event.payload["error"] == message
+    assert not any(event.type in {"TaskFailed", "RunFailed", "TaskRetrying"} for event in events)
+    # The lease is released whatever the recorded state, or the resource is stranded on a
+    # laboratory nobody can use until the process restarts.
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-timeout", 60)
+
+
+@pytest.mark.asyncio
+async def test_an_ambiguous_timeout_makes_the_run_unresumable(tmp_path) -> None:
+    """The two halves of this finding have to meet: an honest record that resume then honours."""
+
+    adapter = ProbeAdapter(
+        delay_seconds=30,
+        timeout_seconds=0.01,
+        retry_safety=RetrySafety.NOT_REPEATABLE,
+    )
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    workflow = probe_workflow()
+
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.run_workflow(workflow, {})
+
+    run = repositories.list_runs()[0]
+    with pytest.raises(WorkflowExecutionError) as refused:
+        await runtime.run_workflow(workflow, {}, run_id=run.id)
+
+    assert adapter.calls == 1, "resume re-dispatched an action whose outcome is unknown"
+    assert "cannot resume" in str(refused.value)
+    assert TaskState.INTERVENTION_REQUIRED.value in str(refused.value)
+
+
+@pytest.mark.asyncio
+async def test_a_transport_failure_is_not_repeated_when_the_capability_forbids_it(
+    tmp_path,
+) -> None:
+    """A2's root cause: a retried dispatch repeats the physical action just as a retried result did.
+
+    Moving output validation out of the retry loop stopped an invalid *result* repeating the
+    action. A transport failure still repeated it, and the runtime had no way to tell whether
+    that was safe. The step here asks for two extra attempts; the capability's declaration is
+    what refuses them.
+    """
+
+    adapter = ProbeAdapter(failures=10, retry_safety=RetrySafety.NOT_REPEATABLE)
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    workflow = WorkflowDefinition(
+        id="probe-workflow",
+        name="Probe workflow",
+        steps=[WorkflowStep(id="probe", capability="test.probe", inputs={}, retries=2)],
+        outputs={"result": "${steps.probe.output}"},
+    )
+
+    with pytest.raises(WorkflowExecutionError) as raised:
+        await runtime.run_workflow(workflow, {})
+
+    message = str(raised.value)
+    assert adapter.calls == 1, "the runtime repeated an action the capability declares unsafe"
+    assert "transient failure 1" in message
+    assert RetrySafety.NOT_REPEATABLE.value in message
+    assert "2 further attempt" in message
+    run = repositories.list_runs()[0]
+    task = repositories.list_tasks(run.id)[0]
+    assert run.state == RunState.FAILED
+    assert task.state == TaskState.FAILED
+    assert task.error == message
+    assert task.attempt == 1
+    events = repositories.list_events(run_id=run.id, limit=None)
+    assert not any(event.type == "TaskRetrying" for event in events)
+    task_failed = next(event for event in events if event.type == "TaskFailed")
+    assert task_failed.payload["reason"] == "retry_refused"
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-refusal", 60)
+
+
+@pytest.mark.asyncio
+async def test_a_conditionally_repeatable_capability_retries_only_on_proven_non_dispatch(
+    tmp_path,
+) -> None:
+    """The third declaration is the common real case, and it needs evidence rather than a guess.
+
+    A dispense that could not open a connection may be re-sent; the same dispense abandoned
+    mid-pour may not. Only the adapter knows which happened, so only the adapter can say so, and
+    it says so by raising `NotDispatchedError`. Every other failure is treated as unproven.
+    """
+
+    proven = ProbeAdapter(
+        failures=1,
+        max_retries=2,
+        retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED,
+        failure=NotDispatchedError,
+    )
+    runtime, repositories = build_probe_runtime(tmp_path / "proven", proven)
+
+    run = await runtime.execute_capability("test.probe", {})
+
+    assert proven.calls == 2
+    assert run.state == RunState.COMPLETED
+    assert repositories.list_tasks(run.id)[0].attempt == 2
+
+    unproven = ProbeAdapter(
+        failures=1,
+        max_retries=2,
+        retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED,
+    )
+    runtime, repositories = build_probe_runtime(tmp_path / "unproven", unproven)
+
+    with pytest.raises(WorkflowExecutionError) as raised:
+        await runtime.execute_capability("test.probe", {})
+
+    assert unproven.calls == 1, "an unproven failure was treated as proof that nothing happened"
+    assert "transient failure 1" in str(raised.value)
+    assert RetrySafety.REPEATABLE_IF_NOT_DISPATCHED.value in str(raised.value)
+    assert repositories.list_tasks(repositories.list_runs()[0].id)[0].state == TaskState.FAILED
 
 
 @pytest.mark.asyncio

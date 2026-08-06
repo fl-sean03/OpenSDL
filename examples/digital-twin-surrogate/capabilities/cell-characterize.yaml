@@ -43,6 +43,7 @@ required_resources: [cell-characterizer]
 side_effects: [records a characterization result]
 timeout_seconds: 60
 max_retries: 0
+retry_safety: repeatable
 supports_cancellation: false
 simulator_available: true
 tags: [cell, characterization, measurement]

@@ -4,13 +4,15 @@ import asyncio
 from copy import deepcopy
 from typing import Any
 
-from opensdl_capabilities import CapabilityRegistry, validate_instance
+from opensdl_capabilities import CapabilityRegistry, NotDispatchedError, validate_instance
 from opensdl_core import (
+    CapabilityDefinition,
     EventRecord,
     ExecutionDeniedError,
     ExecutionRequest,
     LifecycleError,
     ResourceBusyError,
+    RetrySafety,
     RunRecord,
     RunState,
     TaskRecord,
@@ -37,6 +39,21 @@ UNRESUMABLE_TASK_STATES = frozenset(
         TaskState.CANCELLED,
     }
 )
+
+
+def may_repeat_after(definition: CapabilityDefinition, failure: BaseException) -> bool:
+    """Whether this failure permits dispatching this capability again.
+
+    One question, asked in one place, from one declaration. The runtime cannot answer it from
+    what it observed: an adapter error is no more proof that nothing happened than an adapter
+    success is proof that something did. So `retry_safety` answers it, and the only failure that
+    can add anything is one the adapter raised to say the command never left the client.
+    """
+    if definition.retry_safety is RetrySafety.REPEATABLE:
+        return True
+    if definition.retry_safety is RetrySafety.REPEATABLE_IF_NOT_DISPATCHED:
+        return isinstance(failure, NotDispatchedError)
+    return False
 
 
 class ReferenceRuntime:
@@ -192,13 +209,38 @@ class ReferenceRuntime:
             raise
         except Exception as exc:
             error = str(exc) or type(exc).__name__
-            failed = self.repositories.update_run(run.id, state=RunState.FAILED, error=error)
-            self._emit(
-                "RunFailed",
-                run=failed,
-                payload={"error": error, "errorType": type(exc).__name__},
-                campaign_id=campaign_id,
-            )
+            # The run's recorded state is read off its tasks rather than off the exception. A
+            # task the runtime left ambiguous is the record of what is not known, and a run that
+            # reported a clean failure over one would be resumable while its own task is not.
+            ambiguous = [
+                task
+                for task in self.repositories.list_tasks(run.id)
+                if task.state == TaskState.INTERVENTION_REQUIRED
+            ]
+            if ambiguous:
+                interrupted = self.repositories.update_run(
+                    run.id,
+                    state=RunState.INTERVENTION_REQUIRED,
+                    error=error,
+                )
+                self._emit(
+                    "RunInterventionRequired",
+                    run=interrupted,
+                    payload={
+                        "error": error,
+                        "reason": "task_outcome_unknown",
+                        "tasks": [task.id for task in ambiguous],
+                    },
+                    campaign_id=campaign_id,
+                )
+            else:
+                failed = self.repositories.update_run(run.id, state=RunState.FAILED, error=error)
+                self._emit(
+                    "RunFailed",
+                    run=failed,
+                    payload={"error": error, "errorType": type(exc).__name__},
+                    campaign_id=campaign_id,
+                )
             if isinstance(
                 exc,
                 (
@@ -327,7 +369,8 @@ class ReferenceRuntime:
             # call inside an `async def` and so that one adapter cannot stall the rest of the
             # laboratory; see `opensdl_capabilities.execution`. Abandoning the wait does not stop
             # the instrument, which is why a timed-out task's physical outcome is not established
-            # by this code and must be established by a person.
+            # by this code. What the record is allowed to claim about it comes from
+            # `definition.retry_safety` below, and so does whether a failed dispatch is repeated.
             timeout = (
                 step.timeout_seconds or definition.timeout_seconds or self.default_timeout_seconds
             )
@@ -386,9 +429,82 @@ class ReferenceRuntime:
                             if timed_out
                             else str(exc) or type(exc).__name__
                         )
+                        # A timeout is the runtime giving up on the answer, not the adapter
+                        # supplying one. Nothing stopped, nothing reported, and the abandoned
+                        # call keeps running on its own thread. For a capability that has not
+                        # declared repeating it safe, recording a clean failure would both
+                        # overstate what is known and leave the task resumable, so the next
+                        # resume would dispatch the action a second time.
+                        if timed_out and definition.retry_safety is not RetrySafety.REPEATABLE:
+                            unknown = (
+                                f"{error}. The runtime stopped waiting; it did not stop the "
+                                "equipment, and nothing reported an outcome, so the physical "
+                                f"outcome is unknown. {step.capability} declares retry_safety "
+                                f"'{definition.retry_safety.value}', so this is recorded as "
+                                "requiring intervention rather than as a failure: a failed task "
+                                "is resumable and resuming would dispatch the action again. A "
+                                "person must establish what the equipment did before this run "
+                                "continues."
+                            )
+                            task.state = TaskState.INTERVENTION_REQUIRED
+                            task.error = unknown
+                            task.updated_at = utc_now()
+                            self.repositories.upsert_task(task)
+                            self._emit(
+                                "TaskInterventionRequired",
+                                run=run,
+                                task=task,
+                                payload={
+                                    "attempt": task.attempt,
+                                    "error": unknown,
+                                    "reason": "execution_timed_out",
+                                },
+                                campaign_id=campaign_id,
+                            )
+                            raise WorkflowExecutionError(unknown) from exc
+
+                        # A budget was available and the declaration withheld it. Saying so is
+                        # the difference between a capability that ran out of attempts and one
+                        # that was never allowed to spend them.
+                        remaining = max_retries - attempt
+                        if remaining > 0 and not may_repeat_after(definition, exc):
+                            because = (
+                                "this failure does not establish that the command never reached "
+                                "the equipment, which is the only evidence that would permit it"
+                                if definition.retry_safety
+                                is RetrySafety.REPEATABLE_IF_NOT_DISPATCHED
+                                else "repeating this operation is never safe"
+                            )
+                            refused = (
+                                f"execution of {step.capability} failed on attempt "
+                                f"{task.attempt}: {error}. {step.capability} declares "
+                                f"retry_safety '{definition.retry_safety.value}' and {because}, "
+                                f"so the runtime does not dispatch it again: the {remaining} "
+                                f"further attempt{'' if remaining == 1 else 's'} it was given "
+                                "would risk performing the physical action twice. Establish "
+                                "what the equipment did, then fix the fault or the capability "
+                                "contract before running this step again."
+                            )
+                            task.state = TaskState.FAILED
+                            task.error = refused
+                            task.updated_at = utc_now()
+                            self.repositories.upsert_task(task)
+                            self._emit(
+                                "TaskFailed",
+                                run=run,
+                                task=task,
+                                payload={
+                                    "attempt": task.attempt,
+                                    "error": refused,
+                                    "reason": "retry_refused",
+                                },
+                                campaign_id=campaign_id,
+                            )
+                            raise WorkflowExecutionError(refused) from exc
+
                         task.error = error
                         task.updated_at = utc_now()
-                        if attempt >= max_retries:
+                        if remaining <= 0:
                             task.state = TaskState.FAILED
                             self.repositories.upsert_task(task)
                             self._emit(

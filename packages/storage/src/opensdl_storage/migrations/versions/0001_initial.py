@@ -8,6 +8,15 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+#: Whether applying this revision can destroy anything a laboratory holds. `Database.initialize()`
+#: runs the history whenever a laboratory is opened for writing, so this is what stands between a
+#: destructive revision and an ordinary `opensdl run`. Not trusted: `tests/integration/`
+#: `test_migrations.py` applies each revision and compares what it removed against what it says.
+opensdl_kind = "additive"
+
+#: Everything this revision takes away, as `table:name`, `column:table.name` or `type:table.column`.
+opensdl_destroys: tuple[str, ...] = ()
+
 
 def upgrade() -> None:
     op.create_table(

@@ -23,6 +23,22 @@ down_revision = "0001"
 branch_labels = None
 depends_on = None
 
+#: This revision drops a table, so it is destructive by the only definition that can be checked —
+#: see `opensdl_destroys` below and `tests/integration/test_migrations.py`, which reads what the
+#: revision really does off the schema it leaves behind rather than believing this line.
+#:
+#: It is also a revision every laboratory must apply, including one created today: 0001 creates
+#: `schema_versions` and this revision removes it. A rule that refuses every destructive revision
+#: when a laboratory is opened for writing therefore has to name this one explicitly rather than
+#: treat "destructive" as "never applied unattended".
+opensdl_kind = "destructive"
+
+#: `schema_versions` held one row: the literal string `"0001"`, written at store creation, never
+#: read, never compared and never advanced. No laboratory record has ever lived here. That is a
+#: judgement about this table's contents, and it is deliberately kept out of the declaration above,
+#: which stays mechanical so that a test can check it.
+opensdl_destroys: tuple[str, ...] = ("table:schema_versions",)
+
 
 #: `(table, column)` for every `index=True` in `db_models.py`. The index name is the one SQLAlchemy
 #: generates for that declaration, so a store built by `create_all()` already owns it under exactly

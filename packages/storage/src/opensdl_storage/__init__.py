@@ -4,6 +4,11 @@ from .db_models import Base
 from .interfaces import ArtifactStore, RepositoryStore
 from .repositories import Repositories
 from .schema import (
+    revision_kind,
+    destructive_revisions,
+    REVISION_KINDS,
+    GRANDFATHERED_DESTRUCTIVE,
+    DestructiveUpgradeRefused,
     ADOPTION_REVISION,
     MIGRATIONS,
     SchemaUpgrade,
@@ -15,6 +20,11 @@ from .schema import (
 )
 
 __all__ = [
+    "revision_kind",
+    "destructive_revisions",
+    "REVISION_KINDS",
+    "GRANDFATHERED_DESTRUCTIVE",
+    "DestructiveUpgradeRefused",
     "ADOPTION_REVISION",
     "MIGRATIONS",
     "ArtifactStore",

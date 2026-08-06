@@ -38,7 +38,7 @@ class Database:
             return
         Path(raw).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 
-    def initialize(self) -> SchemaUpgrade:
+    def initialize(self, *, allow_destructive: bool = False) -> SchemaUpgrade:
         """Bring this store to the current schema and report what that took.
 
         This used to be `create_all()` plus a hand-written `"0001"` row, which could create a
@@ -50,8 +50,12 @@ class Database:
         store therefore moves to head when something is about to write to it, which is why
         `docs/reference/compatibility.md` says to back up before upgrading OpenSDL. Use
         `pending_upgrade()` to see what would be applied without applying it.
+
+        Only additive revisions are applied this way. A revision that destroys something
+        stops here and asks for `opensdl migrate`, so a migration that drops data never
+        runs inside an ordinary run with nobody asked.
         """
-        return upgrade_to_head(self.engine)
+        return upgrade_to_head(self.engine, allow_destructive=allow_destructive)
 
     def pending_upgrade(self) -> tuple[str, ...]:
         """Revisions this store is behind, oldest first, without applying any of them."""

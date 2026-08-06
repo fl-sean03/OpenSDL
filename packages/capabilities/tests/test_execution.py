@@ -16,12 +16,18 @@ import time
 
 import pytest
 
-from opensdl_capabilities import AdapterExecutor, CapabilityAdapter, CapabilityRegistry
+from opensdl_capabilities import (
+    AdapterExecutor,
+    CapabilityAdapter,
+    CapabilityRegistry,
+    NotDispatchedError,
+)
 from opensdl_core import (
     CapabilityDefinition,
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
+    OpenSDLError,
 )
 
 
@@ -140,6 +146,53 @@ async def test_a_declared_wait_bounds_a_blocking_adapter_and_leaves_the_loop_fre
     # Abandoning the wait does not stop the work, and nothing in software could. The runtime
     # records that it stopped waiting; a person establishes what the equipment did.
     assert adapter.finished.wait(timeout=5)
+    await registry.close()
+
+
+class UnreachableAdapter(CapabilityAdapter):
+    """An adapter that could not open a connection, so the command never left this process."""
+
+    name = "unreachable"
+
+    def capability_definitions(self) -> list[CapabilityDefinition]:
+        return [
+            CapabilityDefinition(
+                id="test.unreachable",
+                name="Unreachable",
+                executor_type=ExecutorType.INSTRUMENT,
+                input_schema={"type": "object"},
+                output_schema={"type": "object"},
+            )
+        ]
+
+    async def execute(self, request: ExecutionRequest) -> ExecutionResult:
+        raise NotDispatchedError("the client could not open a connection to the instrument")
+
+
+@pytest.mark.asyncio
+async def test_a_non_dispatch_claim_survives_the_worker_thread_unchanged() -> None:
+    """The claim is carried by the exception's type, and that type crosses two loops to arrive.
+
+    An adapter raises on its own loop, on its own thread; the runtime reads the failure on the
+    calling loop after `_bridge` relays it. Retry safety for a conditionally repeatable capability
+    is decided entirely by `isinstance` at that far end, so a relay that wrapped or substituted
+    the exception would turn a permitted retry into a silent refusal — or, far worse if the
+    substitution ever went the other way, a refusal into a permitted repeat.
+    """
+
+    adapter = UnreachableAdapter()
+    registry = CapabilityRegistry()
+    registry.register(adapter)
+
+    with pytest.raises(NotDispatchedError) as raised:
+        await registry.dispatch(
+            "test.unreachable", ExecutionRequest(capability_id="test.unreachable")
+        ).result(5)
+
+    assert "could not open a connection" in str(raised.value)
+    # It is a declared OpenSDL failure, not an unhandled defect: an adapter reporting that it
+    # never reached the equipment has behaved correctly, and every interface classifies it so.
+    assert isinstance(raised.value, OpenSDLError)
     await registry.close()
 
 

@@ -64,6 +64,7 @@ required_resources: [cell-dispenser]
 side_effects: [adds declared materials to labware contents]
 timeout_seconds: 60
 max_retries: 0
+retry_safety: repeatable_if_not_dispatched
 supports_cancellation: false
 simulator_available: true
 tags: [cell, liquid-handling, formulation]

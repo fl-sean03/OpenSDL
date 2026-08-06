@@ -156,6 +156,13 @@ These are the events created since the policy was written. Each is also in `CHAN
 | Surface | Previously | Now | What a laboratory does |
 |---|---|---|---|
 | Manifest values containing `${env:...}` | Passed through as literal text | Resolved from the environment, or refused when the variable is unset or empty | Set the variable, or write the value if the text was meant literally — it can no longer be expressed |
+| `CapabilityDefinition.retry_safety` | Did not exist; any failed dispatch was repeated within `max_retries` | Defaults to `not_repeatable`, which forbids automatic repeats | Declare the retry safety each capability actually has; a simulator or pure computation declares `repeatable` |
+| `max_retries` above zero | Accepted on any capability | Refused when the same definition declares `retry_safety: not_repeatable` | Declare a retry safety that permits repeats, or set `max_retries: 0` |
+| A task that times out | Recorded `failed`, and a resume re-dispatched it | Recorded `intervention_required` unless the capability declares `repeatable`, and the run over it likewise | Nothing for a `repeatable` capability. Otherwise a person establishes what the equipment did and submits the remaining work as a new run |
+| A store behind a destructive revision | Migrated silently on any write | Refused, with `opensdl migrate` as the opt-in; `0002` is exempted by name because every laboratory passes through it | Back the store up and run `opensdl migrate` |
+| A `deny` rule an earlier `allow` fully covers | Loaded and never fired | Refused at load with both rules named | Give the deny a lower priority number than the allow, or narrow the allow |
+| `DecisionRecorded` event | Written after the run, only for a successful iteration, carrying its score; `evidence_run_ids` named the run it caused | Written before the run, for every proposed candidate, carrying acquisition provenance and no score; `evidence_run_ids` names the runs it rested on | Nothing — projection reads both forms |
+| Campaign event types | Five types | Adds `CampaignIterationCompleted` and `CampaignCandidateRejected` | Nothing, unless you consume the event stream by type |
 | Manifest values containing `${anything-else:...}` | Passed through as literal text | Refused, naming `env:` as the only implemented provider | Remove the prefix or set `env:` |
 | `${...}` anywhere under `spec.policy` | Passed through as literal text | Refused | Write the policy value in the manifest |
 | `schema_versions` table | Created and stamped `"0001"` | Dropped by revision `0002`; `alembic_version` records the version | Nothing. Migration is automatic |

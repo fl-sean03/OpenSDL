@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from opensdl_schemas import load_manifest
-from opensdl_storage import Database, head_revision
+from opensdl_storage import destructive_revisions, Database, head_revision
 
 from .system import _redact_url, _resolve_database_url, _sqlite_store_path
 
@@ -46,12 +46,15 @@ def plan(manifest_path: str | Path) -> dict[str, Any]:
     if store is not None and not store.exists():
         report["current"] = None
         report["pending"] = [head_revision()]
+        report["destructive"] = list(destructive_revisions((head_revision(),)))
         report["exists"] = False
         return report
     database = Database(url, create=False)
     try:
         report["current"] = _current(database)
-        report["pending"] = list(database.pending_upgrade())
+        pending = tuple(database.pending_upgrade())
+        report["pending"] = list(pending)
+        report["destructive"] = list(destructive_revisions(pending))
         report["exists"] = True
     finally:
         database.dispose()
@@ -64,7 +67,9 @@ def upgrade(manifest_path: str | Path) -> dict[str, Any]:
     database = Database(url)
     try:
         before = _current(database)
-        result = database.initialize()
+        # `opensdl migrate` is the deliberate act, so this is where a destructive
+        # revision is allowed to run. Opening a laboratory for writing refuses it.
+        result = database.initialize(allow_destructive=True)
         return {
             "laboratory": name,
             "database": _redact_url(url),

@@ -6,6 +6,7 @@ from opensdl_core import (
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
+    RetrySafety,
     RiskClass,
     utc_now,
 )
@@ -32,6 +33,11 @@ class {{ class_name }}(CapabilityAdapter):
                     "additionalProperties": False,
                 },
                 risk_class=RiskClass.R0,
+                # The generated body computes an answer and touches nothing, so repeating it
+                # is harmless. Change this the moment this adapter drives real equipment: it
+                # decides whether the runtime dispatches the operation a second time after a
+                # transport failure, and what a timed-out task is allowed to claim happened.
+                retry_safety=RetrySafety.REPEATABLE,
                 simulator_available=True,
             )
         ]

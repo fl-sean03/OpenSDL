@@ -1,4 +1,4 @@
-from .adapter import CapabilityAdapter
+from .adapter import CapabilityAdapter, NotDispatchedError
 from .conformance import ConformanceReport, run_adapter_conformance
 from .execution import AdapterCall, AdapterExecutor
 from .plugins import (
@@ -19,6 +19,7 @@ __all__ = [
     "CapabilityAdapter",
     "CapabilityRegistry",
     "ConformanceReport",
+    "NotDispatchedError",
     "PLUGIN_ALLOWLIST_ENV",
     "PluginManager",
     "PluginNotAllowedError",

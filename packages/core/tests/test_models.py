@@ -7,6 +7,7 @@ from opensdl_core import (
     ExecutorType,
     LifecycleError,
     Quantity,
+    RetrySafety,
     RiskClass,
     RunRecord,
     RunState,
@@ -22,16 +23,56 @@ def test_quantity_requires_unit() -> None:
         Quantity(value=1.0, unit=" ")
 
 
+def capability_definition(**overrides: object) -> CapabilityDefinition:
+    fields: dict[str, object] = {
+        "id": "sim.measure_mass",
+        "name": "Measure mass",
+        "executor_type": ExecutorType.SIMULATOR,
+        "input_schema": {"type": "object"},
+        "output_schema": {"type": "object"},
+        "risk_class": RiskClass.R0,
+    }
+    fields.update(overrides)
+    return CapabilityDefinition(**fields)  # pyright: ignore[reportArgumentType]
+
+
 def test_capability_contract_round_trip() -> None:
-    capability = CapabilityDefinition(
-        id="sim.measure_mass",
-        name="Measure mass",
-        executor_type=ExecutorType.SIMULATOR,
-        input_schema={"type": "object"},
-        output_schema={"type": "object"},
-        risk_class=RiskClass.R0,
-    )
+    capability = capability_definition(retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED)
     assert CapabilityDefinition.model_validate_json(capability.model_dump_json()) == capability
+
+
+def test_an_undeclared_capability_is_not_repeatable() -> None:
+    """Silence about retry safety must not read as permission to repeat a physical action.
+
+    The runtime cannot infer whether repeating an operation is safe, which is the whole reason
+    this field exists. A definition that says nothing has told it nothing, and the only reading
+    of nothing that cannot cause an incident is the strictest one.
+    """
+    assert capability_definition().retry_safety is RetrySafety.NOT_REPEATABLE
+
+
+def test_a_capability_cannot_declare_a_retry_budget_it_calls_unsafe() -> None:
+    """`max_retries` and `retry_safety` are one statement, so they cannot contradict each other.
+
+    A definition asking for three automatic attempts while declaring that repeating it is never
+    safe is a contract the runtime cannot honour either way round. Refusing it at construction
+    means the author finds out where they wrote it, rather than discovering at an instrument that
+    the budget they declared was quietly ignored.
+    """
+    with pytest.raises(PydanticValidationError, match="retry_safety"):
+        capability_definition(retry_safety=RetrySafety.NOT_REPEATABLE, max_retries=3)
+
+    # Both other declarations can honour a budget: one repeats freely, the other repeats on proof
+    # that nothing was dispatched.
+    assert (
+        capability_definition(retry_safety=RetrySafety.REPEATABLE, max_retries=3).max_retries == 3
+    )
+    assert (
+        capability_definition(
+            retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED, max_retries=3
+        ).max_retries
+        == 3
+    )
 
 
 def campaign_definition(**overrides: object) -> CampaignDefinition:

@@ -21,9 +21,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from collections.abc import Sequence
+
 from opensdl_capabilities import PluginManager, enforce_plugin_allowlist, plugin_allowlist
 from opensdl_core import WorkflowDefinition
-from opensdl_runtime import CampaignReader, CampaignRecord, CampaignRunner, ReferenceRuntime
+from opensdl_runtime import (
+    CampaignReader,
+    CampaignRecord,
+    CampaignRunner,
+    CandidateConstraint,
+    Objective,
+    OutcomeConstraint,
+    ReferenceRuntime,
+    SearchSpace,
+)
 from opensdl_storage import RepositoryStore
 
 
@@ -68,6 +79,12 @@ class CampaignLauncher:
         max_duration_seconds: float | None = None,
         iteration_id_input: str | None = None,
         campaign_id: str | None = None,
+        objectives: Sequence[Objective] | None = None,
+        search_space: SearchSpace | None = None,
+        candidate_constraints: Sequence[CandidateConstraint] = (),
+        outcome_constraints: Sequence[OutcomeConstraint] = (),
+        batch_size: int = 1,
+        max_parallel_runs: int = 1,
     ) -> CampaignRecord:
         """Run a campaign to a stopping rule and return the record projected from its events.
 
@@ -75,10 +92,13 @@ class CampaignLauncher:
         every run records it, so a campaign that stated its own would write a false provenance
         record. `operator_id` names who is accountable for an unattended loop.
 
-        The arguments below `optimizer_config` mirror `CampaignRunner.run`, which mirrors
-        `opensdl_core.CampaignDefinition`. `optimizer_config` has no field on that definition, so a
-        stored campaign definition cannot yet configure its own optimizer; that gap is the reason
-        this takes arguments rather than a definition file.
+        The arguments from `base_inputs` to `iteration_id_input` mirror `CampaignRunner.run`, which
+        mirrors `opensdl_core.CampaignDefinition`. `optimizer_config` has no field on that
+        definition, so a stored campaign definition cannot yet configure its own optimizer; that
+        gap is the reason this takes arguments rather than a definition file. The declared problem
+        and the throughput arguments below `campaign_id` have no field on it either, and are passed
+        straight through so that starting a campaign from outside Python is not the surface that
+        loses them.
         """
         loaded = self.load_optimizer(optimizer, optimizer_config)
         result = await CampaignRunner(self.runtime, self.repositories).run(
@@ -95,5 +115,11 @@ class CampaignLauncher:
             max_duration_seconds=max_duration_seconds,
             iteration_id_input=iteration_id_input,
             campaign_id=campaign_id,
+            objectives=objectives,
+            search_space=search_space,
+            candidate_constraints=candidate_constraints,
+            outcome_constraints=outcome_constraints,
+            batch_size=batch_size,
+            max_parallel_runs=max_parallel_runs,
         )
         return CampaignReader(self.repositories).get(result.campaign_id)

@@ -43,6 +43,38 @@ MIGRATIONS = Path(__file__).parent / "migrations"
 #: checks for each index before creating it, so both lineages converge without conflict.
 ADOPTION_REVISION = "0001"
 
+REVISION_KINDS = ("additive", "destructive")
+
+#: Destructive revisions applied when a laboratory is opened for writing anyway, because every
+#: laboratory passes through them. `0002` drops `schema_versions`, the hand-rolled version table
+#: `alembic_version` replaced: `0001` creates it and `0002` removes it, so refusing it would refuse
+#: a store created today. Adding to this list is the decision the refusal below exists to force.
+GRANDFATHERED_DESTRUCTIVE = frozenset({"0002"})
+
+
+class DestructiveUpgradeRefused(RuntimeError):
+    """A store is behind a revision that destroys something, and nobody was asked."""
+
+
+def revision_kind(revision: str) -> str:
+    """What a revision says it does. A revision that does not say cannot be applied unattended."""
+    module = script_directory().get_revision(revision).module
+    kind = getattr(module, "opensdl_kind", None)
+    if kind not in REVISION_KINDS:
+        raise RuntimeError(
+            f"revision {revision} declares opensdl_kind={kind!r}; a revision that does not say "
+            f"whether it destroys anything cannot be applied unattended"
+        )
+    return kind
+
+
+def destructive_revisions(revisions: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(
+        revision
+        for revision in revisions
+        if revision_kind(revision) == "destructive" and revision not in GRANDFATHERED_DESTRUCTIVE
+    )
+
 
 @dataclass(frozen=True)
 class SchemaUpgrade:
@@ -101,11 +133,27 @@ def pending_revisions(connection: Connection) -> tuple[str, ...]:
     return _revisions_after(current)
 
 
-def upgrade_to_head(engine: Engine) -> SchemaUpgrade:
-    """Bring one store to the current schema, adopting it first if it predates Alembic."""
+def upgrade_to_head(engine: Engine, *, allow_destructive: bool = False) -> SchemaUpgrade:
+    """Bring one store to the current schema, adopting it first if it predates Alembic.
+
+    Opening a laboratory for writing applies additive revisions and stops at a destructive
+    one, so a migration that drops data never runs inside an ordinary run with nobody asked
+    and no backup taken. `opensdl migrate` is the opt-in.
+    """
     with engine.connect() as connection:
         previous = current_revision(connection)
         adopt = previous is None and _carries_declared_tables(connection)
+    refused = (
+        ()
+        if allow_destructive
+        else destructive_revisions(_revisions_after(ADOPTION_REVISION if adopt else previous))
+    )
+    if refused:
+        raise DestructiveUpgradeRefused(
+            f"this store is behind {', '.join(refused)}, which destroys data. Opening a "
+            "laboratory for writing applies additive revisions and stops here. Back the store "
+            "up, then run `opensdl migrate`."
+        )
     if adopt:
         _run(engine, command.stamp, ADOPTION_REVISION)
         previous = ADOPTION_REVISION

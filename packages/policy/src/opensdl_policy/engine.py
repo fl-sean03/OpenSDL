@@ -21,6 +21,20 @@ class PolicyRule(OpenSDLModel):
     priority: int = 100
 
     def matches(self, capability: CapabilityDefinition, operator_id: str, environment: str) -> bool:
+        """Whether this rule decides this request. Four selectors, all of which must admit it.
+
+        Three of them glob. `risk_classes` compares strings, so `R*` matches no class at all —
+        the asymmetry `test_risk_class_selector_is_an_exact_match_and_not_a_glob` pins.
+
+        One thing outside this distribution depends on the semantics here. `opensdl_schemas`
+        refuses to load a manifest whose `deny` rule an earlier `allow` covers completely, because
+        such a rule can never reach this method: evaluation takes the first match in priority order
+        and a deny does not override an earlier allow. That analysis cannot import this package —
+        the boundary in `scripts/check-boundaries.py` forbids it — so it reimplements what "covers"
+        means and `packages/schemas/tests/test_manifest_policy.py` holds the two together by
+        evaluating every pair it reports against this engine. Changing what this method matches
+        will fail there, which is the intended place to find out.
+        """
         return (
             fnmatch(capability.id, self.capability)
             and any(fnmatch(environment, pattern) for pattern in self.environments)

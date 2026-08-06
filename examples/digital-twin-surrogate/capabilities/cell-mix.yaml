@@ -55,6 +55,7 @@ required_resources: [cell-mixer]
 side_effects: [changes labware contents through mixing]
 timeout_seconds: 90
 max_retries: 0
+retry_safety: repeatable_if_not_dispatched
 supports_cancellation: false
 simulator_available: true
 tags: [cell, mixing, formulation]

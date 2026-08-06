@@ -36,6 +36,7 @@ required_resources: [cell-transport]
 side_effects: [changes declared labware location]
 timeout_seconds: 30
 max_retries: 0
+retry_safety: repeatable_if_not_dispatched
 supports_cancellation: false
 simulator_available: true
 tags: [cell, labware, transport]

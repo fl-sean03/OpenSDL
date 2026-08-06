@@ -13,6 +13,7 @@ from opensdl_core import (
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
+    RetrySafety,
     RiskClass,
     utc_now,
 )
@@ -84,6 +85,10 @@ def build_capability_definitions() -> list[CapabilityDefinition]:
             side_effects=["changes declared labware location"],
             timeout_seconds=30,
             max_retries=0,
+            # An arm that never received the command can be commanded again. An arm that may already
+            # have moved cannot: the labware is somewhere this adapter's state does not say,
+            # and a second transfer would drive into whatever is now in the way.
+            retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED,
             supports_cancellation=False,
             simulator_available=True,
             tags=["cell", "labware", "transport"],
@@ -126,6 +131,10 @@ def build_capability_definitions() -> list[CapabilityDefinition]:
             side_effects=["adds declared materials to labware contents"],
             timeout_seconds=60,
             max_retries=0,
+            # The canonical case. A dispense that failed to open a connection delivered nothing and may
+            # be re-sent; the same dispense abandoned mid-pour has put an unknown volume into
+            # the plate, and repeating it doubles a formulation nobody can measure back out.
+            retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED,
             supports_cancellation=False,
             simulator_available=True,
             tags=["cell", "liquid-handling", "formulation"],
@@ -177,6 +186,9 @@ def build_capability_definitions() -> list[CapabilityDefinition]:
             side_effects=["changes labware contents through mixing"],
             timeout_seconds=90,
             max_retries=0,
+            # Mixing twice is not mixing once: the energy and duration delivered are the process, so a
+            # repeat over an unknown partial mix is a deviation rather than a retry.
+            retry_safety=RetrySafety.REPEATABLE_IF_NOT_DISPATCHED,
             supports_cancellation=False,
             simulator_available=True,
             tags=["cell", "mixing", "formulation"],
@@ -221,6 +233,10 @@ def build_capability_definitions() -> list[CapabilityDefinition]:
             side_effects=["records a characterization result"],
             timeout_seconds=60,
             max_retries=0,
+            # A non-destructive measurement. Reading the plate again costs a minute and changes nothing
+            # about it, which is what makes this the one capability here that is freely
+            # repeatable — not that it is a surrogate.
+            retry_safety=RetrySafety.REPEATABLE,
             supports_cancellation=False,
             simulator_available=True,
             tags=["cell", "characterization", "measurement"],

@@ -24,7 +24,7 @@ from opensdl_core import (
 )
 from opensdl_operators import CampaignLauncher
 from opensdl_policy import PolicyEngine
-from opensdl_runtime import CampaignState, ReferenceRuntime
+from opensdl_runtime import CampaignState, Parameter, ReferenceRuntime, SearchSpace
 from opensdl_storage import Database, LocalArtifactStore, Repositories
 
 
@@ -110,6 +110,58 @@ async def test_the_launcher_runs_a_campaign_and_returns_its_record(tmp_path: Pat
     assert record.succeeded == 3
     assert record.best is not None and record.best.candidate == {"x": 1.0}
     assert {run.environment for run in repositories.list_runs()} == {"production"}
+
+
+@pytest.mark.asyncio
+async def test_the_launcher_carries_the_declared_problem_and_the_batch_through(
+    tmp_path: Path,
+) -> None:
+    """Starting a campaign from outside Python must not be where the new contract stops."""
+
+    launcher, repositories = build_launcher(tmp_path)
+
+    record = await launcher.run(
+        scoring_workflow(),
+        environment="simulation",
+        operator_id="operator/alice",
+        optimizer="grid",
+        optimizer_config=candidates(),
+        max_iterations=3,
+        batch_size=3,
+        search_space=SearchSpace(parameters=[Parameter.continuous("x", 0.0, 5.0)]),
+    )
+
+    assert record.batch_size == 3
+    assert record.problem is not None
+    assert record.problem.space.parameters[0].upper == 5.0
+    assert [item.batch for item in record.iterations] == [0, 0, 0]
+    assert record.succeeded == 3
+    # One batch of three, so the optimizer was asked once.
+    proposals = [
+        event
+        for event in repositories.list_events(campaign_id=record.campaign_id, limit=None)
+        if event.type == "DecisionRecorded"
+    ]
+    assert [event.payload["batchSize"] for event in proposals] == [3, 3, 3]
+
+
+@pytest.mark.asyncio
+async def test_a_grid_outside_the_declared_space_stops_before_any_run(tmp_path: Path) -> None:
+    """`configure` runs before the loop, so a misconfigured sweep never reaches an instrument."""
+
+    launcher, repositories = build_launcher(tmp_path)
+
+    with pytest.raises(ValueError, match="leaves the search space"):
+        await launcher.run(
+            scoring_workflow(),
+            environment="simulation",
+            operator_id="operator/alice",
+            optimizer="grid",
+            optimizer_config=candidates(),
+            search_space=SearchSpace(parameters=[Parameter.continuous("x", 0.0, 2.0)]),
+        )
+
+    assert repositories.list_runs() == []
 
 
 @pytest.mark.asyncio

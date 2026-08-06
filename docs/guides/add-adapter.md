@@ -201,3 +201,16 @@ Physical qualification stays deployment-specific. An adapter that returns a succ
 that a physical action occurred — see
 [SAFETY.md](https://github.com/fl-sean03/OpenSDL/blob/main/SAFETY.md) for the records a physical
 operation must preserve and the controls that remain independent of this framework.
+
+## Declare retry safety before this adapter drives equipment
+
+`retry_safety` decides whether the runtime dispatches an operation a second time after a
+transport failure, and what a timed-out task is allowed to claim happened. The generated
+adapter declares `REPEATABLE`, which is honest for a placeholder that computes an answer and
+touches nothing, and wrong for anything that moves, dispenses or heats. A definition that
+omits the field means `not_repeatable`, because saying nothing has told the runtime nothing.
+
+Raise `NotDispatchedError` when, and only when, the command provably never left the client.
+It is the one failure that lets the runtime repeat a `repeatable_if_not_dispatched`
+operation, and nothing checks the claim. See
+[capabilities](../concepts/capabilities.md#retry-safety).

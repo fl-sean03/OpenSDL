@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # So the gate can be re-run against a commit without pushing another one. Without this,
+  # a push that does not trigger a run leaves no way to establish whether main is green.
+  workflow_dispatch:
 
 permissions:
   contents: read

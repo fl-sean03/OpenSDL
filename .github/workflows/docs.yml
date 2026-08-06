@@ -3,6 +3,7 @@ name: Documentation
 on:
   pull_request:
     paths: ["docs/**", "README.md", "mkdocs.yml", "packages/**"]
+  workflow_dispatch:
 
 permissions:
   contents: read

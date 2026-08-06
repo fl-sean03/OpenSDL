@@ -18,3 +18,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# The Alembic environment is data, not an importable subpackage: Alembic loads `env.py` and each
+# revision by path. Without this, a built wheel carries the models and none of their migration
+# history, and `opensdl migrate` in a generated laboratory has nothing to run.
+[tool.setuptools.package-data]
+opensdl_storage = ["migrations/env.py", "migrations/script.py.mako", "migrations/versions/*.py"]

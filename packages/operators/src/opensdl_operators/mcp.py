@@ -46,11 +46,31 @@ def build_mcp_server(gateway: OperatorGateway) -> Any:
         return await gateway.call_tool("inspect_run", {"run_id": run_id})
 
     @server.tool(name="query_events", description=TOOL_SPECS_BY_NAME["query_events"].description)
-    async def query_events(run_id: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+    async def query_events(
+        run_id: str | None = None,
+        campaign_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
         arguments: dict[str, Any] = {"limit": limit}
         if run_id is not None:
             arguments["run_id"] = run_id
+        if campaign_id is not None:
+            arguments["campaign_id"] = campaign_id
         return await gateway.call_tool("query_events", arguments)
+
+    @server.tool(
+        name="list_campaigns",
+        description=TOOL_SPECS_BY_NAME["list_campaigns"].description,
+    )
+    async def list_campaigns() -> list[dict[str, Any]]:
+        return await gateway.call_tool("list_campaigns")
+
+    @server.tool(
+        name="inspect_campaign",
+        description=TOOL_SPECS_BY_NAME["inspect_campaign"].description,
+    )
+    async def inspect_campaign(campaign_id: str) -> dict[str, Any]:
+        return await gateway.call_tool("inspect_campaign", {"campaign_id": campaign_id})
 
     @server.tool(
         name="execute_capability",

@@ -15,10 +15,9 @@ class Base(DeclarativeBase):
     pass
 
 
-class SchemaVersionRow(Base):
-    __tablename__ = "schema_versions"
-    version: Mapped[str] = mapped_column(String(64), primary_key=True)
-    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+# There was a `SchemaVersionRow` mapped to `schema_versions` here. It held one row, written once
+# when a store was created and never read, compared, or advanced. Alembic's `alembic_version` now
+# records the schema version and is consulted on every upgrade; revision 0002 drops the table.
 
 
 class RunRow(Base):

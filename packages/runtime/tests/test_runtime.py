@@ -1,4 +1,6 @@
 import asyncio
+import threading
+import time
 from typing import Any, Literal
 
 import pytest
@@ -51,7 +53,10 @@ class ProbeAdapter(CapabilityAdapter):
         )
         self.output = {"ok": True} if output is None else output
         self.calls = 0
-        self.started = asyncio.Event()
+        # A `threading.Event`, not an `asyncio.Event`: adapter code runs on the adapter's own loop
+        # in its own thread, so an asyncio primitive shared with the calling loop is a cross-loop
+        # write. See `opensdl_capabilities.execution`.
+        self.started = threading.Event()
 
     def capability_definitions(self) -> list[CapabilityDefinition]:
         return [
@@ -80,6 +85,80 @@ class ProbeAdapter(CapabilityAdapter):
         if self.calls <= self.failures:
             raise RuntimeError(f"transient failure {self.calls}")
         return ExecutionResult(request_id=request.request_id, output=dict(self.output))
+
+
+class BlockingAdapter(CapabilityAdapter):
+    """An `async def` with no await in it, which is the shape of every blocking vendor SDK.
+
+    The audit measured this exact adapter shape against a declared timeout of 0.1 seconds and
+    watched it run for 2.00 seconds without raising, because `asyncio.wait_for` can only interrupt
+    a coroutine at an await point and this one never yields.
+    """
+
+    name = "blocking"
+
+    def __init__(self, *, seconds: float, timeout_seconds: float | None = None) -> None:
+        super().__init__()
+        self.seconds = seconds
+        self.timeout_seconds = timeout_seconds
+        self.calls = 0
+        self.entered = threading.Event()
+        self.finished = threading.Event()
+
+    def capability_definitions(self) -> list[CapabilityDefinition]:
+        return [
+            CapabilityDefinition(
+                id="test.blocking",
+                name="Blocking work",
+                executor_type=ExecutorType.COMPUTE,
+                input_schema={"type": "object"},
+                output_schema={
+                    "type": "object",
+                    "required": ["ok"],
+                    "properties": {"ok": {"type": "boolean"}},
+                },
+                timeout_seconds=self.timeout_seconds,
+            )
+        ]
+
+    async def execute(self, request: ExecutionRequest) -> ExecutionResult:
+        self.calls += 1
+        self.entered.set()
+        deadline = time.monotonic() + self.seconds
+        while time.monotonic() < deadline:  # pure synchronous computation, no await point
+            pass
+        self.finished.set()
+        return ExecutionResult(request_id=request.request_id, output={"ok": True})
+
+
+class AwaitingAdapter(CapabilityAdapter):
+    """A genuinely asynchronous adapter: it yields, so the loop is free while it works."""
+
+    name = "awaiting"
+
+    def __init__(self, *, seconds: float) -> None:
+        super().__init__()
+        self.seconds = seconds
+
+    def capability_definitions(self) -> list[CapabilityDefinition]:
+        return [
+            CapabilityDefinition(
+                id="test.awaiting",
+                name="Awaiting work",
+                executor_type=ExecutorType.SIMULATOR,
+                input_schema={"type": "object"},
+                output_schema={
+                    "type": "object",
+                    "required": ["ok"],
+                    "properties": {"ok": {"type": "boolean"}},
+                },
+                timeout_seconds=30.0,
+            )
+        ]
+
+    async def execute(self, request: ExecutionRequest) -> ExecutionResult:
+        await asyncio.sleep(self.seconds)
+        return ExecutionResult(request_id=request.request_id, output={"ok": True})
 
 
 def build_runtime(tmp_path, *, default_run_context=None):
@@ -213,7 +292,7 @@ async def test_cancelled_execution_is_not_retried_and_requires_intervention(
     adapter = ProbeAdapter(delay_seconds=30, max_retries=1)
     runtime, repositories = build_probe_runtime(tmp_path, adapter)
     execution = asyncio.create_task(runtime.execute_capability("test.probe", {}))
-    await asyncio.wait_for(adapter.started.wait(), timeout=1)
+    assert await asyncio.to_thread(adapter.started.wait, 5)
 
     execution.cancel()
     with pytest.raises(asyncio.CancelledError):
@@ -769,6 +848,94 @@ def test_recovery_reconciles_a_run_that_was_aborting(tmp_path) -> None:
     task = repositories.list_tasks(run.id)[0]
     assert task.state == TaskState.INTERVENTION_REQUIRED
     assert "physical outcome is unknown" in (task.error or "")
+
+
+def build_multi_adapter_runtime(tmp_path, *adapters: CapabilityAdapter):
+    database = Database("sqlite:///:memory:")
+    database.initialize()
+    repositories = Repositories(database)
+    registry = CapabilityRegistry()
+    for adapter in adapters:
+        registry.register(adapter)
+    runtime = ReferenceRuntime(
+        registry,
+        repositories,
+        PolicyEngine(default_effect="allow"),
+        LocalArtifactStore(tmp_path, repositories),
+    )
+    return runtime, repositories
+
+
+def single_step_workflow(workflow_id: str, capability: str) -> WorkflowDefinition:
+    return WorkflowDefinition(
+        id=workflow_id,
+        name=workflow_id,
+        steps=[WorkflowStep(id="only", capability=capability, inputs={})],
+        outputs={"result": "${steps.only.output}"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_declared_timeout_binds_a_blocking_adapter(tmp_path) -> None:
+    """A timeout that only fires for adapters that yield is not a timeout.
+
+    The runtime waits for the adapter somewhere it can stop waiting, so the declared bound holds
+    for a synchronous call inside an `async def` — the shape a vendor SDK forces. It does not stop
+    the work: the adapter runs to completion on its own thread, which is why the assertions below
+    check the runtime's wait and not the adapter's.
+    """
+
+    adapter = BlockingAdapter(seconds=2.0, timeout_seconds=0.1)
+    runtime, repositories = build_multi_adapter_runtime(tmp_path, adapter)
+    expected = "execution of test.blocking timed out after 0.1 seconds on attempt 1"
+
+    started = time.monotonic()
+    with pytest.raises(WorkflowExecutionError) as raised:
+        await runtime.run_workflow(single_step_workflow("blocking", "test.blocking"), {})
+    elapsed = time.monotonic() - started
+
+    assert str(raised.value) == expected
+    assert elapsed < 1.0, f"the runtime waited {elapsed:.3f}s for a 0.1s timeout"
+    assert adapter.calls == 1
+    run = repositories.list_runs()[0]
+    task = repositories.list_tasks(run.id)[0]
+    assert run.state == RunState.FAILED
+    assert task.state == TaskState.FAILED
+    assert task.error == expected
+    assert adapter.finished.wait(timeout=5), "the abandoned adapter call never finished"
+
+
+@pytest.mark.asyncio
+async def test_a_blocking_adapter_does_not_stall_a_concurrent_run(tmp_path) -> None:
+    """A blocking adapter used to hold the event loop, so nothing else in the process ran.
+
+    That made `max_concurrency` a fiction and stalled every other run's timeout and lease handling
+    behind whichever adapter blocked first. The blocking capability here declares a timeout it
+    never reaches, so this measures the stall rather than the timeout.
+    """
+
+    blocking = BlockingAdapter(seconds=2.0, timeout_seconds=30.0)
+    awaiting = AwaitingAdapter(seconds=0.05)
+    runtime, _ = build_multi_adapter_runtime(tmp_path, blocking, awaiting)
+    started = time.monotonic()
+
+    async def timed(workflow_id: str, capability: str) -> float:
+        await runtime.run_workflow(single_step_workflow(workflow_id, capability), {})
+        return time.monotonic() - started
+
+    awaiting_elapsed, blocking_elapsed = await asyncio.gather(
+        timed("awaiting", "test.awaiting"),
+        timed("blocking", "test.blocking"),
+    )
+
+    assert blocking_elapsed >= 2.0, "the blocking adapter did not actually block"
+    # Measured at 0.11-0.23s here and at the full 2.0s stall before adapter code moved off the
+    # calling loop. The threshold is deliberately loose: a busy-wait holds the GIL between switch
+    # intervals, so a loaded machine slows the concurrent run without stalling it.
+    assert awaiting_elapsed < 1.0, (
+        f"a 0.05s run finished {awaiting_elapsed:.3f}s after submission, so the blocking "
+        "adapter stalled the event loop"
+    )
 
 
 @pytest.mark.asyncio

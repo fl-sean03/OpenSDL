@@ -6,7 +6,7 @@ import pytest
 import opensdl_operators.mcp as mcp_module
 from opensdl_adapter_simulated_lab.adapter import SimulatedLabAdapter
 from opensdl_capabilities import CapabilityRegistry
-from opensdl_core import Resource, ValidationError
+from opensdl_core import EventRecord, Resource, ValidationError
 from opensdl_operators import ContextPackBuilder, OperatorGateway
 from opensdl_operators.tools import MAX_EVENT_LIMIT, TOOL_SPECS
 from opensdl_policy import PolicyEngine
@@ -20,6 +20,8 @@ TOOL_NAMES = {
     "inspect_run",
     "query_events",
     "execute_capability",
+    "list_campaigns",
+    "inspect_campaign",
 }
 MIX_INPUTS: dict[str, Any] = {
     "sample_id": "tool-1",
@@ -193,3 +195,87 @@ def test_optional_mcp_loader_reports_availability_and_missing_dependency(
     monkeypatch.setattr(mcp_module, "import_module", missing_module)
     with pytest.raises(RuntimeError, match="optional MCP dependency"):
         mcp_module.build_mcp_server(None)  # type: ignore[arg-type]
+
+
+def _campaign_events(campaign_id: str) -> list[EventRecord]:
+    return [
+        EventRecord(
+            type="CampaignStarted",
+            actor_id="software/campaign",
+            campaign_id=campaign_id,
+            payload={
+                "workflowId": "color-mix-and-score",
+                "workflowVersion": "0.1.0",
+                "environment": "simulation",
+                "operatorId": "software/campaign",
+                "maxIterations": 2,
+                "scoreOutput": "score",
+                "minimize": True,
+                "targetScore": None,
+                "maxConsecutiveFailures": 3,
+                "maxDurationSeconds": None,
+                "iterationIdInput": "sample_id",
+                "baseInputs": {"total_mass_g": 5.0},
+            },
+        ),
+        EventRecord(
+            type="CampaignIterationStarted",
+            actor_id="software/campaign",
+            campaign_id=campaign_id,
+            payload={
+                "iteration": 0,
+                "candidate": {"red_fraction": 0.5},
+                "runId": "run-campaign-0",
+                "environment": "simulation",
+            },
+        ),
+    ]
+
+
+async def test_an_agent_can_see_and_read_a_campaign_through_the_tool_surface(
+    tmp_path: Path,
+) -> None:
+    """A campaign appeared in no tool, no route and no context pack: it was Python-only.
+
+    An agent asking what its laboratory is doing could not learn that the laboratory was mid
+    search, could not list the campaigns that had run, and could not read one back.
+    """
+    gateway = build_gateway(tmp_path)
+    for event in _campaign_events("campaign-tool"):
+        gateway.repositories.append_event(event)
+
+    listed = await gateway.call_tool("list_campaigns")
+    assert [item["campaign_id"] for item in listed] == ["campaign-tool"]
+    assert listed[0]["state"] == "running"
+
+    inspected = await gateway.call_tool("inspect_campaign", {"campaign_id": "campaign-tool"})
+    assert inspected["campaign"]["campaign_id"] == "campaign-tool"
+    assert inspected["campaign"]["environment"] == "simulation"
+    assert [item["run_id"] for item in inspected["campaign"]["iterations"]] == ["run-campaign-0"]
+    assert {event["type"] for event in inspected["events"]} == {
+        "CampaignStarted",
+        "CampaignIterationStarted",
+    }
+
+    described = await gateway.call_tool("describe_lab")
+    assert [item["campaign_id"] for item in described["active_campaigns"]] == ["campaign-tool"]
+
+
+async def test_a_campaign_nothing_recorded_is_reported_as_absent(tmp_path: Path) -> None:
+    gateway = build_gateway(tmp_path)
+
+    with pytest.raises(KeyError):
+        await gateway.call_tool("inspect_campaign", {"campaign_id": "campaign-nothing"})
+
+
+async def test_events_can_be_queried_by_campaign(tmp_path: Path) -> None:
+    """A campaign identifier reaches every run and task event, so history is one query."""
+    gateway = build_gateway(tmp_path)
+    for event in _campaign_events("campaign-query"):
+        gateway.repositories.append_event(event)
+    gateway.repositories.append_event(EventRecord(type="RunCreated", run_id="run-unrelated"))
+
+    scoped = await gateway.call_tool("query_events", {"campaign_id": "campaign-query"})
+
+    assert {event["campaign_id"] for event in scoped} == {"campaign-query"}
+    assert len(scoped) == 2

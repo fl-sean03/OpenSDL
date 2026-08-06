@@ -43,8 +43,8 @@ Semantic versioning applies after 1.0. Before 1.0 the version communicates order
   the next release.
 - There is no deprecation window. Nothing in the repository emits a `DeprecationWarning`, and no
   deprecation has been issued.
-- No migration is guaranteed to exist for any contract change, and none exists for the database
-  schema at all.
+- No migration is guaranteed to exist for any contract change other than the database schema,
+  which does upgrade in place. See below.
 - There is no cross-version test suite. Nothing verifies that a release reads data written by its
   predecessor. [`ROADMAP.md`](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md) makes 1.0
   conditional on a compatibility suite with external adopters; that suite does not exist and is not
@@ -59,6 +59,7 @@ These are the contracts a laboratory can depend on, and what each carries today.
 | Surface | Defined by | Stability today |
 |---|---|---|
 | Manifest `apiVersion` | `LabManifest` in `opensdl-schemas` | Pinned to `opensdl.dev/v0alpha1`. No second version exists. |
+| Manifest secret references | `${env:NAME}` resolved by `load_manifest` | The `${provider:name}` form is stable. Only `env:` is implemented; another prefix is refused by name. |
 | Twin `apiVersion` | `TwinDefinition` in `opensdl-twin` | Pinned to `opensdl.dev/v0alpha1`. No second version exists. |
 | Generated JSON Schemas | `packages/schemas/jsonschema/`, 13 files | Regenerated on every model change. No identity, no version, no compatibility check. |
 | Capability contracts | `CapabilityDefinition` and the identifiers adapters declare | No guarantee. Identifiers are plain strings and there is no registry. |
@@ -66,9 +67,9 @@ These are the contracts a laboratory can depend on, and what each carries today.
 | Optimizer plugin interface | `Optimizer` protocol in `opensdl-runtime`, group `opensdl.optimizers` | No guarantee. It is `suggest(history)` and `observe(observation)` with no state contract, so an optimizer that must persist a surrogate model has nowhere to put it. |
 | Domain-pack interface | `get_pack()`, group `opensdl.domain_packs` | No guarantee. The return value is an untyped mapping. |
 | CLI | `opensdl` commands and options | No guarantee. Output is human-readable text and JSON with no declared shape. |
-| HTTP API | 15 routes in `opensdl-api` | No guarantee. No version prefix, no content negotiation, no authentication. |
+| HTTP API | 18 routes in `opensdl-api` | No guarantee. No version prefix, no content negotiation, no authentication. |
 | Python SDK | `OpenSDLClient` in `opensdl` | No guarantee. It is a thin wrapper over the HTTP routes and moves with them. |
-| Database schema | `opensdl-storage` models and `database/versions/` | No guarantee and no upgrade path. See below. |
+| Database schema | `opensdl-storage` models and `opensdl_storage/migrations/versions/` | No guarantee on the shape. Every change ships an Alembic revision that upgrades in place. See below. |
 
 ### Both `apiVersion` fields are hard pins
 
@@ -109,16 +110,33 @@ the runtime reads `CapabilityDefinition.version`. Only `workflow.version` is rea
 it onto the run record. Changing a capability's input or output schema is therefore invisible to
 every workflow that already uses it.
 
-### The database schema has no upgrade path
+### The database schema upgrades through Alembic
 
-`Database.initialize()` calls SQLAlchemy `create_all()` and inserts the literal string `"0001"` into
-a `schema_versions` table. `create_all()` is `CREATE TABLE IF NOT EXISTS`: it creates missing tables
-and never alters an existing one. The stamped value is never compared against anything, and it is not
-Alembic's `alembic_version` table, so the shipped Alembic revision under `database/versions/` is
-unreachable from the CLI.
+`Database.initialize()` runs the migration history. Alembic is the only writer of the schema: it
+creates a store that does not exist, and it moves one that does. So a laboratory is upgraded when it
+is opened for writing, whether or not anyone asks. `opensdl migrate` is the explicit form, with
+`--check` reporting pending revisions without applying them; it wraps
+`opensdl_controller.migrate.plan` and `opensdl_controller.migrate.upgrade`, which are what exists
+until that command lands in `packages/cli`.
 
-An existing laboratory's database therefore cannot be upgraded by any documented command. This is
-tracked as **E1** in the [repository audit](../development/audit-2026-08-05.md).
+A store created before this was true carries the declared tables and no `alembic_version`. It is
+**adopted** rather than rejected — stamped at the revision its contents correspond to, then upgraded
+from there — so a laboratory that has already run keeps working without an operator running
+`alembic stamp` by hand. Nothing is dropped and nothing is recreated.
+
+This replaces `create_all()` plus a hand-written `"0001"` row in a `schema_versions` table. That
+value was never compared against anything and was not Alembic's `alembic_version`, so the shipped
+revision was unreachable from any command, and the two paths had already diverged: `create_all()`
+honours `index=True` and revision `0001` created no indexes, so the same release shipped two schemas
+differing by 23 indexes. `tests/integration/test_migrations.py` now compares the database Alembic
+produces against `Base.metadata` with the same comparison `alembic revision --autogenerate` uses, so
+that class of divergence fails a test rather than shipping.
+
+What this does **not** give you: there is still no cross-version test suite, so nothing verifies
+that a release reads data written by its predecessor beyond the schema comparison above, and no
+downgrade is supported as a data-preserving operation. Back up before upgrading OpenSDL.
+
+Recorded as **E1** in the [repository audit](../development/audit-2026-08-05.md).
 
 ## Announcing a breaking change
 
@@ -129,7 +147,21 @@ optional manifest or twin field is also breaking, for the reason given above.
 
 From this policy forward, a breaking change is recorded in `CHANGELOG.md` under a `Breaking` heading
 in the release entry, naming the surface, the previous behavior, the new behavior, and the action a
-laboratory must take. No release has followed this policy yet, so no such heading exists.
+laboratory must take.
+
+### Unreleased breaking changes
+
+These are the events created since the policy was written. Each is also in `CHANGELOG.md`.
+
+| Surface | Previously | Now | What a laboratory does |
+|---|---|---|---|
+| Manifest values containing `${env:...}` | Passed through as literal text | Resolved from the environment, or refused when the variable is unset or empty | Set the variable, or write the value if the text was meant literally — it can no longer be expressed |
+| Manifest values containing `${anything-else:...}` | Passed through as literal text | Refused, naming `env:` as the only implemented provider | Remove the prefix or set `env:` |
+| `${...}` anywhere under `spec.policy` | Passed through as literal text | Refused | Write the policy value in the manifest |
+| `schema_versions` table | Created and stamped `"0001"` | Dropped by revision `0002`; `alembic_version` records the version | Nothing. Migration is automatic |
+| `opensdl_storage.db_models.SchemaVersionRow` | Public mapped class | Removed | Read `alembic_version` through `opensdl_storage.current_revision` |
+| `Database.initialize()` | `create_all()`, returned `None` | Runs migrations, returns `SchemaUpgrade` | Nothing. The return value is additive |
+| Alembic environment location | `database/env.py`, `database/versions/` | `opensdl_storage/migrations/`, shipped in the wheel | Nothing, unless you drive Alembic through your own `alembic.ini` — point `script_location` at `opensdl_storage:migrations` |
 
 The announcement window depends on the release line:
 
@@ -151,7 +183,7 @@ names what currently blocks it.
 | Capability identifiers | The old identifier resolves to the new capability and the runtime records that it was rewritten. | No identifier aliasing exists. |
 | CLI | The old command or flag keeps working, keeps its exit code, and prints a one-line notice on stderr. | Nothing. |
 | HTTP API | The old route keeps working alongside the new one for the window. | Nothing, though the absence of a version prefix makes parallel routes awkward. |
-| Database | Every schema change ships an Alembic revision that upgrades in place. | `create_all()` bypasses Alembic entirely. |
+| Database | Every schema change ships an Alembic revision that upgrades in place. | Nothing. This is how the schema now moves. |
 
 A deprecation is only meaningful if the removal is announced with it. A deprecation notice that does
 not name the release that removes the surface is not a deprecation.
@@ -178,8 +210,13 @@ breaking release satisfies every generated laboratory. Change that before the fi
    its binding is still current. See [lab-specific digital twins](../architecture/digital-twin.md).
 6. **Keep a copy of the JSON Schemas you validate against.** They are not identified or published, so
    the only durable copy is the one you keep.
-7. **Back up the database before upgrading OpenSDL.** There is no migration path and no rollback.
-8. **Re-run `opensdl validate`, the laboratory's own tests, and one simulated workflow after every
+7. **Back up the database before upgrading OpenSDL.** The schema upgrades in place through
+   Alembic, and a laboratory is upgraded when it is opened for writing, but there is no rollback
+   and no cross-version data test.
+8. **Supply credentials as `${env:NAME}`, not as text.** A reference that does not resolve is an
+   error at load, so a laboratory learns about a misspelled variable in the loader rather than at
+   an instrument. See [configuration](configuration.md#secret-references).
+9. **Re-run `opensdl validate`, the laboratory's own tests, and one simulated workflow after every
    upgrade.** This is the only compatibility check that exists today, and it is the laboratory's to
    run.
 
@@ -192,7 +229,6 @@ breaking release satisfies every generated laboratory. Change that before the fi
 | The schema drift check is byte-for-byte against the working tree | Removing a required field passes CI | Compare each schema against the last released schema and classify the difference |
 | `scripts/check-version.py` compares strings only | A malformed or non-monotonic version passes | Parse as PEP 440, check monotonicity, require a matching changelog entry and tag |
 | No cross-version test suite | Nothing verifies that a release reads its predecessor's data | The compatibility suite that 1.0 is conditional on |
-| `create_all()` bypasses Alembic | No laboratory database can be upgraded | An `opensdl migrate` command and an Alembic-stamped initialization path |
 | No `DeprecationWarning` anywhere | Every change is effectively a removal without notice | Adopt the deprecation forms above, starting with the Python surfaces that are unblocked |
 | Generated dependency floors have no upper bound | A future breaking release satisfies every generated laboratory | Pin in the generator template |
 

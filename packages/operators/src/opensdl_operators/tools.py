@@ -6,7 +6,7 @@ from pydantic import Field
 
 from opensdl_capabilities import validate_instance
 from opensdl_core import OpenSDLModel
-from opensdl_runtime import ReferenceRuntime
+from opensdl_runtime import CampaignReader, ReferenceRuntime
 from opensdl_storage import RepositoryStore
 
 from .context import ContextPackBuilder
@@ -64,6 +64,10 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
             "type": "object",
             "properties": {
                 "run_id": {"type": "string", "description": "Restrict to one run."},
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Restrict to one campaign, including its runs and tasks.",
+                },
                 "limit": {
                     "type": "integer",
                     "minimum": 1,
@@ -71,6 +75,26 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
                     "default": 200,
                 },
             },
+            "additionalProperties": False,
+        },
+    ),
+    ToolSpec(
+        name="list_campaigns",
+        description="List closed-loop campaigns and whether each one is still running.",
+        input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    ToolSpec(
+        name="inspect_campaign",
+        description="Inspect one campaign, its iterations, and its events.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Campaign identifier recorded on every event it emitted.",
+                }
+            },
+            "required": ["campaign_id"],
             "additionalProperties": False,
         },
     ),
@@ -134,7 +158,15 @@ class OperatorGateway:
         if name == "inspect_run":
             return self.inspect_run(given["run_id"])
         if name == "query_events":
-            return self.query_events(run_id=given.get("run_id"), limit=given.get("limit", 200))
+            return self.query_events(
+                run_id=given.get("run_id"),
+                campaign_id=given.get("campaign_id"),
+                limit=given.get("limit", 200),
+            )
+        if name == "list_campaigns":
+            return self.list_campaigns()
+        if name == "inspect_campaign":
+            return self.inspect_campaign(given["campaign_id"])
         return await self.execute_capability(
             given["capability_id"],
             given["inputs"],
@@ -170,6 +202,7 @@ class OperatorGateway:
         self,
         *,
         run_id: str | None = None,
+        campaign_id: str | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         validate_instance(
@@ -179,8 +212,38 @@ class OperatorGateway:
         )
         return [
             event.model_dump(mode="json")
-            for event in self.repositories.list_events(run_id=run_id, limit=limit)
+            for event in self.repositories.list_events(
+                run_id=run_id,
+                campaign_id=campaign_id,
+                limit=limit,
+            )
         ]
+
+    def list_campaigns(self) -> list[dict[str, Any]]:
+        """Every campaign the store has a record of, newest first.
+
+        This is a scan of the event log rather than a query against a table, because a campaign has
+        neither a table nor a row: its state is the events it emitted. See
+        `opensdl_runtime.CampaignReader`.
+        """
+        return [
+            record.model_dump(mode="json") for record in CampaignReader(self.repositories).list()
+        ]
+
+    def inspect_campaign(self, campaign_id: str) -> dict[str, Any]:
+        """One campaign and the events it produced, mirroring `inspect_run`.
+
+        The events include every run and task event of every iteration, because a campaign
+        identifier reaches them all. `KeyError` when nothing was recorded under this identifier.
+        """
+        record = CampaignReader(self.repositories).get(campaign_id)
+        return {
+            "campaign": record.model_dump(mode="json"),
+            "events": [
+                event.model_dump(mode="json")
+                for event in self.repositories.list_events(campaign_id=campaign_id)
+            ],
+        }
 
     async def execute_capability(
         self, capability_id: str, inputs: dict[str, Any], *, operator_id: str, environment: str

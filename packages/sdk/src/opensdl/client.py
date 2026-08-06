@@ -28,14 +28,31 @@ class OpenSDLClient:
         self,
         run_id: str | None = None,
         limit: int = 200,
+        *,
+        campaign_id: str | None = None,
     ) -> list[dict[str, Any]]:
         params: dict[str, str | int] = {"limit": limit}
         if run_id is not None:
             params["run_id"] = run_id
+        if campaign_id is not None:
+            params["campaign_id"] = campaign_id
         return self._request("GET", "/events", params=params)
 
     def inspect_run(self, run_id: str) -> dict[str, Any]:
         return self._request("GET", f"/runs/{run_id}")
+
+    def campaigns(self) -> list[dict[str, Any]]:
+        """Every campaign the laboratory has recorded, newest first."""
+        return self._request("GET", "/campaigns")
+
+    def inspect_campaign(self, campaign_id: str) -> dict[str, Any]:
+        """One campaign, its iterations, and its events.
+
+        Reading is the whole campaign surface here. Starting one is `opensdl campaign start`,
+        which runs in the foreground of its own process, because a campaign runs for days and no
+        HTTP client should hold a request open for that.
+        """
+        return self._request("GET", f"/campaigns/{campaign_id}")
 
     def submit_workflow(
         self,

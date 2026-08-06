@@ -162,6 +162,7 @@ class Repositories:
         *,
         run_id: str | None = None,
         campaign_id: str | None = None,
+        types: Iterable[str] | None = None,
         limit: int | None = 500,
         newest_first: bool = False,
     ) -> list[EventRecord]:
@@ -176,6 +177,11 @@ class Repositories:
                 statement = statement.where(EventRow.run_id == run_id)
             if campaign_id is not None:
                 statement = statement.where(EventRow.campaign_id == campaign_id)
+            # Selecting by type is what turns "list the campaigns" from a scan of every
+            # event ever recorded into a query. Without it the only way to find campaigns
+            # is to read the log and discard almost all of it.
+            if types is not None:
+                statement = statement.where(EventRow.type.in_(list(types)))
             if limit is not None:
                 statement = statement.limit(limit)
             return [self._event_from_row(row) for row in session.scalars(statement)]

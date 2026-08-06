@@ -24,8 +24,31 @@ reverse that:
 4. commit the lock, then set the repository variable `OPENSDL_PACKAGES_AVAILABLE=true` so CI runs
    the full job against it.
 
-Pin the framework versions in `pyproject.toml` in the same change. The generated floors have no
-upper bound, so a future OpenSDL release satisfies them whether or not it breaks this laboratory.
+Pin the framework versions in `pyproject.toml` in the same change. The generated floors are capped
+at the next minor, which stops an unrelated `uv sync` carrying this laboratory across a release
+that changes a contract, but any release inside that range still satisfies them. Before a first
+real run, replace each `>=` with `==` at the version you validated against.
+
+## Database
+
+The store's schema is owned by migrations that ship inside OpenSDL, so this repository needs no
+migration files of its own.
+
+```bash
+uv run opensdl migrate --check   # report pending revisions, write nothing
+uv run opensdl migrate           # bring the store to the current schema
+```
+
+Opening the laboratory for writing upgrades the store on the way in, so an ordinary `opensdl run`
+after an OpenSDL upgrade also migrates it. Back the store up before upgrading OpenSDL: a
+migration is not reversible, and `.opensdl/` holds every run this laboratory has recorded.
+
+## Credentials
+
+Write `${env:NAME}` in `opensdl.yaml` rather than a credential, and set the variable in `.env` or
+the environment. A reference that does not resolve is an error naming the variable, so a missing
+credential fails when the manifest loads instead of at an instrument. `.env` is ignored by Git;
+`.env.example` records which variables this laboratory expects.
 
 Add organization-specific behavior under `src/{{ package }}/`. Install public
 or private adapters through normal Python dependencies and declare them in

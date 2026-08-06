@@ -86,7 +86,7 @@ The v0.1 alpha includes:
 
 - a versioned laboratory manifest;
 - domain-neutral models for capabilities, resources, workflows, runs, tasks, events, artifacts, observations, decisions, authorizations, and incidents;
-- a durable reference runtime with DAG execution, retries, timeouts, resource leases, restart reconciliation, and policy checks;
+- a durable reference runtime with DAG execution, retries, timeouts that bound how long the runtime waits — abandoned adapter work keeps running — resource leases, restart reconciliation, and policy checks;
 - SQLite metadata storage through SQLAlchemy, using portable column types and a PostgreSQL driver dependency; no PostgreSQL service is exercised by any test or CI job;
 - content-addressed local artifact storage;
 - adapter and optimizer plugin discovery through Python entry points;

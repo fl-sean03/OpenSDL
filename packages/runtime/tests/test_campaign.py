@@ -17,6 +17,7 @@ from opensdl_core import (
     AuthorizationEffect,
     CampaignDefinition,
     CapabilityDefinition,
+    EventRecord,
     ExecutionRequest,
     ExecutionResult,
     ExecutorType,
@@ -27,9 +28,12 @@ from opensdl_core import (
 from opensdl_policy import PolicyEngine, PolicyRule
 from opensdl_runtime import ReferenceRuntime
 from opensdl_runtime.campaign import (
+    CampaignIterationState,
     CampaignObservation,
     CampaignObservationStatus,
+    CampaignReader,
     CampaignRunner,
+    CampaignState,
     CampaignStopReason,
 )
 from opensdl_storage import Database, LocalArtifactStore, Repositories
@@ -498,13 +502,23 @@ def test_an_observation_cannot_claim_a_state_it_is_not_in() -> None:
 def test_the_campaign_definition_and_the_runner_do_not_drift() -> None:
     """`CampaignDefinition` is the published schema for what `CampaignRunner.run` accepts.
 
-    Identity fields (`id`, `name`, `objective`, `metadata`) and the two reference fields the runner
-    takes as objects rather than names (`workflow_id`, `optimizer`) are excluded. Submission facts —
+    Identity fields (`id`, `name`, `objective`, `metadata`) and the reference fields the runner
+    takes as objects rather than names (`workflow_id`, `optimizer`, `optimizer_config`) are
+    excluded: the runner receives an optimizer already constructed, so how to construct one is a
+    property of the definition and not an argument. Submission facts —
     `environment`, `operator_id`, `campaign_id` — are deliberately absent from the definition: they
     come from the laboratory manifest and the operator, not from the declared search.
     """
 
-    excluded = {"id", "name", "objective", "metadata", "workflow_id", "optimizer"}
+    excluded = {
+        "id",
+        "name",
+        "objective",
+        "metadata",
+        "workflow_id",
+        "optimizer",
+        "optimizer_config",
+    }
     parameters = inspect.signature(CampaignRunner.run).parameters
     checked = 0
     for name, model_field in CampaignDefinition.model_fields.items():
@@ -546,3 +560,185 @@ async def test_run_and_task_events_carry_the_campaign_that_launched_them(tmp_pat
         event.type for event in repositories.list_events(campaign_id=result.campaign_id, limit=None)
     }
     assert {"RunCreated", "RunStarted", "TaskStarted", "TaskSucceeded", "RunCompleted"} <= types
+
+
+# ---------------------------------------------------------------------------
+# Reading a campaign back.
+#
+# A campaign has no table and no record of its own: its state lives entirely in the events it
+# emitted. Reconstructing it from those events is the only reading that cannot disagree with what
+# happened, and it is what makes a campaign reachable from an interface at all.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_finished_campaign_is_reconstructed_from_its_events(tmp_path) -> None:
+    adapter = ScoreAdapter(fail_on={2.0})
+    runner, repositories = build_campaign(tmp_path, adapter)
+
+    result = await runner.run(
+        scoring_workflow(),
+        ListOptimizer(candidates(3.0, 2.0, 1.0)),
+        environment="production",
+        operator_id="operator/alice",
+        max_iterations=3,
+        target_score=1.5,
+        base_inputs={},
+    )
+
+    record = CampaignReader(repositories).get(result.campaign_id)
+
+    assert record.campaign_id == result.campaign_id
+    assert record.state is CampaignState.COMPLETED
+    assert record.environment == "production"
+    assert record.operator_id == "operator/alice"
+    assert record.workflow_id == "campaign-probe"
+    assert record.max_iterations == 3
+    assert record.target_score == 1.5
+    assert record.minimize is True
+    assert record.score_output == "score"
+    assert record.stop_reason is CampaignStopReason.TARGET_REACHED
+    assert "target" in record.stop_detail
+    assert record.started_at is not None
+    assert record.completed_at is not None
+    assert [item.iteration for item in record.iterations] == [0, 1, 2]
+    assert [item.state for item in record.iterations] == [
+        CampaignIterationState.SUCCEEDED,
+        CampaignIterationState.FAILED,
+        CampaignIterationState.SUCCEEDED,
+    ]
+    assert [item.candidate for item in record.iterations] == [{"x": 3.0}, {"x": 2.0}, {"x": 1.0}]
+    assert [item.score for item in record.iterations] == [3.0, None, 1.0]
+    assert record.iterations[1].error is not None
+    assert "simulated instrument failure" in record.iterations[1].error
+    assert record.succeeded == 2
+    assert record.failed == 1
+    assert record.best is not None and record.best.candidate == {"x": 1.0}
+    # Every iteration names the run it launched, so the execution history is one query away.
+    launched = {item.run_id for item in record.iterations}
+    assert launched == {run.id for run in repositories.list_runs()}
+
+
+@pytest.mark.asyncio
+async def test_a_campaign_with_no_recorded_completion_reads_as_running(tmp_path) -> None:
+    """A controller that died mid-campaign leaves exactly this, and so does a live campaign.
+
+    The events cannot tell the two apart, and the record does not pretend otherwise: it reports
+    what was recorded, which is a start with no completion.
+    """
+
+    _, repositories = build_campaign(tmp_path, ScoreAdapter())
+    repositories.append_event(
+        EventRecord(
+            type="CampaignStarted",
+            actor_id="operator/alice",
+            campaign_id="campaign-live",
+            payload={
+                "workflowId": "campaign-probe",
+                "workflowVersion": "0.1.0",
+                "environment": "production",
+                "operatorId": "operator/alice",
+                "maxIterations": 4,
+                "scoreOutput": "score",
+                "minimize": True,
+                "targetScore": None,
+                "maxConsecutiveFailures": 3,
+                "maxDurationSeconds": None,
+                "iterationIdInput": "sample_id",
+                "baseInputs": {"total_mass_g": 5.0},
+            },
+        )
+    )
+    repositories.append_event(
+        EventRecord(
+            type="CampaignIterationStarted",
+            actor_id="operator/alice",
+            campaign_id="campaign-live",
+            payload={
+                "iteration": 0,
+                "candidate": {"x": 1.0},
+                "runId": "run-live",
+                "environment": "production",
+            },
+        )
+    )
+
+    record = CampaignReader(repositories).get("campaign-live")
+
+    assert record.state is CampaignState.RUNNING
+    assert record.stop_reason is None
+    assert record.completed_at is None
+    assert record.base_inputs == {"total_mass_g": 5.0}
+    assert record.iteration_id_input == "sample_id"
+    assert [item.state for item in record.iterations] == [CampaignIterationState.RUNNING]
+    assert record.iterations[0].run_id == "run-live"
+
+
+def test_a_campaign_nothing_recorded_is_not_invented(tmp_path) -> None:
+    _, repositories = build_campaign(tmp_path, ScoreAdapter())
+
+    with pytest.raises(KeyError):
+        CampaignReader(repositories).get("campaign-that-never-ran")
+
+
+@pytest.mark.asyncio
+async def test_campaigns_are_listed_newest_first_and_only_once(tmp_path) -> None:
+    runner, repositories = build_campaign(tmp_path, ScoreAdapter())
+    first = await runner.run(
+        scoring_workflow(),
+        ListOptimizer(candidates(1.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=1,
+    )
+    second = await runner.run(
+        scoring_workflow(),
+        ListOptimizer(candidates(2.0)),
+        environment="simulation",
+        operator_id="operator/bob",
+        max_iterations=1,
+    )
+
+    listed = CampaignReader(repositories).list()
+
+    assert [item.campaign_id for item in listed] == [second.campaign_id, first.campaign_id]
+    assert [item.operator_id for item in listed] == ["operator/bob", "operator/alice"]
+    assert all(item.state is CampaignState.COMPLETED for item in listed)
+
+
+@pytest.mark.asyncio
+async def test_only_a_campaign_without_a_completion_is_reported_active(tmp_path) -> None:
+    runner, repositories = build_campaign(tmp_path, ScoreAdapter())
+    finished = await runner.run(
+        scoring_workflow(),
+        ListOptimizer(candidates(1.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=1,
+    )
+    repositories.append_event(
+        EventRecord(
+            type="CampaignStarted",
+            actor_id="operator/bob",
+            campaign_id="campaign-live",
+            payload={
+                "workflowId": "campaign-probe",
+                "workflowVersion": "0.1.0",
+                "environment": "simulation",
+                "operatorId": "operator/bob",
+                "maxIterations": 2,
+                "scoreOutput": "score",
+                "minimize": True,
+                "targetScore": None,
+                "maxConsecutiveFailures": 3,
+                "maxDurationSeconds": None,
+                "iterationIdInput": None,
+                "baseInputs": {},
+            },
+        )
+    )
+
+    active = CampaignReader(repositories).active()
+
+    assert [item.campaign_id for item in active] == ["campaign-live"]
+    assert finished.campaign_id not in {item.campaign_id for item in active}

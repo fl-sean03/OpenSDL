@@ -125,6 +125,10 @@ class CampaignDefinition(OpenSDLModel):
     objective: str
     workflow_id: str
     optimizer: str
+    #: Configuration handed to the optimizer plugin when it is constructed. Without it a
+    #: stored definition names an optimizer it cannot configure, so a campaign file would
+    #: always need a companion argument to be executable.
+    optimizer_config: dict[str, Any] = Field(default_factory=dict)
     max_iterations: int = Field(default=10, gt=0)
     base_inputs: dict[str, Any] = Field(default_factory=dict)
     score_output: str = "score"

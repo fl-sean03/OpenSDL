@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from opensdl_api import create_app
 from opensdl_controller import OpenSDLSystem
-from opensdl_core import RunRecord, RunState
+from opensdl_core import EventRecord, RunRecord, RunState
 from opensdl_storage import Database, Repositories
 from opensdl_twin import TwinProjectionError, TwinService
 
@@ -367,3 +367,114 @@ def test_the_server_reconciles_runs_a_stopped_controller_left_active(tmp_path: P
         assert [run["id"] for run in health["reconciled_runs"]] == ["run-left-active"]
         recovered = client.get("/runs/run-left-active").json()["run"]
         assert recovered["state"] == "intervention_required"
+
+
+def _seed_campaign(lab: Path, campaign_id: str) -> None:
+    """Write a campaign that started and never recorded a completion, as a live one looks."""
+    database = Database(f"sqlite:///{lab / '.opensdl' / 'opensdl.db'}")
+    database.initialize()
+    repositories = Repositories(database)
+    repositories.append_event(
+        EventRecord(
+            type="CampaignStarted",
+            actor_id="software/campaign",
+            campaign_id=campaign_id,
+            payload={
+                "workflowId": "color-mix-and-score",
+                "workflowVersion": "0.1.0",
+                "environment": "simulation",
+                "operatorId": "software/campaign",
+                "maxIterations": 5,
+                "scoreOutput": "score",
+                "minimize": True,
+                "targetScore": None,
+                "maxConsecutiveFailures": 3,
+                "maxDurationSeconds": None,
+                "iterationIdInput": "sample_id",
+                "baseInputs": {"total_mass_g": 5.0},
+            },
+        )
+    )
+    repositories.append_event(
+        EventRecord(
+            type="CampaignIterationStarted",
+            actor_id="software/campaign",
+            campaign_id=campaign_id,
+            payload={
+                "iteration": 0,
+                "candidate": {"red_fraction": 0.5},
+                "runId": "run-campaign-0",
+                "environment": "simulation",
+            },
+        )
+    )
+    database.dispose()
+
+
+@pytest.mark.integration
+def test_a_campaign_can_be_read_over_http(tmp_path: Path) -> None:
+    """`campaign` appeared in no route at all, so no remote client could see the closed loop.
+
+    The read half is served here. There is deliberately no `POST /campaigns`: a campaign runs for
+    days and `POST /runs` already demonstrates what awaiting long work inside a request handler
+    costs.
+    """
+    lab = _copy_example(tmp_path)
+    _seed_campaign(lab, "campaign-http")
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        listed = client.get("/campaigns")
+        assert listed.status_code == 200, listed.text
+        assert [item["campaign_id"] for item in listed.json()] == ["campaign-http"]
+
+        inspected = client.get("/campaigns/campaign-http")
+        assert inspected.status_code == 200, inspected.text
+        campaign = inspected.json()["campaign"]
+        assert campaign["state"] == "running"
+        assert campaign["environment"] == "simulation"
+        assert campaign["operator_id"] == "software/campaign"
+        assert [item["run_id"] for item in campaign["iterations"]] == ["run-campaign-0"]
+        assert {event["type"] for event in inspected.json()["events"]} == {
+            "CampaignStarted",
+            "CampaignIterationStarted",
+        }
+
+        assert client.get("/campaigns/campaign-absent").status_code == 404
+        assert client.get("/campaigns/%5C..%5Cescape").status_code in {404, 422}
+
+        scoped = client.get("/events", params={"campaign_id": "campaign-http"})
+        assert scoped.status_code == 200, scoped.text
+        assert {event["campaign_id"] for event in scoped.json()} == {"campaign-http"}
+
+        context = client.get("/context").json()
+        assert [item["campaign_id"] for item in context["active_campaigns"]] == ["campaign-http"]
+
+        paths = client.get("/openapi.json").json()["paths"]
+        assert "404" in paths["/campaigns/{campaign_id}"]["get"]["responses"]
+
+
+@pytest.mark.integration
+def test_the_campaign_tools_are_callable_over_the_transport_that_advertises_them(
+    tmp_path: Path,
+) -> None:
+    lab = _copy_example(tmp_path)
+    _seed_campaign(lab, "campaign-tools")
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        names = {tool["name"] for tool in client.get("/tools").json()}
+        assert {"list_campaigns", "inspect_campaign"} <= names
+
+        listed = client.post("/tools/list_campaigns", json={})
+        assert [item["campaign_id"] for item in listed.json()] == ["campaign-tools"]
+        inspected = client.post(
+            "/tools/inspect_campaign",
+            json={"arguments": {"campaign_id": "campaign-tools"}},
+        )
+        assert inspected.json()["campaign"]["campaign_id"] == "campaign-tools"
+        assert (
+            client.post(
+                "/tools/inspect_campaign",
+                json={"arguments": {"campaign_id": "campaign-absent"}},
+            ).status_code
+            == 404
+        )

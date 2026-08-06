@@ -15,6 +15,8 @@ from rich.table import Table
 from typer.core import TyperGroup
 
 from opensdl_controller import OpenSDLSystem
+from opensdl_controller import migrate as migrate_laboratory
+from opensdl_operators import CampaignLauncher
 from opensdl_provenance import PropagationGraph
 from opensdl_schemas import validate_manifest_file, validate_workflow_file
 from opensdl_twin import TwinProjectionError, load_twin_definition
@@ -42,6 +44,11 @@ EXIT_FAILED = 9
 #: than by `isinstance`. `test_cli_errors.py` pins every name here against the classes
 #: `opensdl_core` actually exports, so a renamed class fails a test instead of silently falling
 #: through to `EXIT_INTERNAL`.
+#:
+#: A key may be a bare class name or a fully qualified `module.Class`, and the qualified form wins.
+#: OpenSDL's own class names are distinctive enough to match bare; a third party's are not, and a
+#: wrong match here is not harmless — it reports a defect in OpenSDL as an ordinary refusal and
+#: takes away the "re-run with --traceback" line that goes with `EXIT_INTERNAL`.
 EXIT_BY_FAILURE: dict[str, tuple[int, str]] = {
     # The public OpenSDL taxonomy.
     "CapabilityNotFoundError": (EXIT_NOT_FOUND, "Not found"),
@@ -66,6 +73,10 @@ EXIT_BY_FAILURE: dict[str, tuple[int, str]] = {
     "TimeoutError": (EXIT_TIMEOUT, "Timed out"),
     "ValueError": (EXIT_INVALID, "Invalid"),
     "YAMLError": (EXIT_INVALID, "Invalid"),
+    # Alembic's one failure class, behind `opensdl migrate`. A store at an unknown revision, a
+    # branched history, or a target that cannot be resolved is a real refusal about a real store,
+    # not a defect. Qualified because `CommandError` is a name several libraries use.
+    "alembic.util.exc.CommandError": (EXIT_FAILED, "Failed"),
 }
 
 TRACEBACK_ENV_VAR = "OPENSDL_TRACEBACK"
@@ -73,7 +84,9 @@ TRACEBACK_ENV_VAR = "OPENSDL_TRACEBACK"
 
 def _lookup(exc: BaseException) -> tuple[int, str] | None:
     for base in type(exc).__mro__:
-        known = EXIT_BY_FAILURE.get(base.__name__)
+        known = EXIT_BY_FAILURE.get(f"{base.__module__}.{base.__name__}") or EXIT_BY_FAILURE.get(
+            base.__name__
+        )
         if known is not None:
             return known
     return None
@@ -165,11 +178,13 @@ app = typer.Typer(
     help="Build, validate, run, and extend OpenSDL laboratories.",
 )
 adapter_app = typer.Typer(no_args_is_help=True, help="Create and inspect adapters.")
+campaign_app = typer.Typer(no_args_is_help=True, help="Run and inspect closed-loop campaigns.")
 capability_app = typer.Typer(no_args_is_help=True, help="Create and inspect capabilities.")
 schema_app = typer.Typer(no_args_is_help=True, help="Generate public schemas.")
 domain_app = typer.Typer(no_args_is_help=True, help="Create scientific domain packs.")
 twin_app = typer.Typer(no_args_is_help=True, help="Validate and project digital twins.")
 app.add_typer(adapter_app, name="adapter")
+app.add_typer(campaign_app, name="campaign")
 app.add_typer(capability_app, name="capability")
 app.add_typer(domain_app, name="domain-pack")
 app.add_typer(schema_app, name="schema")
@@ -319,6 +334,33 @@ async def _doctor(manifest: Path, *, reconcile: bool) -> dict[str, Any]:
         await system.close()
 
 
+@app.command()
+def migrate(
+    manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Report pending revisions and write nothing. Exits non-zero when the store is "
+            "behind the current schema.",
+        ),
+    ] = False,
+) -> None:
+    """Bring this laboratory's store to the current schema, or report what that would take.
+
+    Migrating does not compose the laboratory. No adapter or domain pack is imported, so a plugin
+    that fails to load never stands between a laboratory and its schema. `--check` writes nothing
+    and, against a laboratory that has never run, does not bring a store into existence.
+
+    A store created before Alembic owned the schema is adopted rather than rejected: it is stamped
+    at the revision its contents correspond to and upgraded from there.
+    """
+    report = migrate_laboratory.plan(manifest) if check else migrate_laboratory.upgrade(manifest)
+    console.print_json(data=report)
+    if check and report["pending"]:
+        raise typer.Exit(EXIT_FAILED)
+
+
 @app.command("run")
 def run_workflow(
     workflow: Annotated[Path, typer.Argument()],
@@ -383,11 +425,21 @@ def inspect(
 def events(
     manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
     run_id: Annotated[str | None, typer.Option()] = None,
+    campaign_id: Annotated[
+        str | None,
+        typer.Option("--campaign-id", help="Restrict to one campaign, including its runs."),
+    ] = None,
     limit: Annotated[int, typer.Option()] = 200,
 ) -> None:
     """Query execution events."""
     with _composed(manifest) as system:
-        console.print_json(data=system.gateway.query_events(run_id=run_id, limit=limit))
+        console.print_json(
+            data=system.gateway.query_events(
+                run_id=run_id,
+                campaign_id=campaign_id,
+                limit=limit,
+            )
+        )
 
 
 @app.command()
@@ -461,6 +513,145 @@ def serve_mcp(
         build_mcp_server(system.gateway).run()
     finally:
         asyncio.run(system.close())
+
+
+@campaign_app.command("start")
+def start_campaign(
+    workflow: Annotated[Path, typer.Argument(help="Workflow each iteration executes")],
+    optimizer: Annotated[
+        str,
+        typer.Option("--optimizer", help="Optimizer plugin that proposes candidates."),
+    ],
+    manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
+    optimizer_config: Annotated[
+        str,
+        typer.Option(help="JSON object or @path/to/file.json passed to the optimizer plugin"),
+    ] = "{}",
+    base_inputs: Annotated[
+        str,
+        typer.Option(help="JSON object or @path/to/file.json merged under every candidate"),
+    ] = "{}",
+    score_output: Annotated[str, typer.Option()] = "score",
+    max_iterations: Annotated[int, typer.Option()] = 10,
+    minimize: Annotated[
+        bool,
+        typer.Option("--minimize/--maximize", help="Direction of the objective."),
+    ] = True,
+    target_score: Annotated[
+        float | None, typer.Option(help="Stop once an iteration reaches this score.")
+    ] = None,
+    max_consecutive_failures: Annotated[int, typer.Option()] = 3,
+    max_duration_seconds: Annotated[
+        float | None, typer.Option(help="Wall-clock budget, checked before each iteration.")
+    ] = None,
+    iteration_id_input: Annotated[
+        str | None,
+        typer.Option(help="Workflow input that receives a unique per-iteration identifier."),
+    ] = None,
+    operator_id: Annotated[str, typer.Option()] = "software/campaign",
+    campaign_id: Annotated[str | None, typer.Option("--campaign-id")] = None,
+) -> None:
+    """Run a closed-loop campaign in the foreground until a stopping rule fires.
+
+    The campaign runs in this process: it stops when a stopping rule fires or when this process
+    stops, and there is no detached submission and no remote stop. That is deliberate rather than
+    unfinished — `POST /runs` already awaits an entire workflow inside an HTTP handler, and doing
+    the same for something that runs for days would be worse. Reading a campaign back does not
+    need this process and is available from `campaign list`, `campaign inspect`, the HTTP API,
+    the SDK, and the agent tool surface.
+
+    The environment is the one the manifest declares and is deliberately not an option here:
+    policy is evaluated against it and every run records it, so a campaign that could state its
+    own would write a provenance record its laboratory never authorized.
+    """
+    record = asyncio.run(
+        _run_campaign(
+            manifest,
+            workflow,
+            optimizer=optimizer,
+            optimizer_config=_json_input(optimizer_config),
+            base_inputs=_json_input(base_inputs),
+            score_output=score_output,
+            max_iterations=max_iterations,
+            minimize=minimize,
+            target_score=target_score,
+            max_consecutive_failures=max_consecutive_failures,
+            max_duration_seconds=max_duration_seconds,
+            iteration_id_input=iteration_id_input,
+            operator_id=operator_id,
+            campaign_id=campaign_id,
+        )
+    )
+    console.print_json(data=record)
+
+
+async def _run_campaign(
+    manifest: Path,
+    workflow: Path,
+    *,
+    optimizer: str,
+    optimizer_config: dict[str, Any],
+    base_inputs: dict[str, Any],
+    score_output: str,
+    max_iterations: int,
+    minimize: bool,
+    target_score: float | None,
+    max_consecutive_failures: int,
+    max_duration_seconds: float | None,
+    iteration_id_input: str | None,
+    operator_id: str,
+    campaign_id: str | None,
+) -> dict[str, Any]:
+    system = OpenSDLSystem.from_manifest(manifest)
+    try:
+        _assert_capabilities_exposed(workflow, system)
+        launcher = CampaignLauncher(system.runtime, system.repositories)
+        # Resolve the optimizer before anything is recorded. A misspelled plugin name is otherwise
+        # discovered after `CampaignStarted`, leaving a campaign in the log that never ran.
+        launcher.load_optimizer(optimizer, optimizer_config)
+        await system.start(reconcile=True)
+        record = await launcher.run(
+            validate_workflow_file(workflow),
+            environment=system.manifest.spec.environment,
+            operator_id=operator_id,
+            optimizer=optimizer,
+            optimizer_config=optimizer_config,
+            base_inputs=base_inputs,
+            score_output=score_output,
+            max_iterations=max_iterations,
+            minimize=minimize,
+            target_score=target_score,
+            max_consecutive_failures=max_consecutive_failures,
+            max_duration_seconds=max_duration_seconds,
+            iteration_id_input=iteration_id_input,
+            campaign_id=campaign_id,
+        )
+        return record.model_dump(mode="json")
+    finally:
+        await system.close()
+
+
+@campaign_app.command("list")
+def list_campaigns(
+    manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
+) -> None:
+    """List every campaign this laboratory has recorded, newest first."""
+    with _composed(manifest) as system:
+        console.print_json(data=system.gateway.list_campaigns())
+
+
+@campaign_app.command("inspect")
+def inspect_campaign(
+    campaign_id: Annotated[str, typer.Argument()],
+    manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
+) -> None:
+    """Inspect one campaign, its iterations, and its events."""
+    with _composed(manifest) as system:
+        try:
+            console.print_json(data=system.gateway.inspect_campaign(campaign_id))
+        except KeyError:
+            typer.echo(f"Campaign not found: {campaign_id}", err=True)
+            raise typer.Exit(EXIT_NOT_FOUND) from None
 
 
 @capability_app.command("list")

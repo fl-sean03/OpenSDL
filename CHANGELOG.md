@@ -84,6 +84,45 @@ All notable changes to OpenSDL will be documented here. The project follows sema
 
 ### Fixed
 
+- a declared timeout did not bind an adapter that blocks. `asyncio.wait_for` can only interrupt at an
+  await point, so a synchronous call inside an `async def` — the shape a vendor SDK forces — ran to
+  completion whatever `timeout_seconds` said, and held the event loop while it did, which made
+  `max_concurrency` a fiction and stalled every other run's timeout and lease handling with it.
+  Adapter code now runs on a worker thread with its own event loop, one per adapter, and the runtime
+  waits on a handle it can abandon. Measured: a 0.1 second timeout against a two-second blocking
+  adapter went from 2.01 seconds and no error to 0.12 seconds and a recorded timeout; a concurrent run
+  went from 2.01 seconds to 0.47. The timeout bounds how long the runtime waits and nothing else —
+  abandoned work keeps running, cancellation is requested rather than guaranteed, and an adapter with
+  no await point cannot receive it. One loop per adapter rather than one per call, because an adapter
+  may hold a lock or a connection across its own lifecycle and splitting `execute` from `close` binds
+  it to two loops;
+- campaigns were unreachable from every interface. The headline closed-loop feature could only be
+  started by writing bespoke asyncio Python, so no operator, agent or remote client could start one,
+  see one, or read what it did. There are now `campaign start`, `list` and `inspect` commands,
+  `list_campaigns` and `inspect_campaign` in the tool catalogue and over MCP, `GET /campaigns` and
+  `GET /events?campaign_id=`, SDK methods, and `active_campaigns` in the context pack, so an agent
+  asking a laboratory to describe itself learns that it is mid-campaign. A campaign is projected from
+  its own events rather than from a table, because a record kept beside the events could disagree with
+  them. Starting is deliberately foreground and CLI-only: submitting a days-long campaign through a
+  handler that awaits it would repeat the mistake that already makes `POST /runs` unable to carry a
+  real run;
+- a manifest could not name a credential. Documentation said credentials came from the environment or
+  a secret provider; neither existed, so the only way to configure a real instrument was to type its
+  token into the file the documentation designates as belonging in Git. A manifest value may now
+  contain `${env:NAME}`, resolved before validation and refused when it resolves to nothing, so a
+  missing credential fails at the loader rather than at an instrument. References are refused in
+  mapping keys, because the environment must not choose which field is configured, and anywhere under
+  `spec.policy`, because that would make an environment variable an authorization decision. A resolved
+  value is written back as its reference when a manifest is dumped and in the operator context pack —
+  which was carrying domain-pack configuration verbatim to an unauthenticated route;
+- an existing laboratory's database could never be upgraded. The schema was created by `create_all`,
+  which is `CREATE TABLE IF NOT EXISTS` and will never add a column, while Alembic sat unreachable
+  beside it and the documented recovery command failed against any laboratory that had ever run.
+  Alembic is now the only writer, its migrations ship inside the wheel so a generated laboratory can
+  migrate without a checkout, and a store created the old way is adopted rather than rejected. The
+  drift this had already produced — 23 declared indexes the initial migration never created — is
+  closed, and a test now compares the migrated schema against the declared models with the same
+  comparison `--autogenerate` uses, so the divergence cannot recur silently;
 - the campaign claimed an environment its laboratory had not declared. `CampaignRunner` defaulted to
   `simulation`, so a laboratory running in `production` with policy permitting only `simulation` had
   its direct submissions denied and its campaign — the one unattended path in the framework —

@@ -200,8 +200,12 @@ Exit evidence:
 ## Current deferrals
 
 The alpha does not claim asynchronous monitoring, alerts, deployment management, authenticated
-multi-user identity, or complete live-equipment control. The current CLI also has no `context`, run
-list, hold, cancel, abort, resume, reconcile, deploy, or commission command.
+multi-user identity, or complete live-equipment control. The current CLI has no `context`, run
+list, hold, cancel, abort, resume, deploy, or commission command. It can now read a campaign —
+`campaign list` and `campaign inspect`, and the same two through the API, the SDK and the tool
+catalogue — and start one in the foreground. There is no detached submission and no way to stop
+a campaign remotely; both wait on a supervisor design rather than a command. Reconciliation is
+reachable as `doctor --reconcile`, which reports what it moved.
 
 Skills for those tasks remain deferred until typed contracts, tests, and evidence exist. This keeps
 the conversational surface broad without turning procedure text into an unsupported control plane.

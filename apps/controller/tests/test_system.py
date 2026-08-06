@@ -14,6 +14,7 @@ Two properties are asserted here that the composition root did not have:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -23,9 +24,10 @@ import yaml
 
 from opensdl_capabilities import PLUGIN_ALLOWLIST_ENV, PluginNotAllowedError
 from opensdl_capabilities import plugins as plugin_module
-from opensdl_controller import OpenSDLSystem
-from opensdl_controller.system import StoreNotFoundError
+from opensdl_controller import OpenSDLSystem, migrate
+from opensdl_controller.system import StoreNotFoundError, _redact_url
 from opensdl_core import RunRecord, RunState
+from opensdl_storage import head_revision
 
 
 MANIFEST: dict[str, Any] = {
@@ -331,3 +333,160 @@ async def test_the_artifact_store_check_reports_on_the_store_and_not_on_its_own_
     assert artifact["passed"] is False
     assert artifact["details"]["state"] == "unusable"
     assert report["passed"] is False
+
+
+# --- A named credential does not become a printed one -----------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_resolved_domain_pack_secret_does_not_reach_the_context_pack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`spec.domain_packs[].config` is copied verbatim into every context read.
+
+    `ContextPack.domain_packs` is served by `GET /context`, by the `describe_lab` MCP tool, and by
+    the SDK, none of which is authenticated. Before secret references existed this printed whatever
+    an operator had typed into the manifest; resolving references at load would have made it print
+    what the environment supplies instead, which is a strictly larger disclosure than the one the
+    operator chose. The composition root carries the reference, not the value.
+    """
+    monkeypatch.setenv("MATERIALS_API_KEY", "pack-secret-value")
+    manifest = write_manifest(
+        tmp_path / "lab",
+        domain_packs=[
+            {
+                "name": "materials",
+                "plugin": "materials",
+                "config": {"api_key": "${env:MATERIALS_API_KEY}"},
+            }
+        ],
+    )
+
+    system = OpenSDLSystem.from_manifest(manifest)
+    try:
+        pack = next(item for item in system.domain_packs if item["name"] == "materials")
+        assert pack["config"]["api_key"] == "${env:MATERIALS_API_KEY}"
+        pack_payload = system.context_builder.build().model_dump(mode="json")
+        assert "pack-secret-value" not in json.dumps(pack_payload)
+    finally:
+        await system.close()
+
+
+def test_the_database_url_doctor_prints_hides_a_credential_in_any_position() -> None:
+    """`opensdl doctor` and `GET /health` both print the database check verbatim.
+
+    `_redact_url` handled `user:pass@host` and nothing else. A driver that takes the credential as
+    a query parameter — `?password=`, and the key and token forms several managed backends use —
+    went through unredacted onto stdout and onto an unauthenticated route. Parameters that are not
+    credentials stay legible, because the point of printing the URL at all is diagnosis.
+    """
+    assert _redact_url("sqlite:///./lab.db") == "sqlite:///./lab.db"
+    assert _redact_url("postgresql://opensdl:hunter2@db:5432/lab") == (
+        "postgresql://***@db:5432/lab"
+    )
+
+    redacted = _redact_url("postgresql://opensdl@db:5432/lab?password=hunter2&sslmode=require")
+    assert "hunter2" not in redacted
+    assert "sslmode=require" in redacted
+
+    for parameter in ("password", "sslpassword", "api_key", "token", "SECRET"):
+        redacted = _redact_url(f"postgresql://db/lab?{parameter}=hunter2")
+        assert "hunter2" not in redacted, parameter
+        assert parameter in redacted, "the parameter is still named, only its value is hidden"
+
+
+@pytest.mark.asyncio
+async def test_doctor_reports_the_database_through_that_redaction(tmp_path: Path) -> None:
+    manifest = write_manifest(tmp_path / "lab")
+
+    system = OpenSDLSystem.from_manifest(manifest, read_only=True, require_store=False)
+    try:
+        report = await system.doctor()
+    finally:
+        await system.close()
+
+    database = next(check for check in report["checks"] if check["name"] == "database")
+    assert database["details"]["url"] == _redact_url(system.database.url)
+
+
+def test_the_manifest_the_controller_holds_still_carries_resolved_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Redaction is for what is printed. An adapter still receives the credential it needs."""
+    monkeypatch.setenv("SIM_SEED", "11")
+    manifest = write_manifest(
+        tmp_path / "lab",
+        adapters=[
+            {
+                "name": "simulated-lab",
+                "plugin": "simulated-lab",
+                "config": {"seed": "${env:SIM_SEED}"},
+            }
+        ],
+    )
+
+    system = OpenSDLSystem.from_manifest(manifest)
+    try:
+        assert system.manifest.spec.adapters[0].config["seed"] == "11"
+    finally:
+        system.database.dispose()
+
+
+# --- The entry point behind `opensdl migrate` --------------------------------------------------
+
+
+def test_migrate_reports_a_laboratory_that_has_never_run_without_creating_its_store(
+    tmp_path: Path,
+) -> None:
+    """SQLite creates the file on connect, so reporting must answer before it connects."""
+    manifest = write_manifest(tmp_path / "lab")
+
+    report = migrate.plan(manifest)
+
+    assert report["exists"] is False
+    assert report["current"] is None
+    assert report["pending"] == [head_revision()]
+    assert not (tmp_path / "lab/.opensdl/opensdl.db").exists()
+
+
+def test_migrate_upgrades_a_store_and_then_reports_nothing_pending(tmp_path: Path) -> None:
+    manifest = write_manifest(tmp_path / "lab")
+
+    upgraded = migrate.upgrade(manifest)
+
+    assert upgraded["applied"] == ["0001", "0002"]
+    assert upgraded["adopted"] is False
+    assert upgraded["current"] == head_revision()
+    assert migrate.plan(manifest)["pending"] == []
+
+
+def test_migrating_does_not_import_the_manifest_s_plugins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A broken adapter must not stand between a laboratory and its schema.
+
+    `from_manifest` imports and constructs every declared plugin. An uninstalled adapter or an
+    unset credential would otherwise make the store unupgradable — which is the failure mode E1
+    describes, arrived at from the other direction.
+    """
+    manifest = write_manifest(
+        tmp_path / "lab",
+        adapters=[{"name": "gone", "plugin": "no-such-plugin-installed", "config": {}}],
+    )
+
+    def refuse(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("migrating must not load plugins")
+
+    monkeypatch.setattr(plugin_module.PluginManager, "load_adapter", refuse)
+
+    assert migrate.upgrade(manifest)["current"] == head_revision()
+
+
+def test_migrate_reports_the_database_through_the_same_redaction_doctor_uses(
+    tmp_path: Path,
+) -> None:
+    manifest = write_manifest(tmp_path / "lab")
+
+    assert migrate.plan(manifest)["database"] == _redact_url(
+        migrate.laboratory_database_url(manifest)[1]
+    )

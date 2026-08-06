@@ -36,13 +36,16 @@ Implemented endpoints:
 - `GET /health`
 - `GET /context`
 - `GET /tools`
+- `POST /tools/{tool_name}`
 - `GET /capabilities`
 - `POST /capabilities/{capability_id}/execute`
 - `GET /resources`
 - `GET /runs`
 - `POST /runs`
 - `GET /runs/{run_id}`
-- `GET /events`
+- `GET /events` — `run_id`, `campaign_id`, and a bounded `limit`
+- `GET /campaigns`
+- `GET /campaigns/{campaign_id}`
 - `GET /twin`
 - `GET /twin/scene.glb`
 - `GET /twin/runs/{run_id}`

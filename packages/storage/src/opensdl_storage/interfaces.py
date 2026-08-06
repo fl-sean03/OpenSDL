@@ -53,6 +53,7 @@ class RepositoryStore(Protocol):
         *,
         run_id: str | None = None,
         campaign_id: str | None = None,
+        types: Iterable[str] | None = None,
         limit: int | None = 500,
         newest_first: bool = False,
     ) -> list[EventRecord]: ...

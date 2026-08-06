@@ -14,10 +14,13 @@ from .manifest import (
     TwinConfig,
     dump_manifest,
     load_manifest,
+    redacted_manifest_document,
 )
+from .secrets import ManifestSecretError, SecretReference, resolve_secret_references
 from .validation import (
     validate_against_json_schema,
     validate_manifest_file,
+    validate_campaign_file,
     validate_workflow_file,
 )
 
@@ -29,16 +32,21 @@ __all__ = [
     "DomainPackConfig",
     "LabManifest",
     "LabSpec",
+    "ManifestSecretError",
     "PolicyConfig",
     "PolicyRuleSpec",
     "RuntimeConfig",
     "SCHEMAS",
+    "SecretReference",
     "StorageConfig",
     "TwinConfig",
     "dump_manifest",
     "generate_json_schemas",
     "load_manifest",
+    "redacted_manifest_document",
+    "resolve_secret_references",
     "validate_against_json_schema",
     "validate_manifest_file",
+    "validate_campaign_file",
     "validate_workflow_file",
 ]

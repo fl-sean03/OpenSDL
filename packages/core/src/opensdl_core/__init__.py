@@ -16,7 +16,7 @@ from .errors import (
     ValidationError,
     WorkflowExecutionError,
 )
-from .ids import RUN_ID_PATTERN, RunId, new_id, validate_run_id
+from .ids import RUN_ID_PATTERN, CampaignId, RunId, new_id, validate_run_id
 from .lifecycle import validate_run_transition, validate_task_transition
 from .models import (
     ArtifactRecord,
@@ -48,6 +48,7 @@ __all__ = [
     "AuthorizationEffect",
     "AuthorizationReceipt",
     "CampaignDefinition",
+    "CampaignId",
     "CapabilityDefinition",
     "CapabilityNotFoundError",
     "Decision",

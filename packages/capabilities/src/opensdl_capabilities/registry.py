@@ -1,17 +1,28 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
-from opensdl_core import CapabilityDefinition, CapabilityNotFoundError
+from opensdl_core import CapabilityDefinition, CapabilityNotFoundError, ExecutionRequest
 
 from .adapter import CapabilityAdapter
+from .execution import AdapterCall, AdapterExecutor
 
 
 class CapabilityRegistry:
-    def __init__(self) -> None:
+    """Which adapter provides which capability, and the context that adapter's code runs in.
+
+    The registry owns the execution context because it already owns the adapter lifecycle: an
+    adapter's `start`, `execute`, `health` and `close` have to run on one loop for the adapter to
+    be able to hold state across them, and that loop is not the caller's. See `execution.py` for
+    why adapter code runs off the calling loop at all.
+    """
+
+    def __init__(self, *, executor: AdapterExecutor | None = None) -> None:
         self._adapters: dict[str, CapabilityAdapter] = {}
         self._capabilities: dict[str, CapabilityDefinition] = {}
         self._capability_adapter: dict[str, str] = {}
+        self._executor = executor or AdapterExecutor()
 
     def register(self, adapter: CapabilityAdapter) -> None:
         if adapter.name in self._adapters:
@@ -72,10 +83,24 @@ class CapabilityRegistry:
     def list_adapters(self) -> list[CapabilityAdapter]:
         return sorted(self._adapters.values(), key=lambda item: item.name)
 
+    def dispatch(self, capability_id: str, request: ExecutionRequest) -> AdapterCall:
+        """Hand one execution to the providing adapter and return a handle the caller can drop.
+
+        The handle is what makes a declared timeout binding: waiting on it is bounded even when the
+        adapter's `async def` contains a blocking call and never yields. It bounds the wait only.
+        """
+        return self._executor.dispatch(self.get_adapter(capability_id), request)
+
+    async def health(self, adapter: CapabilityAdapter) -> dict[str, Any]:
+        return await self._executor.health(adapter)
+
     async def start(self) -> None:
         for adapter in self.list_adapters():
-            await adapter.start()
+            await self._executor.start(adapter)
 
     async def close(self) -> None:
-        for adapter in reversed(self.list_adapters()):
-            await adapter.close()
+        try:
+            for adapter in reversed(self.list_adapters()):
+                await self._executor.close(adapter)
+        finally:
+            self._executor.shutdown()

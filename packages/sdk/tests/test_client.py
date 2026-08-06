@@ -186,3 +186,32 @@ def test_submit_workflow_includes_caller_supplied_run_id(
             "run_id": "run-stable",
         },
     )
+
+
+@pytest.mark.integration
+def test_client_reads_campaigns_the_api_serves(live_client: OpenSDLClient) -> None:
+    """A remote client had no way to see a campaign at all; `campaign` was in no SDK method."""
+    assert live_client.campaigns() == []
+
+    with pytest.raises(httpx.HTTPStatusError) as error:
+        live_client.inspect_campaign("campaign-absent")
+    assert error.value.response.status_code == 404
+
+    assert live_client.events(campaign_id="campaign-absent") == []
+
+
+def test_client_builds_campaign_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = OpenSDLClient("http://localhost:9999")
+    request = Mock(return_value={})
+    monkeypatch.setattr(client, "_request", request)
+
+    client.campaigns()
+    client.inspect_campaign("campaign-1")
+    client.events(campaign_id="campaign-1", limit=5)
+
+    assert request.call_args_list[0].args == ("GET", "/campaigns")
+    assert request.call_args_list[1].args == ("GET", "/campaigns/campaign-1")
+    assert request.call_args_list[2].kwargs["params"] == {
+        "limit": 5,
+        "campaign_id": "campaign-1",
+    }

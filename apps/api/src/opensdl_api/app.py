@@ -20,6 +20,7 @@ from opensdl_controller import (
     TwinSceneNotFoundError,
 )
 from opensdl_core import (
+    CampaignId,
     CapabilityNotFoundError,
     ExecutionDeniedError,
     LifecycleError,
@@ -276,14 +277,37 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="run not found") from exc
 
+    @app.get("/campaigns")
+    def campaigns() -> list[dict[str, Any]]:
+        """Every campaign this laboratory has recorded, newest first.
+
+        There is no `POST`. A campaign runs for hours or days, and `POST /runs` already awaits a
+        whole workflow inside its request handler — repeating that for the closed loop would hold
+        a socket open for the length of an experiment. Starting a campaign is
+        `opensdl campaign start`, which runs in the foreground of its own process.
+        """
+        return current().gateway.list_campaigns()
+
+    @app.get("/campaigns/{campaign_id}", responses=NOT_FOUND_RESPONSE)
+    def inspect_campaign(campaign_id: CampaignId) -> dict[str, Any]:
+        try:
+            return current().gateway.inspect_campaign(campaign_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="campaign not found") from exc
+
     @app.get("/events")
     def events(
         run_id: RunId | None = None,
+        campaign_id: CampaignId | None = None,
         limit: Annotated[int, Query(ge=1, le=MAX_EVENT_LIMIT)] = 200,
     ) -> list[dict[str, Any]]:
         return [
             item.model_dump(mode="json")
-            for item in current().repositories.list_events(run_id=run_id, limit=limit)
+            for item in current().repositories.list_events(
+                run_id=run_id,
+                campaign_id=campaign_id,
+                limit=limit,
+            )
         ]
 
     @app.get(

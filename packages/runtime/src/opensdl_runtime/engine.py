@@ -321,8 +321,13 @@ class ReferenceRuntime:
                 self.repositories.upsert_task(task)
                 raise ResourceBusyError(task.error)
 
-            adapter = self.registry.get_adapter(step.capability)
             max_retries = step.retries if step.retries is not None else definition.max_retries
+            # What this timeout bounds is how long the runtime waits, and nothing else. Adapter
+            # code runs on its own thread and loop so that the bound holds even for a blocking
+            # call inside an `async def` and so that one adapter cannot stall the rest of the
+            # laboratory; see `opensdl_capabilities.execution`. Abandoning the wait does not stop
+            # the instrument, which is why a timed-out task's physical outcome is not established
+            # by this code and must be established by a person.
             timeout = (
                 step.timeout_seconds or definition.timeout_seconds or self.default_timeout_seconds
             )
@@ -334,6 +339,7 @@ class ReferenceRuntime:
                 run_id=run.id,
                 task_id=task.id,
             )
+            adapter_name = self.registry.get_adapter(step.capability).name
             try:
                 for attempt in range(max_retries + 1):
                     task.attempt = attempt + 1
@@ -349,7 +355,8 @@ class ReferenceRuntime:
                         campaign_id=campaign_id,
                     )
                     try:
-                        result = await asyncio.wait_for(adapter.execute(request), timeout=timeout)
+                        call = self.registry.dispatch(step.capability, request)
+                        result = await call.result(timeout)
                     except asyncio.CancelledError:
                         task_error = (
                             f"execution of {step.capability} was cancelled while active; "
@@ -444,7 +451,7 @@ class ReferenceRuntime:
                         payload={
                             "attempt": task.attempt,
                             "output": result.output,
-                            "adapter": adapter.name,
+                            "adapter": adapter_name,
                         },
                         campaign_id=campaign_id,
                     )

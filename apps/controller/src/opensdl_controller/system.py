@@ -18,7 +18,7 @@ from opensdl_policy import PolicyEngine, PolicyRule
 from opensdl_provenance import RunBundleExporter
 from opensdl_runtime import ReferenceRuntime
 from opensdl_core import RunRecord, WorkflowDefinition
-from opensdl_schemas import LabManifest, load_manifest
+from opensdl_schemas import LabManifest, load_manifest, redacted_manifest_document
 from opensdl_storage import Database, LocalArtifactStore, Repositories
 from opensdl_twin import TwinProjectionError, TwinService, load_twin_definition
 from opensdl_workflows import load_workflow
@@ -174,8 +174,14 @@ class OpenSDLSystem:
                 enabled_capabilities.append(binding.capability)
             registry.restrict(enabled_capabilities)
 
+        # `pack_config.config` is descriptive: `load_domain_pack` takes no configuration, and the
+        # only consumer of this list is the context pack, which `GET /context`, the `describe_lab`
+        # tool, and the SDK all serve without authentication. So the redacted document is what
+        # belongs here — a credential named in the manifest would otherwise be resolved at load and
+        # then published, which is a larger disclosure than the operator wrote down.
+        pack_documents = redacted_manifest_document(manifest)["spec"].get("domain_packs", [])
         domain_packs: list[dict[str, Any]] = []
-        for pack_config in manifest.spec.domain_packs:
+        for index, pack_config in enumerate(manifest.spec.domain_packs):
             pack = plugins.load_domain_pack(pack_config.plugin)
             if not isinstance(pack, dict):
                 raise TypeError(f"domain pack {pack_config.plugin!r} did not return a mapping")
@@ -184,7 +190,7 @@ class OpenSDLSystem:
                     f"domain pack {pack_config.plugin!r} reports name "
                     f"{pack.get('name')!r}, expected {pack_config.name!r}"
                 )
-            domain_packs.append({**pack, "config": pack_config.config})
+            domain_packs.append({**pack, "config": pack_documents[index]["config"]})
 
         if not read_only:
             for adapter in registry.list_adapters():
@@ -315,7 +321,11 @@ class OpenSDLSystem:
         checks: list[dict[str, Any]] = []
         for adapter in self.registry.list_adapters():
             try:
-                health = await adapter.health()
+                # Through the registry, so health reaches the adapter on the adapter's own
+                # loop like every other call. No shipped adapter's health() touches
+                # loop-bound state, but one that held a connection or a lock would break
+                # here and nowhere else, which is the worst place to discover it.
+                health = await self.registry.health(adapter)
                 checks.append(
                     {
                         "name": f"adapter:{adapter.name}",
@@ -440,8 +450,36 @@ def _resolve_path(path: str | Path, base: Path) -> Path:
     return resolved.resolve()
 
 
+#: Query-parameter names whose value is a credential. Matched as a substring of the lowercased
+#: parameter name, so `sslpassword`, `api_key`, and `access_token` are all covered.
+_CREDENTIAL_PARAMETERS = ("password", "passwd", "pwd", "secret", "token", "key", "credential")
+
+
 def _redact_url(url: str) -> str:
-    if "@" not in url:
-        return url
-    scheme, remainder = url.split("://", 1)
-    return f"{scheme}://***@{remainder.split('@', 1)[1]}"
+    """A database URL fit to print, with every credential position hidden and the rest legible.
+
+    `opensdl doctor` prints this and `GET /health` serves it unauthenticated, so it is the one
+    place a laboratory's connection string reaches an operator's terminal and an open route. Two
+    positions carry credentials: the userinfo before `@`, and query parameters — several managed
+    backends take the password, key, or token that way, and PostgreSQL accepts `?password=`. The
+    parameter name survives redaction; only its value is replaced, because a URL printed for
+    diagnosis has to stay diagnosable.
+    """
+    remainder = url
+    prefix = ""
+    if "://" in remainder:
+        scheme, remainder = remainder.split("://", 1)
+        prefix = f"{scheme}://"
+    if "@" in remainder:
+        remainder = f"***@{remainder.split('@', 1)[1]}"
+    if "?" in remainder:
+        base, query = remainder.split("?", 1)
+        parameters = []
+        for parameter in query.split("&"):
+            name, separator, _ = parameter.partition("=")
+            if separator and any(word in name.lower() for word in _CREDENTIAL_PARAMETERS):
+                parameters.append(f"{name}=***")
+            else:
+                parameters.append(parameter)
+        remainder = f"{base}?{'&'.join(parameters)}"
+    return prefix + remainder

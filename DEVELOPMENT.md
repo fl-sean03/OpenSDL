@@ -75,23 +75,47 @@ docker compose up --build
 
 ## Database
 
-Application code uses SQLAlchemy models in `packages/storage`. Alembic configuration and migration history live in `database/`.
+Application code uses SQLAlchemy models in `packages/storage/src/opensdl_storage/db_models.py`. The
+migration history lives beside them, in
+`packages/storage/src/opensdl_storage/migrations/versions/`, so it ships inside the `opensdl-storage`
+distribution and a generated laboratory can migrate its store with no checkout of this repository.
+`database/alembic.ini` is the authoring entry point and points at that packaged environment.
+
+**Alembic is the only writer of the schema.** `Database.initialize()` runs the migration history;
+it used to call `create_all()` and hand-write a `schema_versions` row, which could never alter an
+existing table and diverged from the migrations by 23 indexes without any check noticing. A store
+created before that change carries no `alembic_version`, so `initialize()` adopts it — stamping it
+at `ADOPTION_REVISION` and upgrading from there — rather than failing on `table schema_versions
+already exists`. Never call `Base.metadata.create_all()` in application code.
 
 ```bash
-uv run --locked alembic -c database/alembic.ini upgrade head
+uv run --locked opensdl migrate --manifest opensdl.yaml --check   # report, write nothing
+uv run --locked opensdl migrate --manifest opensdl.yaml           # apply
 uv run --locked alembic -c database/alembic.ini revision --autogenerate -m "describe change"
+uv run --locked alembic -c database/alembic.ini upgrade head      # by hand, without a manifest
 ```
 
-Set `OPENSDL_DATABASE_URL` before running migrations against a non-default database.
+`opensdl migrate` is a thin wrapper over `opensdl_controller.migrate.plan` and
+`opensdl_controller.migrate.upgrade`. Until the `packages/cli` command lands, call those directly or
+use the Alembic commands above; the schema upgrade itself does not depend on the CLI.
+
+Set `OPENSDL_DATABASE_URL` before running the Alembic commands against a non-default database.
+`opensdl migrate` reads the manifest's `spec.storage.database.url` and honours the same override.
 
 Schema changes require:
 
 1. SQLAlchemy model change;
-2. migration;
+2. a new migration — append a revision, never edit a shipped one;
 3. repository conversion update;
 4. tests against SQLite;
 5. PostgreSQL CI when the change is database-specific;
 6. documentation and propagation review.
+
+`tests/integration/test_migrations.py` compares the database Alembic builds against
+`Base.metadata` using the same comparison `--autogenerate` uses. A model change without a matching
+revision fails there, which is the check that did not exist while the two paths were diverging.
+A revision that must serve both a store built by Alembic and one adopted from the pre-Alembic path
+has to be idempotent; revision `0002` is the worked example.
 
 ## Add a capability
 

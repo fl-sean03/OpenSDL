@@ -4,9 +4,17 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 
 from opensdl_core import CapabilityDefinition, LabMetadata, OpenSDLModel, Resource
+
+from .secrets import (
+    ManifestSecretError,
+    SecretReference,
+    format_path,
+    redact,
+    resolve_secret_references,
+)
 
 
 class DatabaseConfig(OpenSDLModel):
@@ -115,19 +123,73 @@ class LabManifest(OpenSDLModel):
     metadata: LabMetadata
     spec: LabSpec
 
+    #: Every `${provider:name}` reference `load_manifest` resolved, and the literal text it stood
+    #: in for. The model carries resolved values because adapters need them; this is what lets a
+    #: serializer put the reference back. A manifest built in memory has none.
+    _secret_references: tuple[SecretReference, ...] = PrivateAttr(default=())
+
+    @property
+    def secret_references(self) -> tuple[SecretReference, ...]:
+        return self._secret_references
+
 
 def load_manifest(path: str | Path) -> LabManifest:
+    """Load, resolve secret references, and validate one laboratory manifest.
+
+    Resolution happens on the raw document, before validation, so every consumer of the model sees
+    ordinary values and nothing downstream has to know a credential was named rather than written.
+    Validation failures are re-raised with resolved values replaced by the references they came
+    from: Pydantic reports the input it rejected, and the CLI prints an exception's message
+    verbatim on stderr.
+    """
     source = Path(path)
     data = yaml.safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"manifest must contain a mapping: {source}")
-    return LabManifest.model_validate(data)
+    try:
+        resolved, references = resolve_secret_references(data)
+    except ManifestSecretError as error:
+        raise ManifestSecretError(f"{source}: {error}") from None
+    try:
+        manifest = LabManifest.model_validate(resolved)
+    except ValidationError as error:
+        if not references:
+            raise
+        raise ValueError(f"{source}: {redact(str(error), references)}") from None
+    manifest._secret_references = references
+    return manifest
+
+
+def redacted_manifest_document(manifest: LabManifest) -> dict[str, Any]:
+    """The manifest as a JSON-ready document, with every resolved reference written back.
+
+    Use this anywhere a manifest is serialized, printed, or exported. It restores by *path*, so a
+    value that merely happens to equal a secret is untouched and a reference embedded in a longer
+    string is reproduced whole.
+    """
+    document = manifest.model_dump(mode="json", by_alias=True, exclude_none=True)
+    for reference in manifest.secret_references:
+        _restore(document, reference)
+    return document
+
+
+def _restore(document: dict[str, Any], reference: SecretReference) -> None:
+    node: Any = document
+    for element in reference.path[:-1]:
+        try:
+            node = node[element]
+        except (KeyError, IndexError, TypeError) as error:  # pragma: no cover - defensive
+            raise ValueError(
+                f"cannot redact the secret at {format_path(reference.path)}: the serialized "
+                f"manifest has no such path, so the resolved value would be emitted"
+            ) from error
+    node[reference.path[-1]] = reference.reference
 
 
 def dump_manifest(manifest: LabManifest, path: str | Path) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    data = manifest.model_dump(mode="json", by_alias=True, exclude_none=True)
+    data = redacted_manifest_document(manifest)
     target.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 

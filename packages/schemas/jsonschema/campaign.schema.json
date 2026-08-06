@@ -22,6 +22,11 @@
       "title": "Optimizer",
       "type": "string"
     },
+    "optimizer_config": {
+      "additionalProperties": true,
+      "title": "Optimizer Config",
+      "type": "object"
+    },
     "max_iterations": {
       "default": 10,
       "exclusiveMinimum": 0,

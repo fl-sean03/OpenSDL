@@ -21,6 +21,9 @@ spec:
       plugin: simulated-lab
       config:
         seed: 7
+        # A real instrument's credential is named, never written here:
+        #   token: ${env:BALANCE_TOKEN}
+        # An unresolved reference is an error naming the variable.
     - name: local-compute
       plugin: local-compute
     - name: human-task

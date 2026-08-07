@@ -120,6 +120,10 @@ class RunRequest(BaseModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     operator_id: str = "operator/api"
     run_id: RunId | None = None
+    #: The run this submission replaces. A `run_id` naming an existing run resumes it and is
+    #: refused when the workflow is not the one that run recorded; this is how a repaired workflow
+    #: is submitted instead — as a new run that names the one it grew out of.
+    supersedes: RunId | None = None
 
 
 class CapabilityRequest(BaseModel):
@@ -263,6 +267,7 @@ def create_app(
                 request.inputs,
                 operator_id=request.operator_id,
                 run_id=request.run_id,
+                supersedes=request.supersedes,
             )
             return current().gateway.inspect_run(run.id)
         except HTTPException:

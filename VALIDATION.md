@@ -35,7 +35,7 @@ These run in hosted CI and fail the build.
 | Ruff lint and formatting, Pyright | `ci.yml` | Zero errors or warnings |
 | Package import boundaries | `ci.yml` | Every shipped package is declared and stays inside its declared dependencies; an unmapped package fails rather than being skipped |
 | Propagation-graph coverage | `ci.yml` | Every tracked file matches a node, so the blast-radius tool cannot go blind again |
-| Generated JSON Schema freshness | `ci.yml` | The 13 committed schemas match the models |
+| Generated JSON Schema freshness | `ci.yml` | The 16 committed schemas match the models |
 | Repository structure | `ci.yml` | TOML, YAML, JSON, agent instructions, the 11 canonical skills, and every relative Markdown link |
 | Release-version consistency | `ci.yml`, `release.yml` | One version across 22 workspace members, the citation file, and generated dependency floors |
 | Viewer suite, typecheck, build and asset drift | `ci.yml` | 67 Vitest tests, Biome, TypeScript, a deterministic static build, and the committed bundle matching its source |
@@ -82,6 +82,11 @@ exists to expose.
   service is exercised by any test or CI job. Foreign keys are the one place the two backends
   provably diverge: SQLite ignores them unless a pragma is set per connection, which nothing sets,
   while PostgreSQL always enforces them.
+- **Concurrent run submission is bounded at the store, and exercised on SQLite only.** Starting a
+  run is one conditional `UPDATE` over the states the declared machine permits a start from, so two
+  callers cannot both claim the same run, and a test drives two concurrent submissions against one.
+  Resource leasing is still a check-then-act — every lease is read and then written in two passes
+  inside one session — and no PostgreSQL service exercises either path.
 - **Retry safety is expressible but not enforced.** A capability declares whether repeating it is
   safe and the runtime honours the declaration, but the conformance profile does not require an
   operational adapter to make one. `SAFETY.md`'s requirement is satisfiable rather than checked.

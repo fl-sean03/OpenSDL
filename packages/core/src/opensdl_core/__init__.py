@@ -18,6 +18,7 @@ from .campaign import (
     StatefulOptimizer,
     Suggestion,
 )
+from .digest import canonical_digest, canonical_json
 from .enums import (
     ArtifactKind,
     AuthorizationEffect,
@@ -38,7 +39,11 @@ from .errors import (
     WorkflowExecutionError,
 )
 from .ids import RUN_ID_PATTERN, CampaignId, RunId, new_id, validate_run_id
-from .lifecycle import validate_run_transition, validate_task_transition
+from .lifecycle import (
+    STARTABLE_RUN_STATES,
+    validate_run_transition,
+    validate_task_transition,
+)
 from .models import (
     ArtifactRecord,
     AuthorizationReceipt,
@@ -106,6 +111,7 @@ __all__ = [
     "RetrySafety",
     "RiskClass",
     "RUN_ID_PATTERN",
+    "STARTABLE_RUN_STATES",
     "RunId",
     "RunRecord",
     "RunState",
@@ -118,6 +124,8 @@ __all__ = [
     "WorkflowDefinition",
     "WorkflowExecutionError",
     "WorkflowStep",
+    "canonical_digest",
+    "canonical_json",
     "new_id",
     "utc_now",
     "validate_run_id",

@@ -14,6 +14,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 import opensdl_core
 from opensdl_core import (
@@ -226,3 +227,87 @@ def test_every_optional_capability_is_checkable_one_at_a_time() -> None:
     assert not isinstance(optimizer, ResumableOptimizer)
     assert not isinstance(optimizer, StatefulOptimizer)
     assert not isinstance(optimizer, BatchOptimizer)
+
+
+def test_an_observation_states_what_its_status_permits() -> None:
+    """`__post_init__` was the only validation these carried; it is now the model's."""
+
+    with pytest.raises(PydanticValidationError, match="must carry the score"):
+        CampaignObservation(iteration=0, candidate={"x": 1})
+    with pytest.raises(PydanticValidationError, match="cannot carry an error"):
+        CampaignObservation(iteration=0, candidate={"x": 1}, score=1.0, error="but it worked")
+    with pytest.raises(PydanticValidationError, match="failed observation has no score"):
+        CampaignObservation(
+            iteration=0,
+            candidate={"x": 1},
+            score=1.0,
+            status=CampaignObservationStatus.FAILED,
+            error="stalled",
+        )
+    with pytest.raises(PydanticValidationError, match="must record why it failed"):
+        CampaignObservation(
+            iteration=0, candidate={"x": 1}, status=CampaignObservationStatus.FAILED
+        )
+    with pytest.raises(PydanticValidationError, match="names no run"):
+        CampaignObservation(
+            iteration=0,
+            candidate={"x": 1},
+            status=CampaignObservationStatus.REJECTED,
+            error="outside the space",
+            run_id="run_0123456789abcdef0123456789abcdef",
+        )
+
+
+def test_an_observation_and_a_suggestion_round_trip_through_their_serialised_form() -> None:
+    suggestion = Suggestion(
+        parameters={"x": 1.0},
+        predictions={"score": ObjectiveValue(value=0.5, uncertainty=0.1)},
+        acquisition=0.9,
+        acquisition_function="qEI",
+        model={"kernel": "matern"},
+        rationale="expected improvement",
+        evidence_run_ids=("run_0123456789abcdef0123456789abcdef",),
+    )
+    observation = CampaignObservation(
+        iteration=2,
+        candidate={"x": 1.0},
+        score=0.4,
+        run_id="run_0123456789abcdef0123456789abcdee",
+        objectives={"score": ObjectiveValue(value=0.4)},
+        constraint_violations=("pressure: 10 is above 9",),
+        suggestion=suggestion,
+        batch=1,
+    )
+
+    document = observation.model_dump(mode="json", by_alias=True)
+
+    assert document["runId"] == observation.run_id
+    assert document["constraintViolations"] == ["pressure: 10 is above 9"]
+    assert document["suggestion"]["acquisitionFunction"] == "qEI"
+    assert document["suggestion"]["evidenceRunIds"] == list(suggestion.evidence_run_ids or ())
+    assert CampaignObservation.model_validate(document) == observation
+    assert not observation.feasible
+
+
+def test_the_contract_models_are_immutable_and_refuse_an_undeclared_field() -> None:
+    observation = CampaignObservation(iteration=0, candidate={"x": 1}, score=1.0)
+
+    with pytest.raises(PydanticValidationError):
+        observation.score = 2.0  # type: ignore[misc]
+    with pytest.raises(PydanticValidationError):
+        CampaignObservation.model_validate(
+            {"iteration": 0, "candidate": {"x": 1}, "score": 1.0, "invented": True}
+        )
+    with pytest.raises(PydanticValidationError):
+        Suggestion.model_validate({"parameters": {"x": 1}, "invented": True})
+
+
+def test_an_optimizer_may_still_spell_the_contract_in_python() -> None:
+    """The camelCase spelling is the recorded document's, not the plugin author's."""
+
+    suggestion = Suggestion(parameters={"x": 1}, acquisition_function="qEI")
+
+    assert suggestion.acquisition_function == "qEI"
+    assert Suggestion.model_validate({"parameters": {"x": 1}, "acquisitionFunction": "qEI"}) == (
+        suggestion
+    )

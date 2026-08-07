@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from opensdl_core import (
+    STARTABLE_RUN_STATES,
     ArtifactKind,
     EventRecord,
     LifecycleError,
@@ -163,4 +164,54 @@ def test_upsert_task_creates_rows_in_any_state(tmp_path) -> None:
     recovered.state = TaskState.FAILED
     repo.upsert_task(recovered)
     assert repo.list_tasks(run.id)[0].state == TaskState.FAILED
+    database.dispose()
+
+
+def test_a_run_is_claimed_once(tmp_path) -> None:
+    """`start_run` is a conditional write, so a second claim on the same run fails."""
+    database, repo = build_repository(tmp_path)
+    run = repo.create_run(RunRecord(workflow_id="demo", state=RunState.FAILED))
+
+    claimed = repo.start_run(run.id)
+
+    assert claimed is not None
+    assert claimed.state == RunState.RUNNING
+    assert claimed.error is None
+    assert repo.start_run(run.id) is None
+    assert repo.get_run(run.id).state == RunState.RUNNING  # type: ignore[union-attr]
+    database.dispose()
+
+
+#: Split from the declared machine rather than listed, so a new run state joins one of these two
+#: parametrisations automatically and cannot arrive untested.
+STARTABLE: list[RunState] = sorted(STARTABLE_RUN_STATES, key=lambda item: item.value)
+UNSTARTABLE: list[RunState] = sorted(set(RunState) - STARTABLE_RUN_STATES, key=lambda i: i.value)
+
+
+@pytest.mark.parametrize("state", STARTABLE)
+def test_every_declared_start_state_can_be_claimed(tmp_path, state: RunState) -> None:
+    database, repo = build_repository(tmp_path)
+    run = repo.create_run(RunRecord(workflow_id="demo", state=state))
+
+    claimed = repo.start_run(run.id)
+
+    assert claimed is not None and claimed.state == RunState.RUNNING
+    database.dispose()
+
+
+@pytest.mark.parametrize("state", UNSTARTABLE)
+def test_no_other_state_can_be_claimed(tmp_path, state: RunState) -> None:
+    """Including `RUNNING`: the declared machine never let a run start from it."""
+    database, repo = build_repository(tmp_path)
+    run = repo.create_run(RunRecord(workflow_id="demo", state=state))
+
+    assert repo.start_run(run.id) is None
+    assert repo.get_run(run.id).state == state  # type: ignore[union-attr]
+    database.dispose()
+
+
+def test_claiming_a_run_that_does_not_exist_reports_it(tmp_path) -> None:
+    database, repo = build_repository(tmp_path)
+
+    assert repo.start_run("run_absent") is None
     database.dispose()

@@ -9,6 +9,7 @@ from opensdl_adapter_local_compute import LocalComputeAdapter
 from opensdl_capabilities import CapabilityAdapter, CapabilityRegistry, NotDispatchedError
 from opensdl_core import (
     CapabilityDefinition,
+    EventRecord,
     ExecutionDeniedError,
     ExecutionRequest,
     ExecutionResult,
@@ -25,6 +26,7 @@ from opensdl_core import (
     WorkflowDefinition,
     WorkflowExecutionError,
     WorkflowStep,
+    canonical_digest,
 )
 from opensdl_policy import PolicyEngine
 from opensdl_runtime import ReferenceRuntime
@@ -1152,3 +1154,261 @@ async def test_resume_continues_a_run_whose_recorded_tasks_are_settled(tmp_path)
     assert adapter.calls == 1
     states = {task.step_id: task.state for task in repositories.list_tasks(run.id)}
     assert states == {"score": TaskState.SUCCEEDED, "probe": TaskState.SUCCEEDED}
+
+
+def forged_resume_workflow() -> WorkflowDefinition:
+    """The same workflow identifier and a different step list: what a resume must refuse."""
+    return WorkflowDefinition(
+        id="resume",
+        name="Resume",
+        input_schema=resume_workflow().input_schema,
+        steps=[
+            WorkflowStep(
+                id="score",
+                capability="compute.euclidean_distance",
+                inputs={"a": "${inputs.a}", "b": "${inputs.b}"},
+            ),
+            WorkflowStep(id="probe", capability="test.probe", inputs={"forged": True}),
+        ],
+        outputs={"score": "${steps.score.output.distance}", "probe": "${steps.probe.output}"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_created_carries_a_digest_of_the_workflow_it_captured(tmp_path) -> None:
+    runtime, repositories = build_probe_runtime(tmp_path, ProbeAdapter())
+    workflow = probe_workflow()
+
+    run = await runtime.run_workflow(workflow, {})
+
+    created = next(
+        event
+        for event in repositories.list_events(run_id=run.id, limit=None)
+        if event.type == "RunCreated"
+    )
+    assert created.payload["workflowDigest"] == canonical_digest(created.payload["workflow"])
+    assert created.payload["workflowDigest"] == canonical_digest(workflow.model_dump(mode="json"))
+
+
+@pytest.mark.asyncio
+async def test_resume_refuses_a_workflow_that_is_not_the_run_of_record(tmp_path) -> None:
+    """The mutation half of C5: a failed run resumed with a different step list.
+
+    Before this was refused the resume completed, the run's `RunCreated` still described the
+    submitted workflow, and the forged step executed under the original operator's name.
+    """
+    adapter = ProbeAdapter(failures=1)
+    runtime, repositories = build_resume_runtime(tmp_path, adapter)
+    workflow = resume_workflow()
+    inputs = {"a": [0, 0], "b": [3, 4]}
+
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.run_workflow(workflow, inputs, operator_id="operator/alice")
+    failed = repositories.list_runs()[0]
+    assert failed.state == RunState.FAILED
+    assert adapter.calls == 1
+
+    with pytest.raises(LifecycleError) as raised:
+        await runtime.run_workflow(
+            forged_resume_workflow(), inputs, run_id=failed.id, operator_id="operator/mallory"
+        )
+
+    message = str(raised.value)
+    assert failed.id in message
+    assert canonical_digest(workflow.model_dump(mode="json")) in message
+    assert canonical_digest(forged_resume_workflow().model_dump(mode="json")) in message
+    assert "supersedes" in message
+    assert adapter.calls == 1
+    stored = repositories.get_run(failed.id)
+    assert stored is not None
+    assert stored.state == RunState.FAILED
+    assert stored.operator_id == "operator/alice"
+    assert sorted(task.step_id for task in repositories.list_tasks(failed.id)) == ["probe", "score"]
+    events = repositories.list_events(run_id=failed.id, limit=None)
+    assert [event.type for event in events].count("RunStarted") == 1
+    assert not any(event.actor_id == "operator/mallory" for event in events)
+
+
+@pytest.mark.asyncio
+async def test_resume_accepts_the_workflow_the_run_recorded(tmp_path) -> None:
+    adapter = ProbeAdapter(failures=1)
+    runtime, repositories = build_resume_runtime(tmp_path, adapter)
+    workflow = resume_workflow()
+    inputs = {"a": [0, 0], "b": [3, 4]}
+
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.run_workflow(workflow, inputs)
+    failed = repositories.list_runs()[0]
+
+    resumed = await runtime.run_workflow(workflow, inputs, run_id=failed.id)
+
+    assert resumed.state == RunState.COMPLETED
+    assert adapter.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_resume_digests_a_run_recorded_before_the_digest_existed(tmp_path) -> None:
+    """A `RunCreated` written without `workflowDigest` still names its workflow of record."""
+    adapter = ProbeAdapter()
+    runtime, repositories = build_resume_runtime(tmp_path, adapter)
+    workflow = resume_workflow()
+    inputs = {"a": [0, 0], "b": [3, 4]}
+    run = repositories.create_run(
+        RunRecord(workflow_id=workflow.id, state=RunState.FAILED, inputs=inputs)
+    )
+    repositories.append_event(
+        EventRecord(
+            type="RunCreated",
+            actor_id=run.operator_id,
+            run_id=run.id,
+            payload={"workflow": workflow.model_dump(mode="json")},
+        )
+    )
+
+    with pytest.raises(LifecycleError) as raised:
+        await runtime.run_workflow(forged_resume_workflow(), inputs, run_id=run.id)
+
+    assert canonical_digest(workflow.model_dump(mode="json")) in str(raised.value)
+    assert adapter.calls == 0
+
+    resumed = await runtime.run_workflow(workflow, inputs, run_id=run.id)
+
+    assert resumed.state == RunState.COMPLETED
+    assert adapter.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_a_repaired_workflow_runs_as_a_new_run_that_names_the_one_it_replaces(
+    tmp_path,
+) -> None:
+    adapter = ProbeAdapter(failures=1)
+    runtime, repositories = build_resume_runtime(tmp_path, adapter)
+    workflow = resume_workflow()
+    inputs = {"a": [0, 0], "b": [3, 4]}
+
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.run_workflow(workflow, inputs, operator_id="operator/alice")
+    failed = repositories.list_runs()[0]
+    repaired = forged_resume_workflow()
+
+    replacement = await runtime.run_workflow(
+        repaired, inputs, operator_id="operator/alice", supersedes=failed.id
+    )
+
+    assert replacement.id != failed.id
+    assert replacement.state == RunState.COMPLETED
+    created = next(
+        event
+        for event in repositories.list_events(run_id=replacement.id, limit=None)
+        if event.type == "RunCreated"
+    )
+    assert created.payload["supersedes"] == failed.id
+    assert created.payload["workflowDigest"] == canonical_digest(repaired.model_dump(mode="json"))
+    superseded = next(
+        event
+        for event in repositories.list_events(run_id=failed.id, limit=None)
+        if event.type == "RunSuperseded"
+    )
+    assert superseded.payload["runId"] == replacement.id
+    assert superseded.payload["workflowDigest"] == canonical_digest(
+        repaired.model_dump(mode="json")
+    )
+    assert repositories.get_run(failed.id).state == RunState.FAILED  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_superseding_a_run_that_does_not_exist_is_refused(tmp_path) -> None:
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+
+    with pytest.raises(LookupError) as raised:
+        await runtime.run_workflow(probe_workflow(), {}, supersedes="run_missing")
+
+    assert "run_missing" in str(raised.value)
+    assert adapter.calls == 0
+    assert repositories.list_runs() == []
+
+
+@pytest.mark.asyncio
+async def test_superseding_cannot_be_combined_with_resuming(tmp_path) -> None:
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    workflow = probe_workflow()
+    existing = repositories.create_run(RunRecord(workflow_id=workflow.id, state=RunState.FAILED))
+
+    with pytest.raises(ValueError) as raised:
+        await runtime.run_workflow(workflow, {}, run_id=existing.id, supersedes=existing.id)
+
+    assert existing.id in str(raised.value)
+    assert adapter.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_two_callers_cannot_enter_the_same_run(tmp_path) -> None:
+    """A run is claimed once. `RUNNING -> RUNNING` was a no-op both callers passed."""
+    adapter = ProbeAdapter(failures=1, delay_seconds=0.05)
+    runtime, repositories = build_resume_runtime(tmp_path, adapter)
+    workflow = resume_workflow()
+    inputs = {"a": [0, 0], "b": [3, 4]}
+
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.run_workflow(workflow, inputs)
+    failed = repositories.list_runs()[0]
+    assert adapter.calls == 1
+
+    outcomes = await asyncio.gather(
+        runtime.run_workflow(workflow, inputs, run_id=failed.id),
+        runtime.run_workflow(workflow, inputs, run_id=failed.id),
+        return_exceptions=True,
+    )
+
+    refused = [item for item in outcomes if isinstance(item, BaseException)]
+    completed = [item for item in outcomes if isinstance(item, RunRecord)]
+    assert len(completed) == 1
+    assert len(refused) == 1
+    assert isinstance(refused[0], LifecycleError)
+    assert failed.id in str(refused[0])
+    assert adapter.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_resume_refuses_a_run_recorded_as_running(tmp_path) -> None:
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    workflow = probe_workflow()
+    run = repositories.create_run(RunRecord(workflow_id=workflow.id, state=RunState.RUNNING))
+
+    with pytest.raises(LifecycleError) as raised:
+        await runtime.run_workflow(workflow, {}, run_id=run.id)
+
+    message = str(raised.value)
+    assert run.id in message
+    assert RunState.RUNNING.value in message
+    assert adapter.calls == 0
+    stored = repositories.get_run(run.id)
+    assert stored is not None and stored.state == RunState.RUNNING
+
+
+@pytest.mark.asyncio
+async def test_run_started_records_the_operator_that_submitted_it(tmp_path) -> None:
+    adapter = ProbeAdapter(failures=1)
+    runtime, repositories = build_resume_runtime(tmp_path, adapter)
+    workflow = resume_workflow()
+    inputs = {"a": [0, 0], "b": [3, 4]}
+
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.run_workflow(workflow, inputs, operator_id="operator/alice")
+    failed = repositories.list_runs()[0]
+
+    await runtime.run_workflow(workflow, inputs, run_id=failed.id, operator_id="operator/bob")
+
+    started = [
+        event
+        for event in repositories.list_events(run_id=failed.id, limit=None)
+        if event.type == "RunStarted"
+    ]
+    assert [event.payload["operatorId"] for event in started] == [
+        "operator/alice",
+        "operator/bob",
+    ]
+    assert repositories.get_run(failed.id).operator_id == "operator/alice"  # type: ignore[union-attr]

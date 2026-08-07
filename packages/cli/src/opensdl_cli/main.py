@@ -368,8 +368,21 @@ def run_workflow(
     inputs: Annotated[str, typer.Option(help="JSON object or @path/to/file.json")] = "{}",
     operator_id: Annotated[str, typer.Option()] = "operator/cli",
     run_id: Annotated[str | None, typer.Option("--run-id")] = None,
+    supersedes: Annotated[
+        str | None,
+        typer.Option(
+            "--supersedes",
+            help="Run this replaces. Use it to submit a repaired workflow after a resume was "
+            "refused for presenting a different workflow from the one the run recorded.",
+        ),
+    ] = None,
 ) -> None:
-    """Execute a workflow through the durable reference runtime."""
+    """Execute a workflow through the durable reference runtime.
+
+    `--run-id` naming a run that already exists resumes it, and a resume must present the same
+    workflow the run recorded. A repaired workflow is a different execution, so it is submitted
+    with `--supersedes` instead: a new run that names the one it replaces, recorded on both.
+    """
     result = asyncio.run(
         _run(
             manifest,
@@ -377,6 +390,7 @@ def run_workflow(
             _json_input(inputs),
             operator_id,
             run_id=run_id,
+            supersedes=supersedes,
         )
     )
     console.print_json(data=result)
@@ -389,18 +403,22 @@ async def _run(
     operator_id: str,
     *,
     run_id: str | None = None,
+    supersedes: str | None = None,
 ) -> dict[str, Any]:
     system = OpenSDLSystem.from_manifest(manifest)
     try:
         _assert_capabilities_exposed(workflow, system)
         # A controller that died mid-run left those runs RUNNING with their leases held, and this
         # is the next process able to release them. `start()` no longer does it implicitly.
+        # It is also what makes such a run resumable at all: a run recorded `running` can no
+        # longer be claimed, and reconciliation is what moves it somewhere a person can act from.
         await system.start(reconcile=True)
         run = await system.run_workflow_file(
             workflow,
             inputs,
             operator_id=operator_id,
             run_id=run_id,
+            supersedes=supersedes,
         )
         return system.gateway.inspect_run(run.id)
     finally:

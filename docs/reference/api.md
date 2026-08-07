@@ -54,3 +54,18 @@ Implemented endpoints:
 
 The twin and viewer endpoints are read-only and return 404 when the laboratory manifest declares no
 digital twin.
+
+## `POST /runs` submits, resumes, or replaces
+
+`run_id` naming a run that already exists is a **resume**. The workflow in the request body must be
+the one that run recorded — `RunCreated` carries the definition and a canonical digest of it — and
+any other workflow is refused with `409`. Without that check, a `failed` or `intervention_required`
+run could be resubmitted over the unauthenticated route with an entirely different step list, and
+the run's own record would keep describing the workflow that was originally submitted.
+
+`supersedes` names the run this submission replaces. It mints a new run rather than editing the old
+one, records the link on both, and is the path for a repaired workflow. It is refused together with
+a `run_id` that already names a run, because that submission is a resume.
+
+`404` on `POST /runs` therefore includes a `supersedes` naming a run this laboratory has no record
+of.

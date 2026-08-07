@@ -61,10 +61,12 @@ These are the contracts a laboratory can depend on, and what each carries today.
 | Manifest `apiVersion` | `LabManifest` in `opensdl-schemas` | Pinned to `opensdl.dev/v0alpha1`. No second version exists. |
 | Manifest secret references | `${env:NAME}` resolved by `load_manifest` | The `${provider:name}` form is stable. Only `env:` is implemented; another prefix is refused by name. |
 | Twin `apiVersion` | `TwinDefinition` in `opensdl-twin` | Pinned to `opensdl.dev/v0alpha1`. No second version exists. |
-| Generated JSON Schemas | `packages/schemas/jsonschema/`, 13 files | Regenerated on every model change. No identity, no version, no compatibility check. |
+| Generated JSON Schemas | `packages/schemas/jsonschema/`, 16 files | Regenerated on every model change. No identity, no version, no compatibility check. |
 | Capability contracts | `CapabilityDefinition` and the identifiers adapters declare | No guarantee. Identifiers are plain strings and there is no registry. |
 | Adapter plugin interface | `CapabilityAdapter`, entry-point group `opensdl.adapters` | No guarantee. Abstract methods may be added. |
 | Optimizer plugin interface | `Optimizer` protocol in `opensdl-core`, group `opensdl.optimizers` | No guarantee. `suggest(history)` and `observe(observation)` are still the whole requirement; `BatchOptimizer`, `ConfigurableOptimizer`, `StatefulOptimizer` and `ResumableOptimizer` are optional and detected by `isinstance`, so adding a member to any of them silently stops matching every plugin that implements the others. It moved out of `opensdl-runtime` so a plugin depends on the contract rather than the execution stack; `opensdl-runtime` re-exports every name. |
+| Optimizer contract documents | `CampaignProblem`, `Suggestion`, `CampaignObservation` in `opensdl-core` | No guarantee on the fields, but each is now a typed model with a generated schema and its own serialisation, so what a plugin exchanges and what the event stream records are one document. See below. |
+| Workflow of record | `RunCreated.payload.workflowDigest` | The digest is the canonical-JSON SHA-256 of `RunCreated.payload.workflow`, recomputable by any reader. A resume presenting any other workflow is refused. |
 | Domain-pack interface | `get_pack()`, group `opensdl.domain_packs` | No guarantee. The return value is an untyped mapping. |
 | CLI | `opensdl` commands and options | No guarantee. Output is human-readable text and JSON with no declared shape. |
 | HTTP API | 18 routes in `opensdl-api` | No guarantee. No version prefix, no content negotiation, no authentication. |
@@ -89,7 +91,7 @@ prior version. That work does not exist and is not scheduled.
 
 ### Generated schemas are not identified
 
-The 13 files under `packages/schemas/jsonschema/` are produced by
+The 16 files under `packages/schemas/jsonschema/` are produced by
 `uv run --locked python scripts/generate-schemas.py`. None of them contains `$id`, `$schema`, or any
 version field, so a consumer holding one has no way to say which schema it is or which release
 produced it.
@@ -101,6 +103,72 @@ long as the schemas were regenerated in the same commit.
 
 Making these schemas useful as contracts requires an `$id` per schema, a `$schema` declaration, and a
 comparison against the previously released schema rather than against the working tree.
+
+### A run's workflow of record is pinned by digest
+
+`RunCreated` embeds the whole workflow definition the run was asked to execute and, beside it, the
+canonical-JSON SHA-256 of that embedded document as `workflowDigest`. The canonicalisation is
+`opensdl_core.canonical_json` — sorted keys, no separator whitespace, ASCII escapes — the same one
+the twin binding uses, so any reader holding `RunCreated.payload.workflow` can recompute the digest
+and check it.
+
+Resuming a run means presenting that same document. A submission carrying any other workflow is
+refused with a `LifecycleError` naming both digests, which the HTTP API reports as `409`. This
+closes the second half of a defect whose first half — resubmitting over a `completed` or `aborted`
+run — was closed by lifecycle enforcement: a `failed` or `intervention_required` run could still be
+resumed with a different step list, and the resulting run's own record described work it had not
+done.
+
+A run recorded before `workflowDigest` existed carries the workflow document without the digest.
+Its digest is recomputed from that document, so such a run is neither refused nor exempted.
+
+The path for a repaired workflow is `supersedes`. It mints a new run that names the run it replaces,
+records `supersedes` in the new run's `RunCreated`, and appends `RunSuperseded` to the replaced run
+naming the replacement, its workflow digest, and the operator making the claim. The replaced run's
+state, outputs, tasks and operator are untouched: it remains the record of what was submitted then.
+`supersedes` cannot be combined with a `run_id` that already names a run, because that submission is
+a resume and superseding exists precisely to leave the old record alone.
+
+Recorded as decision **4** in the [repository audit](../development/audit-2026-08-05.md).
+
+### A run is claimed once
+
+Moving a run to `running` is one conditional `UPDATE` at the store, over the states the declared
+machine permits a start from — `planned`, `queued`, `paused`, `intervention_required`, `failed`.
+`running` is not one of them and never was, but `validate_run_transition` returns early when the
+current and target states are equal, so a check-then-act through `update_run` let two callers both
+observe `running` and both proceed. Exactly one caller now wins, and the bound is the store's rather
+than the process's, so it holds across controllers and both supported backends.
+
+A run left `running` by a stopped controller is therefore not directly resumable. Reconciliation
+moves it to `intervention_required` — where a person establishes what the equipment did — and that
+is what `opensdl doctor --reconcile` and `opensdl run` already perform.
+
+This is one instance of a class the repository has not finished with: the backlog's item on
+trustworthy multi-user leases, run ownership and concurrent submission tests covers the rest,
+including `acquire_leases`, which still checks every lease and then writes them in two passes.
+
+### The optimizer contract is exchanged as schema'd documents
+
+`CampaignProblem`, `Suggestion` and `CampaignObservation` are what an optimizer plugin is configured
+with, returns, and is given back. Each is also written into the durable event stream. They are typed
+models with generated schemas, and the event payloads are their own serialisation rather than a
+hand-written mapping beside them, so a consumer validating a recorded document and a plugin author
+reading the schema are looking at the same thing.
+
+`CampaignObservation` and `Suggestion` spell the recorded document in camelCase — `runId`,
+`constraintViolations`, `acquisitionFunction`, `evidenceRunIds` — because that is what the campaign
+event stream already used. Python attribute names are unchanged, and both spellings validate.
+
+`IterationDecision` deliberately has no schema. Nothing serialises one: the runner writes a
+`Decision` plus loose keys into `DecisionRecorded` and projection reads that back, so a published
+schema would describe a document no writer produces. `Objective`, `SearchSpace`, `Parameter` and the
+two constraint types are components rather than documents and appear as `$defs`. `CampaignRecord`
+and `CampaignResult` live in `opensdl-runtime`, which `opensdl-schemas` may not import; the campaign
+read model is served over HTTP and carries the same guarantee the rest of that API does, which is
+none.
+
+Recorded as **B7** in the [repository audit](../development/audit-2026-08-05.md).
 
 ### Capability versions are recorded but never used
 
@@ -173,6 +241,13 @@ These are the events created since the policy was written. Each is also in `CHAN
 | `opensdl_storage.db_models.SchemaVersionRow` | Public mapped class | Removed | Read `alembic_version` through `opensdl_storage.current_revision` |
 | `Database.initialize()` | `create_all()`, returned `None` | Runs migrations, returns `SchemaUpgrade` | Nothing. The return value is additive |
 | Alembic environment location | `database/env.py`, `database/versions/` | `opensdl_storage/migrations/`, shipped in the wheel | Nothing, unless you drive Alembic through your own `alembic.ini` — point `script_location` at `opensdl_storage:migrations` |
+| Resuming a non-terminal run with a different workflow | Executed the submitted steps under the original run, whose `RunCreated` kept describing the original workflow | Refused, naming both canonical digests | Resume with the workflow the run recorded, or submit the repaired workflow with `supersedes=` — a new run that names the one it replaces |
+| Resuming a run recorded `running` | Accepted, so two callers could both enter and both dispatch its steps | Refused; starting is one conditional write and `running` is not a state a run may start from | Reconcile first — `opensdl doctor --reconcile`, or `system.start(reconcile=True)`, which `opensdl run` already does |
+| `RunCreated` payload | `workflow`, and `context` when a twin is configured | Adds `workflowDigest`, and `supersedes` when the run replaces another | Nothing — the new keys are additive |
+| `RunStarted` payload | Empty | Carries `operatorId`: the operator that submitted this start, which is not always the run's owner | Nothing — the event is additive |
+| `RunSuperseded` event | Did not exist | Appended to a run that a later run declared it replaces | Nothing, unless you consume the event stream by type |
+| `CampaignObservation`, `Suggestion` | Frozen dataclasses with no schema | Pydantic models with generated schemas; keyword construction, `extra="forbid"`, `dict` rather than `Mapping` fields, non-negative `iteration` and `batch` | Construct by keyword; catch `pydantic.ValidationError` where you caught `ValueError` or `TypeError` |
+| `CampaignCompleted.payload.best` | A hand-written mapping carrying a derived `feasible` flag | The observation's own serialisation: same keys, plus `constraintViolations`, `suggestion` and `batch`, minus `feasible` | Read `constraintViolations` — `feasible` was `not constraintViolations`, over violations the payload did not carry |
 
 The announcement window depends on the release line:
 

@@ -41,13 +41,30 @@ timeout, lease and event write in the laboratory.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Mapping, Sequence
-from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
 
 from .models import OpenSDLModel
+
+#: The two models an optimizer plugin exchanges with the campaign are also written into the durable
+#: event stream, and that stream is camelCase. The alias generator applies the stream's spelling to
+#: the recorded document while leaving the Python surface — and every existing keyword argument in
+#: the repository and in a third-party plugin — as it was. A per-field `alias=` would have done the
+#: same for the four fields that need it, and would have renamed the constructor's parameters with
+#: them; this way the two spellings cannot drift apart and no call site changes.
+#:
+#: `frozen=True` preserves what the frozen dataclasses gave: a proposal an optimizer handed over
+#: cannot be edited by the code that records it, and neither can an observation it was given.
+CONTRACT_CONFIG = ConfigDict(
+    extra="forbid",
+    validate_assignment=True,
+    populate_by_name=True,
+    alias_generator=to_camel,
+    frozen=True,
+)
 
 
 class CampaignObservationStatus(StrEnum):
@@ -461,71 +478,90 @@ class CampaignDefinition(OpenSDLModel):
         )
 
 
-@dataclass(frozen=True)
-class Suggestion:
+class Suggestion(OpenSDLModel):
     """One proposal, and the reasoning that produced it.
 
     Everything but `parameters` is optional. An optimizer with nothing to say returns a plain
     dictionary and the runner wraps it; an optimizer that fitted a model says what it predicted,
     how sure it was, which acquisition function ranked the candidate, and which model did it. That
     is what turns `Decision.rationale` from a template string into a decision record.
+
+    It is a model rather than a frozen dataclass because it crosses a process boundary in both
+    directions: a plugin returns one, and the campaign writes it into the durable event stream
+    inside the observation it produced. `frozen=True` keeps what the dataclass gave — a proposal
+    an optimizer handed over cannot be edited afterwards by the code recording it.
+
+    The camelCase spelling is the campaign event stream's, applied by generator rather than field by
+    field so the two cannot drift. An optimizer author writes `acquisition_function=`; only the
+    recorded document says `acquisitionFunction`, and both validate.
     """
+
+    model_config = CONTRACT_CONFIG
 
     parameters: dict[str, Any]
     #: Predicted objective values keyed by objective name, with the uncertainty of the prediction.
-    predictions: Mapping[str, ObjectiveValue] = field(default_factory=dict)
+    predictions: dict[str, ObjectiveValue] = Field(default_factory=dict)
     #: The acquisition value this candidate was ranked by. For a jointly optimized batch such as
     #: q-EI this is the value of the batch, repeated, with `acquisition_function` naming it.
     acquisition: float | None = None
     acquisition_function: str = ""
     #: Whatever identifies the model that proposed this: name, version, kernel, seed, fit size.
-    model: Mapping[str, Any] = field(default_factory=dict)
+    model: dict[str, Any] = Field(default_factory=dict)
     rationale: str = ""
     #: The runs this proposal rested on. `None` means the history the runner supplied, which is the
     #: honest default; a trust-region or windowed method states the subset it actually used.
     evidence_run_ids: tuple[str, ...] | None = None
 
 
-@dataclass(frozen=True)
-class CampaignObservation:
+class CampaignObservation(OpenSDLModel):
     """One attempted iteration.
 
     A failed attempt is an observation, not an absence of one: it carries the candidate that was
     tried and the error it produced, so an optimizer can avoid re-proposing it and an operator can
     see what the campaign did.
+
+    This is what an optimizer plugin is handed, and what a campaign records as the best iteration
+    it found, so it is a typed model with a generated schema rather than a dataclass serialised by
+    hand into keys no schema described. `feasible` stays a property and is deliberately not part of
+    the serialised form: it is `not constraint_violations`, and the recorded document now carries
+    the violations themselves.
     """
 
-    iteration: int
+    model_config = CONTRACT_CONFIG
+
+    iteration: int = Field(ge=0)
     candidate: dict[str, Any]
     score: float | None = None
     run_id: str | None = None
-    outputs: dict[str, Any] = field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
     status: CampaignObservationStatus = CampaignObservationStatus.SUCCEEDED
     error: str | None = None
     #: Every declared objective this run reported, with its measured uncertainty. `score` is the
     #: primary objective's value and stays the scalar view of the same thing.
-    objectives: Mapping[str, ObjectiveValue] = field(default_factory=dict)
+    objectives: dict[str, ObjectiveValue] = Field(default_factory=dict)
     #: Why this observation is infeasible: a broken outcome constraint, or — for a rejected
     #: candidate — the reason the campaign refused to submit it.
     constraint_violations: tuple[str, ...] = ()
     #: What proposed this candidate, so an optimizer can compare its prediction to the outcome.
     suggestion: Suggestion | None = None
     #: Which proposed batch this candidate came from. Zero for a campaign that never batches.
-    batch: int = 0
+    batch: int = Field(default=0, ge=0)
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _status_and_outcome_agree(self) -> CampaignObservation:
         if self.status is CampaignObservationStatus.SUCCEEDED:
             if self.score is None:
                 raise ValueError("a succeeded observation must carry the score it produced")
             if self.error is not None:
                 raise ValueError("a succeeded observation cannot carry an error")
-            return
+            return self
         if self.score is not None:
             raise ValueError("a failed observation has no score")
         if not self.error:
             raise ValueError("a failed observation must record why it failed")
         if self.status is CampaignObservationStatus.REJECTED and self.run_id is not None:
             raise ValueError("a rejected candidate was never submitted, so it names no run")
+        return self
 
     @property
     def succeeded(self) -> bool:

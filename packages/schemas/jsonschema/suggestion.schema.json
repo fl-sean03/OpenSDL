@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "ObjectiveValue": {
+      "additionalProperties": false,
+      "description": "A number and how sure the campaign is of it.\n\nUsed for a measured objective and for a predicted one, because `Quantity` and `Observation`\nalready spell uncertainty this way and a third spelling would help nobody.",
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "ObjectiveValue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One proposal, and the reasoning that produced it.\n\nEverything but `parameters` is optional. An optimizer with nothing to say returns a plain\ndictionary and the runner wraps it; an optimizer that fitted a model says what it predicted,\nhow sure it was, which acquisition function ranked the candidate, and which model did it. That\nis what turns `Decision.rationale` from a template string into a decision record.\n\nIt is a model rather than a frozen dataclass because it crosses a process boundary in both\ndirections: a plugin returns one, and the campaign writes it into the durable event stream\ninside the observation it produced. `frozen=True` keeps what the dataclass gave \u2014 a proposal\nan optimizer handed over cannot be edited afterwards by the code recording it.\n\nThe camelCase spelling is the campaign event stream's, applied by generator rather than field by\nfield so the two cannot drift. An optimizer author writes `acquisition_function=`; only the\nrecorded document says `acquisitionFunction`, and both validate.",
+  "properties": {
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    },
+    "predictions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ObjectiveValue"
+      },
+      "title": "Predictions",
+      "type": "object"
+    },
+    "acquisition": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Acquisition"
+    },
+    "acquisitionFunction": {
+      "default": "",
+      "title": "Acquisitionfunction",
+      "type": "string"
+    },
+    "model": {
+      "additionalProperties": true,
+      "title": "Model",
+      "type": "object"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "evidenceRunIds": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidencerunids"
+    }
+  },
+  "required": [
+    "parameters"
+  ],
+  "title": "Suggestion",
+  "type": "object"
+}

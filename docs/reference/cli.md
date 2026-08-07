@@ -61,3 +61,24 @@ recovery after a controller stopped, not a health check — running it while wor
 the record of the run in flight.
 
 Inputs accepted by `opensdl run` may be provided as an inline JSON object or as `@path/to/inputs.json`.
+
+## Resuming a run, and replacing one
+
+`opensdl run --run-id ID` against a run that already exists is a **resume**, not a resubmission. The
+run's `RunCreated` recorded the workflow it was asked to execute and a digest of that document, and
+a resume must present the same document. Anything else exits `8` naming both digests: running new
+steps under an existing identifier would leave the run's own record describing work it did not do,
+attributed to whoever submitted it originally.
+
+A repaired workflow is therefore a new run, and `--supersedes ID` is how it is submitted:
+
+```bash
+opensdl run workflow.yaml --supersedes run_0f3c...   # mints a new run naming the one it replaces
+```
+
+The link is recorded on both runs — `supersedes` in the new run's `RunCreated`, a `RunSuperseded`
+event on the replaced run — so an operator reading the run that failed finds what became of it.
+Nothing about the replaced run changes.
+
+A run recorded `running` cannot be claimed at all; `opensdl run` reconciles first, which moves such
+a run to `intervention_required` where a person establishes what the equipment did.

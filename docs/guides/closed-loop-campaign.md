@@ -31,7 +31,19 @@ acknowledgement OpenSDL does not offer. There is deliberately no override. A per
 the equipment did, and until an operation exists for recording that, the remaining search is
 submitted as a new campaign.
 
-One thing a production campaign still cannot do: the runner does not schedule around resource
-leases, so two candidates needing the same exclusive instrument are dispatched together and one
-fails as busy. That is why parallelism defaults to one, and why raising it means knowing the
-laboratory can carry it.
+## What a plugin exchanges is a published document
+
+An optimizer is configured with a `CampaignProblem`, returns a `Suggestion`, and is given back a
+`CampaignObservation`. All three are typed models in `opensdl-core` with generated schemas under
+`packages/schemas/jsonschema/`, and each is written into the campaign's durable event stream as its
+own serialisation rather than as a mapping hand-written beside it. So the document a plugin author
+reads the schema for is the document the store holds.
+
+Write them in Python with the field names — `acquisition_function=`, `run_id=` — and read the
+recorded form in the stream's camelCase. Both validate.
+
+## What is still open
+
+The runner does not schedule around resource leases, so two candidates needing the same exclusive
+instrument are dispatched together and one fails as busy. That is why parallelism defaults to one,
+and why raising it means knowing the laboratory can carry it.

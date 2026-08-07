@@ -21,7 +21,11 @@ description: Diagnose a failed OpenSDL run, reproduce it in simulation, and vali
 5. Fix the smallest correct contract, adapter, runtime, storage, or configuration layer.
 6. Add a regression test and a conformance case when an adapter contract changed.
 7. Re-run the simulation and export it with `uv run --locked opensdl export RUN_ID --manifest MANIFEST`.
-8. Check propagation impact before completion.
+8. Submit a repaired workflow as a new run with `opensdl run WORKFLOW --supersedes RUN_ID`. A run
+   records the workflow it was asked to execute, so `--run-id RUN_ID` resumes only the identical
+   definition and is refused for any other; superseding leaves the failed run's record intact and
+   names the replacement on both.
+9. Check propagation impact before completion.
 
 ## Completion
 

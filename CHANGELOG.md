@@ -64,6 +64,30 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   how many execute at once are separate numbers, because the first is a property of the method and the
   second of the laboratory; the second defaults to one, so adding a batch cannot silently start
   instruments concurrently. A synchronous `suggest` runs off the event loop;
+- a workflow of record. `RunCreated` carries the canonical digest of the workflow document it
+  captured, and a resume that presents a different document is refused. Resubmission against a
+  non-terminal run was checked only by workflow id, so a `failed` or `intervention_required` run
+  could be resumed with an entirely different step list: the new steps executed, the run completed,
+  every event was attributed to the original operator, and the run's own `RunCreated` still
+  described the workflow that was submitted. Policy was still evaluated per step, so this was not a
+  privilege escalation — it was a run that could not prove what it had been asked to do. The digest
+  is taken over the same canonical JSON the twin binding already uses, and it is recomputed from the
+  embedded document for a run recorded before the field existed, so no stored run becomes
+  unresumable;
+- `supersedes`, the path that refusal leaves open. Fixing a broken step and continuing is a real
+  thing an operator wants, and it is a new execution rather than an edit to an old one, so it mints
+  a new run that names the run it replaces. The link is recorded on both: the replacement's
+  `RunCreated` carries `supersedes`, and the replaced run receives a `RunSuperseded` event naming
+  the replacement, its workflow digest, and the operator that claimed it. Available as
+  `run_workflow(supersedes=...)`, `POST /runs {"supersedes": ...}`, and `opensdl run --supersedes`;
+- `opensdl_core.canonical_json` and `canonical_digest`, one canonicalisation for every digest
+  OpenSDL records over a captured document. The twin binding computed its own inline; both now use
+  this;
+- `Repositories.start_run`, which claims a run for execution in one conditional write, and
+  `opensdl_core.STARTABLE_RUN_STATES`, read off the declared machine rather than listed again;
+- generated schemas for the optimizer contract: `campaign-observation`, `suggestion`, and
+  `campaign-problem`. These are what a plugin receives and returns and what the campaign writes into
+  the durable event stream, and they had no schema at all;
 - a compatibility and versioning policy stating, per public surface, what stability it carries today.
   It records the specific defects rather than an intention: both `apiVersion` fields are literal pins
   on models that forbid extra keys, so a newer document cannot be read by an older reader even when
@@ -89,6 +113,9 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   caused. The record used to be written afterwards with the score already in it, which inverted the
   provenance: it could not answer what the system knew when it chose. Projection reads both forms, so
   campaigns already in a store still read correctly;
+- `RunStarted` names the operator that submitted that start. A run's events are attributed to the
+  run's owner, which is right for the record and silent about who asked for a resume, and policy is
+  evaluated against the caller rather than the owner. The two are now both readable;
 - laboratory manifests can declare a twin definition and optional viewer root;
 - generated laboratory repositories include shared context files and onboarding guidance;
 - the digital-twin architecture now fixes the framework boundary at one reference showcase while
@@ -155,6 +182,28 @@ All notable changes to OpenSDL will be documented here. The project follows sema
   wanted — a controller or server starting up — and report what comes back.
 - `CampaignRunner.run` requires `environment` and `operator_id` rather than defaulting them, and no
   longer injects a `sample_id` input. Pass `iteration_id_input` to name an input to fill.
+- resuming a run with a workflow other than the one it recorded is refused, naming both digests and
+  `supersedes`. Only an identical workflow document resumes; anything else is a new run.
+- a run recorded `running` can no longer be claimed. The declared machine never listed `running`
+  among the states a run may start from, but `validate_run_transition` returns early when the
+  current and target states are equal — right for an idempotent state write, wrong for claiming a
+  run — so two callers could both enter `run_workflow` on the same run when none of its tasks was
+  active, and both would dispatch its steps. Starting is now one conditional `UPDATE` at the store,
+  so exactly one caller wins and the bound holds across controllers rather than within a process. A
+  run left `running` by a stopped controller is reconciled to `intervention_required` first, which
+  `opensdl doctor --reconcile` and `opensdl run` already do.
+- `CampaignObservation` and `Suggestion` are pydantic models rather than frozen dataclasses, with
+  generated schemas. They cross the optimizer-plugin boundary and are written into the event
+  stream, so the repository's own rule — public models are typed and exported as versioned schemas
+  — applies to them as much as to a run record. Construct them by keyword; an undeclared field is
+  now refused rather than raising `TypeError`, an inconsistent status raises pydantic's
+  `ValidationError` rather than `ValueError`, and assignment raises rather than
+  `FrozenInstanceError`. `predictions`, `model` and `objectives` are `dict` rather than `Mapping`.
+  `iteration` and `batch` must be non-negative, matching `CampaignIterationRecord`.
+- `CampaignCompleted.payload.best` is the observation's own serialisation. The keys it already
+  wrote are unchanged, `constraintViolations`, `suggestion` and `batch` are added, and the derived
+  `feasible` flag is gone — it was `not constraint_violations` computed over violations the payload
+  did not carry, and the payload now carries them.
 
 ### Fixed
 

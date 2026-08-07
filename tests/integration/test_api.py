@@ -478,3 +478,50 @@ def test_the_campaign_tools_are_callable_over_the_transport_that_advertises_them
             ).status_code
             == 404
         )
+
+
+@pytest.mark.integration
+def test_resuming_a_failed_run_with_a_repaired_workflow_is_a_conflict(tmp_path: Path) -> None:
+    """The whole operator loop over HTTP: a run fails, is repaired, and is refused a resume.
+
+    `POST /runs` with a caller-supplied `run_id` naming an existing run is a resume, and the run
+    here ends `failed` — non-terminal, so the lifecycle check that closed the terminal case does
+    not fire and the workflow of record is the only thing standing between the repaired workflow
+    and the original run's record. `supersedes` is the path out.
+    """
+    lab = _copy_example(tmp_path)
+    repaired = yaml.safe_load((lab / "workflow.yaml").read_text(encoding="utf-8"))
+    broken = _edit(
+        lab / "workflow.yaml",
+        lambda document: document["steps"][0].update(resources=["instrument-nobody-registered"]),
+    )
+
+    with TestClient(create_app(OpenSDLSystem.from_manifest(lab / "opensdl.yaml"))) as client:
+        first = client.post(
+            "/runs",
+            json={"workflow": broken, "inputs": VALID_INPUTS, "run_id": "run-of-record"},
+        )
+        assert first.status_code == 409, first.text
+        assert client.get("/runs/run-of-record").json()["run"]["state"] == "failed"
+        conflict = client.post(
+            "/runs",
+            json={"workflow": repaired, "inputs": VALID_INPUTS, "run_id": "run-of-record"},
+        )
+        resumed = client.post(
+            "/runs",
+            json={"workflow": broken, "inputs": VALID_INPUTS, "run_id": "run-of-record"},
+        )
+        replacement = client.post(
+            "/runs",
+            json={"workflow": repaired, "inputs": VALID_INPUTS, "supersedes": "run-of-record"},
+        )
+        events = client.get("/events", params={"run_id": "run-of-record"}).json()
+
+    assert conflict.status_code == 409, conflict.text
+    # The workflow the run recorded still resumes, and still fails for its own reason.
+    assert resumed.status_code == 409, resumed.text
+    assert replacement.status_code == 200, replacement.text
+    assert replacement.json()["run"]["id"] != "run-of-record"
+    assert replacement.json()["run"]["outputs"]["score"] == 0
+    superseded = [event for event in events if event["type"] == "RunSuperseded"]
+    assert [event["payload"]["runId"] for event in superseded] == [replacement.json()["run"]["id"]]

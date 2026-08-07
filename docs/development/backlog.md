@@ -172,7 +172,10 @@ Check an item only when its stated evidence exists in the repository or a linked
 
 - [ ] Deploy one shared simulator controller with persistent PostgreSQL storage.
 - [ ] Add authentication, scoped service identities, and server-derived actor attribution.
-- [ ] Add trustworthy multi-user leases, run ownership, and concurrent submission tests.
+- [ ] Add trustworthy multi-user leases and run ownership. Starting a run is now one conditional
+  write, so two callers cannot both claim it and a concurrent-submission test covers that; resource
+  leasing is still a check-then-act — `acquire_leases` reads every lease and then writes them in two
+  passes — and no PostgreSQL service exercises either.
 - [ ] Add pluggable policy providers and signed policy revision evidence.
 - [ ] Add PostgreSQL CI, migrations across released versions, backup, restore, and disaster tests.
 - [ ] Add OpenTelemetry traces and metrics tied to run, task, adapter, and deployment identity.

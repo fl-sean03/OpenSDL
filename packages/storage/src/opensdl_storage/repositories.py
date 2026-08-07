@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Iterable
+from typing import Any, Iterable
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select, update
 
 from opensdl_core import (
+    STARTABLE_RUN_STATES,
     ArtifactKind,
     ArtifactRecord,
     CapabilityDefinition,
@@ -75,6 +76,40 @@ class Repositories:
             row.error = error
             row.updated_at = utc_now()
             session.flush()
+            return self._run_from_row(row)
+
+    def start_run(self, run_id: str) -> RunRecord | None:
+        """Claim a run for execution, or report that it is not claimable.
+
+        Returns the claimed run, or `None` when the row is gone or its state is not one the
+        declared machine permits a start from. `None` is the answer to two different questions —
+        "was it already claimed?" and "is it in a state that can start?" — because the caller can
+        re-read the row to say which, and separating them here would put the read back outside the
+        atomic write and reintroduce exactly the race this exists to close.
+
+        The write is one conditional `UPDATE`, so of two callers holding the same run identifier
+        only one can observe a claimable state and change it. `update_run` cannot do this: it reads
+        the row, validates the transition, and writes, and `validate_run_transition` treats
+        `RUNNING -> RUNNING` as a no-op, so both callers passed and both dispatched the workflow's
+        steps. The bound is the store's, not the process's, so it holds across controllers.
+        """
+
+        with self.database.session() as session:
+            result: CursorResult[Any] = session.execute(  # type: ignore[assignment]
+                update(RunRow)
+                .where(
+                    RunRow.id == run_id,
+                    RunRow.state.in_([state.value for state in STARTABLE_RUN_STATES]),
+                )
+                .values(state=RunState.RUNNING.value, error=None, updated_at=utc_now())
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                return None
+            session.expire_all()
+            row = session.get(RunRow, run_id)
+            if row is None:  # pragma: no cover - the update just matched this row
+                return None
             return self._run_from_row(row)
 
     def get_run(self, run_id: str) -> RunRecord | None:

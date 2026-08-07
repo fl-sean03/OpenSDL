@@ -1,7 +1,10 @@
+import hashlib
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
 from opensdl_core import (
+    STARTABLE_RUN_STATES,
     CampaignDefinition,
     CapabilityDefinition,
     ExecutorType,
@@ -12,10 +15,13 @@ from opensdl_core import (
     RunRecord,
     RunState,
     TaskState,
+    canonical_digest,
+    canonical_json,
     validate_run_id,
     validate_run_transition,
     validate_task_transition,
 )
+from opensdl_core.lifecycle import RUN_TRANSITIONS
 
 
 def test_quantity_requires_unit() -> None:
@@ -240,3 +246,44 @@ def test_run_ids_reject_path_unsafe_or_nonportable_values(run_id: str) -> None:
         validate_run_id(run_id)
     with pytest.raises(PydanticValidationError):
         RunRecord(id=run_id, workflow_id="test")
+
+
+def test_startable_states_are_read_off_the_declared_machine() -> None:
+    """Not a second list. `RUNNING` is absent because the machine already said so."""
+
+    assert STARTABLE_RUN_STATES == {
+        state for state, targets in RUN_TRANSITIONS.items() if RunState.RUNNING in targets
+    }
+    assert RunState.RUNNING not in STARTABLE_RUN_STATES
+    assert STARTABLE_RUN_STATES == {
+        RunState.PLANNED,
+        RunState.QUEUED,
+        RunState.PAUSED,
+        RunState.INTERVENTION_REQUIRED,
+        RunState.FAILED,
+    }
+
+
+def test_validate_run_transition_treats_running_to_running_as_a_no_op() -> None:
+    """The escape hatch `STARTABLE_RUN_STATES` exists to work around, stated as a fact."""
+
+    validate_run_transition(RunState.RUNNING, RunState.RUNNING)
+    assert RunState.RUNNING not in RUN_TRANSITIONS[RunState.RUNNING]
+
+
+def test_a_canonical_digest_ignores_key_order_and_separator_style() -> None:
+    left = {"b": [1, 2], "a": {"y": None, "x": 1}}
+    right = {"a": {"x": 1, "y": None}, "b": [1, 2]}
+
+    assert canonical_digest(left) == canonical_digest(right)
+    assert canonical_json(left) == b'{"a":{"x":1,"y":null},"b":[1,2]}'
+    assert canonical_digest(left) != canonical_digest({"b": [2, 1], "a": {"x": 1, "y": None}})
+
+
+def test_a_canonical_digest_is_stable_and_reproducible_from_the_document() -> None:
+    document = {"id": "w", "steps": [{"id": "one", "capability": "sim.mix"}]}
+
+    assert canonical_digest(document) == hashlib.sha256(canonical_json(document)).hexdigest()
+    assert canonical_digest(document) == (
+        "51e87ed597614733e9ce37f4b71f1240cf418169a9bead3eca263a5551fe15da"
+    )

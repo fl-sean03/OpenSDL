@@ -21,6 +21,7 @@ def test_run_command_passes_caller_supplied_run_id(monkeypatch) -> None:
         operator_id: str,
         *,
         run_id: str | None = None,
+        supersedes: str | None = None,
     ) -> dict[str, object]:
         received.update(
             manifest=manifest,
@@ -28,6 +29,7 @@ def test_run_command_passes_caller_supplied_run_id(monkeypatch) -> None:
             inputs=inputs,
             operator_id=operator_id,
             run_id=run_id,
+            supersedes=supersedes,
         )
         return {"id": run_id}
 
@@ -35,11 +37,12 @@ def test_run_command_passes_caller_supplied_run_id(monkeypatch) -> None:
 
     result = CliRunner().invoke(
         cli.app,
-        ["run", "workflow.yaml", "--run-id", "run-stable"],
+        ["run", "workflow.yaml", "--run-id", "run-stable", "--supersedes", "run-broken"],
     )
 
     assert result.exit_code == 0, result.output
     assert received["run_id"] == "run-stable"
+    assert received["supersedes"] == "run-broken"
     assert json.loads(result.stdout)["id"] == "run-stable"
 
 

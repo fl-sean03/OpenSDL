@@ -2282,3 +2282,70 @@ async def test_a_resume_re_reads_the_stopping_rules_against_what_already_happene
     assert "1.0 against a target of 1.5" in result.stop_detail
     assert [call["x"] for call in adapter.calls] == [1.0]
     assert [item.iteration for item in result.history] == [0]
+
+
+@pytest.mark.asyncio
+async def test_the_recorded_best_is_the_observation_s_own_serialisation(tmp_path) -> None:
+    """`CampaignCompleted.payload["best"]` was hand-rolled and matched no published schema.
+
+    It is now `CampaignObservation.model_dump(mode="json", by_alias=True)`, so the durable record
+    and `campaign-observation.schema.json` describe one document, and a reader can validate the
+    event payload back into the model an optimizer was handed.
+    """
+
+    runner, repositories = build_campaign(tmp_path, ScoreAdapter())
+
+    result = await runner.run(
+        scoring_workflow(),
+        ListOptimizer(candidates(2.0, 1.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=2,
+    )
+
+    completed = next(
+        event
+        for event in repositories.list_events(campaign_id=result.campaign_id, limit=None)
+        if event.type == "CampaignCompleted"
+    )
+    recorded = completed.payload["best"]
+    assert result.best is not None
+    assert recorded == result.best.model_dump(mode="json", by_alias=True)
+    assert CampaignObservation.model_validate(recorded) == result.best
+    # The keys the hand-rolled form wrote, minus the flag it derived and plus what it dropped.
+    assert {
+        "iteration",
+        "candidate",
+        "score",
+        "runId",
+        "outputs",
+        "status",
+        "error",
+        "objectives",
+    } <= set(recorded)
+    assert recorded["constraintViolations"] == []
+    # What proposed the winning candidate, which the hand-rolled form dropped entirely.
+    assert recorded["suggestion"]["parameters"] == recorded["candidate"]
+    assert recorded["batch"] == result.best.batch
+    assert "feasible" not in recorded
+
+
+@pytest.mark.asyncio
+async def test_a_campaign_that_found_nothing_records_no_best(tmp_path) -> None:
+    runner, repositories = build_campaign(tmp_path, ScoreAdapter(fail_on={1.0}))
+
+    result = await runner.run(
+        scoring_workflow(),
+        ListOptimizer(candidates(1.0)),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=1,
+    )
+
+    completed = next(
+        event
+        for event in repositories.list_events(campaign_id=result.campaign_id, limit=None)
+        if event.type == "CampaignCompleted"
+    )
+    assert result.best is None
+    assert completed.payload["best"] is None

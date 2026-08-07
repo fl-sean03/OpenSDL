@@ -523,7 +523,12 @@ class CampaignRunner:
                     "discardedProposals": discarded,
                     "stopReason": stop_reason.value,
                     "stopDetail": stop_detail,
-                    "best": _observation_json(best),
+                    # The observation's own serialisation, so this payload and
+                    # `campaign-observation.schema.json` describe one document. It used to be a
+                    # hand-written mapping that dropped the constraint violations, the proposal
+                    # and the batch, and carried a `feasible` flag derived from the violations it
+                    # had just dropped.
+                    "best": best.model_dump(mode="json", by_alias=True) if best else None,
                     "pareto": [item.iteration for item in result.pareto_front],
                     "optimizerState": state,
                     "optimizerStateError": state_error,
@@ -1618,21 +1623,3 @@ def _describe(exc: BaseException) -> str:
     if isinstance(exc, KeyError) and exc.args:
         return str(exc.args[0])
     return str(exc) or type(exc).__name__
-
-
-def _observation_json(value: CampaignObservation | None) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    return {
-        "iteration": value.iteration,
-        "candidate": value.candidate,
-        "score": value.score,
-        "runId": value.run_id,
-        "outputs": value.outputs,
-        "status": value.status.value,
-        "error": value.error,
-        "objectives": {
-            name: measured.model_dump(mode="json") for name, measured in value.objectives.items()
-        },
-        "feasible": value.feasible,
-    }

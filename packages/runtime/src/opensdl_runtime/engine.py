@@ -6,6 +6,7 @@ from typing import Any
 
 from opensdl_capabilities import CapabilityRegistry, NotDispatchedError, validate_instance
 from opensdl_core import (
+    STARTABLE_RUN_STATES,
     CapabilityDefinition,
     EventRecord,
     ExecutionDeniedError,
@@ -21,6 +22,7 @@ from opensdl_core import (
     WorkflowDefinition,
     WorkflowExecutionError,
     WorkflowStep,
+    canonical_digest,
     utc_now,
     validate_run_transition,
 )
@@ -91,14 +93,31 @@ class ReferenceRuntime:
         run_id: str | None = None,
         run_context: dict[str, Any] | None = None,
         campaign_id: str | None = None,
+        supersedes: str | None = None,
     ) -> RunRecord:
+        """Execute a workflow, or continue the run that already recorded this exact workflow.
+
+        ``run_id`` naming an existing run is a *resume*, not a resubmission. The run's
+        ``RunCreated`` carries the workflow it was asked to execute and a digest of that captured
+        document, and a resume that does not present the same document is refused: a run whose
+        record says one thing while its tasks did another is not evidence of anything.
+
+        ``supersedes`` is the path that refusal leaves open. Fixing a broken step and continuing is
+        a real thing an operator wants, and it is a new execution rather than a correction to an
+        old one, so it mints a new run that names the run it replaces — recorded on both, so the
+        old run says what became of it and the new one says what it grew out of.
+        """
+
         effective_context = deepcopy(self.default_run_context)
         if run_context:
             effective_context.update(deepcopy(run_context))
         validate_workflow_graph(workflow)
         if workflow.input_schema:
             validate_instance(inputs, workflow.input_schema, label=f"{workflow.id} inputs")
+        document = workflow.model_dump(mode="json")
+        digest = canonical_digest(document)
         existing = self.repositories.get_run(run_id) if run_id else None
+        superseded = self._resolve_superseded(supersedes, existing)
         existing_tasks: dict[str, TaskRecord] = {}
         if existing is None:
             run = RunRecord(
@@ -111,10 +130,14 @@ class ReferenceRuntime:
                 environment=environment,
             )
             self.repositories.create_run(run)
-            created_payload: dict[str, Any] = {"workflow": workflow.model_dump(mode="json")}
+            created_payload: dict[str, Any] = {"workflow": document, "workflowDigest": digest}
             if effective_context:
                 created_payload["context"] = effective_context
+            if superseded is not None:
+                created_payload["supersedes"] = superseded.id
             self._emit("RunCreated", run=run, payload=created_payload, campaign_id=campaign_id)
+            if superseded is not None:
+                self._emit_superseded(superseded, run, digest=digest, operator_id=operator_id)
         else:
             if existing.workflow_id != workflow.id:
                 raise ValueError(f"run {existing.id} belongs to workflow {existing.workflow_id}")
@@ -126,14 +149,28 @@ class ReferenceRuntime:
             run = existing
             inputs = run.inputs
             existing_events = self.repositories.list_events(run_id=run.id, limit=None)
-            if not any(event.type == "RunCreated" for event in existing_events):
-                created_payload = {"workflow": workflow.model_dump(mode="json")}
+            created = next((event for event in existing_events if event.type == "RunCreated"), None)
+            if created is None:
+                # No workflow of record to match against: this run was written straight to the
+                # store rather than submitted, so the definition is being captured now. The
+                # workflow-id check above is the only claim the record can support.
+                created_payload = {"workflow": document, "workflowDigest": digest}
                 if effective_context:
                     created_payload["context"] = effective_context
                 self._emit("RunCreated", run=run, payload=created_payload, campaign_id=campaign_id)
+            else:
+                self._assert_workflow_of_record(run, created, digest)
 
-        self.repositories.update_run(run.id, state=RunState.RUNNING, error=None)
-        self._emit("RunStarted", run=run, campaign_id=campaign_id)
+        started = self.repositories.start_run(run.id)
+        if started is None:
+            raise self._cannot_start(run)
+        run = started
+        self._emit(
+            "RunStarted",
+            run=run,
+            payload={"operatorId": operator_id},
+            campaign_id=campaign_id,
+        )
 
         step_outputs = {
             step_id: task.outputs
@@ -252,6 +289,100 @@ class ReferenceRuntime:
             ):
                 raise
             raise WorkflowExecutionError(error) from exc
+
+    def _resolve_superseded(
+        self, supersedes: str | None, existing: RunRecord | None
+    ) -> RunRecord | None:
+        """The run a new run declares it replaces, checked before anything is written."""
+
+        if supersedes is None:
+            return None
+        if existing is not None:
+            raise ValueError(
+                f"run {existing.id} already exists, so this submission is a resume rather than a "
+                f"replacement, and a run cannot supersede {supersedes}. Submit the repaired "
+                "workflow without a run_id: superseding mints a new run precisely so the record "
+                "of the old one is left as it was found."
+            )
+        replaced = self.repositories.get_run(supersedes)
+        if replaced is None:
+            raise LookupError(
+                f"cannot supersede run {supersedes}: no run is recorded under that identifier. "
+                "A replacement names the run it grew out of, so the identifier has to be one this "
+                "laboratory recorded."
+            )
+        return replaced
+
+    def _emit_superseded(
+        self,
+        superseded: RunRecord,
+        replacement: RunRecord,
+        *,
+        digest: str,
+        operator_id: str,
+    ) -> None:
+        """Record on the replaced run that it was replaced, and by whom.
+
+        The new run's `RunCreated` already names the old one. This is the other direction, so an
+        operator reading the run that failed finds what became of it without scanning the log. It
+        appends to the old run's stream and changes nothing else about it: its state, outputs,
+        tasks and operator are the record of what was submitted then, and this is a later claim by
+        a later submitter, which is why `actor_id` is that submitter rather than the run's owner.
+        """
+
+        self.repositories.append_event(
+            EventRecord(
+                type="RunSuperseded",
+                actor_id=operator_id,
+                run_id=superseded.id,
+                correlation_id=superseded.id,
+                payload={
+                    "runId": replacement.id,
+                    "workflowDigest": digest,
+                    "operatorId": operator_id,
+                },
+            )
+        )
+
+    def _assert_workflow_of_record(self, run: RunRecord, created: EventRecord, digest: str) -> None:
+        """Refuse a resume that presents a workflow the run was never asked to execute.
+
+        The digest is read from `RunCreated` when the event carries one and recomputed from the
+        workflow document that same event embedded when it does not, so a run recorded before
+        `workflowDigest` existed still has a workflow of record and is neither refused nor
+        silently exempted.
+        """
+
+        recorded = created.payload.get("workflowDigest")
+        if not isinstance(recorded, str):
+            document = created.payload.get("workflow")
+            if document is None:  # pragma: no cover - RunCreated has always carried the workflow
+                return
+            recorded = canonical_digest(document)
+        if recorded == digest:
+            return
+        raise LifecycleError(
+            f"run {run.id} was created to execute the workflow with canonical digest {recorded}, "
+            f"and this submission presents {digest}. Running it under this identifier would leave "
+            f"the run's own RunCreated describing work it did not do, attributed to "
+            f"{run.operator_id}, which is not a record anything can be concluded from. Resume with "
+            "the workflow the run recorded, or submit the repaired workflow as a new run with "
+            f"supersedes={run.id!r} so the replacement names what it grew out of."
+        )
+
+    def _cannot_start(self, run: RunRecord) -> LifecycleError:
+        """Say why the store refused to claim this run, from the state it is actually in."""
+
+        current = self.repositories.get_run(run.id)
+        if current is None:  # pragma: no cover - the run existed a moment ago
+            return LifecycleError(f"run {run.id} no longer exists and cannot be started")
+        return LifecycleError(
+            f"run {run.id} is recorded as '{current.state.value}' and could not be claimed for "
+            f"execution; a run may only start from {sorted(state.value for state in STARTABLE_RUN_STATES)}. "
+            "Either another caller is already executing it, or a controller stopped while it was "
+            "active and nothing has reconciled it since — `opensdl doctor --reconcile` moves such "
+            "a run to 'intervention_required' so a person can establish what the equipment did."
+        )
 
     def _assert_run_can_resume(self, run: RunRecord) -> None:
         """Refuse to reuse a run identifier whose run can no longer legitimately start."""

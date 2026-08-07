@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -17,7 +15,7 @@ from opensdl_operators import ContextPackBuilder, OperatorGateway
 from opensdl_policy import PolicyEngine, PolicyRule
 from opensdl_provenance import RunBundleExporter
 from opensdl_runtime import ReferenceRuntime
-from opensdl_core import RunRecord, WorkflowDefinition
+from opensdl_core import RunRecord, WorkflowDefinition, canonical_digest
 from opensdl_schemas import LabManifest, load_manifest, redacted_manifest_document
 from opensdl_storage import Database, LocalArtifactStore, Repositories
 from opensdl_twin import TwinProjectionError, TwinService, load_twin_definition
@@ -279,6 +277,7 @@ class OpenSDLSystem:
         *,
         operator_id: str = "operator/local",
         run_id: str | None = None,
+        supersedes: str | None = None,
     ) -> RunRecord:
         workflow = load_workflow(workflow_path)
         return await self.run_workflow_definition(
@@ -286,6 +285,7 @@ class OpenSDLSystem:
             inputs,
             operator_id=operator_id,
             run_id=run_id,
+            supersedes=supersedes,
         )
 
     async def run_workflow_definition(
@@ -295,8 +295,14 @@ class OpenSDLSystem:
         *,
         operator_id: str = "operator/local",
         run_id: str | None = None,
+        supersedes: str | None = None,
     ) -> RunRecord:
-        """Run a workflow and durably pin the twin binding used for replay."""
+        """Run a workflow and durably pin the twin binding used for replay.
+
+        ``supersedes`` names the run this one replaces. It reaches every interface because the
+        runtime refuses a resume that presents a different workflow from the one the run recorded,
+        and an operator who fixed a broken step needs the path that refusal names.
+        """
 
         if self.read_only:
             raise ValueError("a read-only OpenSDL system cannot execute workflows")
@@ -310,6 +316,7 @@ class OpenSDLSystem:
             environment=self.manifest.spec.environment,
             run_id=effective_run_id,
             run_context=run_context,
+            supersedes=supersedes,
         )
 
     def _current_twin_binding(self) -> dict[str, str] | None:
@@ -425,20 +432,22 @@ def _sqlite_store_path(url: str) -> Path | None:
 
 
 def _twin_binding(twin: TwinService) -> dict[str, str]:
+    """Pin the twin a run was executed against, as a digest of its captured definition.
+
+    The canonicalisation lives in `opensdl_core.digest` so that this binding and the workflow
+    digest a run records in `RunCreated` are the same claim about the same kind of document. It
+    used to be spelled out here, which was one convention with one user and would have become two
+    conventions the moment a second thing needed digesting.
+    """
+
     definition = twin.definition.model_dump(
         mode="json",
         by_alias=True,
         exclude_none=True,
     )
-    canonical = json.dumps(
-        definition,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
     return {
         "definitionRevision": twin.definition.revision,
-        "definitionSha256": hashlib.sha256(canonical).hexdigest(),
+        "definitionSha256": canonical_digest(definition),
         "sceneSha256": twin.definition.scene.sha256,
     }
 

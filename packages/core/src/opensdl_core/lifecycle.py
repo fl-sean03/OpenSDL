@@ -61,6 +61,18 @@ TASK_TRANSITIONS: dict[TaskState, set[TaskState]] = {
 }
 
 
+#: The states a run may be claimed for execution from, read off the declared machine rather than
+#: listed a second time. `RUNNING` is deliberately absent, and that absence is the whole point:
+#: `RUN_TRANSITIONS[RUNNING]` does not contain `RUNNING`, so the machine has always said a running
+#: run cannot be started again. `validate_run_transition` could not enforce it, because it returns
+#: early when `current == target` — which is right for an idempotent state write and wrong for
+#: claiming a run, and is what let two callers both enter `run_workflow` on the same `RUNNING` run.
+#: `Repositories.start_run` claims a run from exactly these states in one conditional write.
+STARTABLE_RUN_STATES = frozenset(
+    state for state, targets in RUN_TRANSITIONS.items() if RunState.RUNNING in targets
+)
+
+
 def validate_run_transition(current: RunState, target: RunState) -> None:
     if current == target:
         return

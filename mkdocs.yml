@@ -1,4 +1,9 @@
 site_name: OpenSDL
+site_url: https://seanflorez.com/OpenSDL/
+site_description: An open foundation for building computational and autonomous laboratories.
+repo_url: https://github.com/fl-sean03/OpenSDL
+repo_name: fl-sean03/OpenSDL
+edit_uri: edit/main/docs/
 site_description: Open foundation for computational and autonomous laboratories
 theme:
   name: material

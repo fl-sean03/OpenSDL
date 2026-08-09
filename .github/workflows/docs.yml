@@ -1,12 +1,20 @@
 name: Documentation
 
 on:
+  push:
+    branches: [main]
   pull_request:
     paths: ["docs/**", "README.md", "mkdocs.yml", "packages/**"]
   workflow_dispatch:
 
+# `build` runs on every trigger and is the gate. `publish` only runs on `main`, so a pull request
+# gets the strict build without being able to change what is served.
 permissions:
   contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -22,3 +30,20 @@ jobs:
       - run: uv lock --check
       - run: uv sync --locked --all-packages --group docs
       - run: uv run --locked mkdocs build --strict
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

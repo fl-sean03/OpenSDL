@@ -8,7 +8,7 @@ license = "Apache-2.0"
 dependencies = [
   "opensdl-core",
   "SQLAlchemy>=2.0,<3",
-  "alembic>=1.14,<2",
+  "alembic>=1.19.0,<2",
   "psycopg[binary]>=3.3.4,<4"
 ]
 

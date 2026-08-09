@@ -12,7 +12,7 @@ dependencies = [
   "opensdl-sdk",
   "opensdl-api",
   "opensdl-twin",
-  "typer>=0.16,<1",
+  "typer>=0.27.1,<1",
   "rich>=13,<15",
   "Jinja2>=3.1,<4",
   "uvicorn>=0.32,<1"

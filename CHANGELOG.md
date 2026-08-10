@@ -143,6 +143,11 @@ workspace has carried, not artifacts anyone can install. See
   ten. The row recorded one holder while the others proceeded believing they were alone. Losing the
   race now reaches the caller as `False` rather than as an integrity error, and a refused set leaves
   no partial claim behind;
+- a resource lease lasts as long as the task it protects may run, rather than for a configured TTL
+  chosen without reference to the work. A step slower than that TTL left its instrument reclaimable
+  while it was still being driven, so a second task could take it with no race and no contention
+  involved — one other task starting was enough. The lease now covers every attempt the retry loop
+  may make and the backoff between them, and the configured TTL is a floor rather than a ceiling;
 - the long-form documents left the repository root for the published site. `ARCHITECTURE.md`,
   `DEVELOPMENT.md`, `ROADMAP.md`, `VALIDATION.md` and `IMPORT_PROVENANCE.md` are now
   `docs/architecture/overview.md`, `docs/development/index.md`, `docs/development/roadmap.md`,

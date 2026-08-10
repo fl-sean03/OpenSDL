@@ -1,3 +1,4 @@
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -155,9 +156,17 @@ async def test_the_mcp_server_registers_and_runs_the_tools_it_advertises(tmp_pat
     The only test patched the import so that it raised. This one builds the real server against
     the real optional dependency and calls every tool through it. It is skipped, and therefore
     proves nothing, in any environment that does not install the `mcp` extra.
+
+    An installed-but-unservable `mcp` fails rather than skips. Skipping is right when the extra is
+    absent and wrong when it is present, because the only condition that produces it is a declared
+    floor below what this code imports — and that is the case where the test needs to speak. It
+    would otherwise go quiet at exactly the moment the transport stopped working.
     """
-    pytest.importorskip(
-        mcp_module.SERVER_MODULE, reason="the optional 'mcp' extra is not installed"
+    if find_spec("mcp") is None:
+        pytest.skip("the optional 'mcp' extra is not installed")
+    assert mcp_module.mcp_available(), (
+        f"'mcp' is installed without {mcp_module.SERVER_MODULE}, so this laboratory declares an"
+        " MCP transport it cannot start; the extra requires mcp>=2"
     )
     gateway = build_gateway(tmp_path, equipped=True)
 

@@ -143,6 +143,24 @@
           "default": null,
           "title": "Upper"
         },
+        "equals": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Equals"
+        },
         "description": {
           "default": "",
           "title": "Description",

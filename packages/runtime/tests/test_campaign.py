@@ -67,6 +67,7 @@ PROBE_OUTPUT_SCHEMA: dict[str, Any] = {
         "cost": {"type": "number"},
         "sigma": {"type": "number"},
         "pressure": {"type": "number"},
+        "converged": {"type": "boolean"},
     },
 }
 
@@ -154,6 +155,8 @@ class ScoreAdapter(CapabilityAdapter):
                     "cost": 10.0 - value,
                     "sigma": round(0.1 * value, 6),
                     "pressure": 2.0 * value,
+                    # A yes-or-no fact about the run, not a measurement of it.
+                    "converged": value >= 2.0,
                 },
             )
         finally:
@@ -218,6 +221,7 @@ def probe_workflow(
             "cost": "${steps.score.output.cost}",
             "sigma": "${steps.score.output.sigma}",
             "pressure": "${steps.score.output.pressure}",
+            "converged": "${steps.score.output.converged}",
         },
     )
 
@@ -1036,6 +1040,49 @@ async def test_a_declared_candidate_constraint_is_enforced_before_the_run(tmp_pa
     assert "fractions-sum-to-one" in (result.history[0].error or "")
     assert result.history[1].status is CampaignObservationStatus.SUCCEEDED
     assert [call["x"] for call in adapter.calls] == [0.25]
+
+
+@pytest.mark.asyncio
+async def test_a_yes_or_no_criterion_excludes_a_run_the_same_way_a_bound_does(tmp_path) -> None:
+    """A campaign whose gate is "did it converge" must behave exactly like one whose gate is a bound.
+
+    This is the criterion the numeric-only contract could not state, and stating it is only half
+    the work: the observation still has to reach the record with its numbers intact, still has to
+    be kept out of the best and away from the target, and still must not fail the run. A run that
+    did not converge produced real data about a candidate that does not converge.
+    """
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+
+    result = await runner.run(
+        probe_workflow(),
+        ScriptedOptimizer([[{"x": 1.0}, {"x": 3.0}]]),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=2,
+        batch_size=2,
+        objectives=objectives_for("score"),
+        outcome_constraints=[OutcomeConstraint(name="converged", output="converged", equals=True)],
+        target_score=2.0,
+    )
+
+    # x=1.0 did not converge; the run succeeded and the datum is kept.
+    unconverged = result.history[0]
+    assert unconverged.status is CampaignObservationStatus.SUCCEEDED
+    assert unconverged.score == 1.0
+    assert not unconverged.feasible
+    assert "converged" in " ".join(unconverged.constraint_violations)
+
+    # x=3.0 converged, so it is the only candidate that can win.
+    assert result.history[1].feasible
+    assert result.best is not None and result.best.candidate == {"x": 3.0}
+    # An infeasible observation cannot reach the target, so the campaign runs out of iterations.
+    assert result.stop_reason is CampaignStopReason.MAX_ITERATIONS
+
+    record = CampaignReader(repositories).get(result.campaign_id)
+    assert record.iterations[0].feasible is False
+    assert record.best is not None and record.best.iteration == 1
 
 
 @pytest.mark.asyncio

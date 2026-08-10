@@ -9,11 +9,12 @@ For a local verification run:
 
 ```bash
 uv sync --locked --all-packages --group dev
-uv run --locked pytest
-uv run --locked python scripts/check-boundaries.py
-uv run --locked python scripts/generate-schemas.py --check
-uv run --locked python scripts/validate-repository.py
-uv run --locked python scripts/check-version.py
+make test lint example
 ```
+
+`make lint` covers the lockfile, Ruff lint and format, Pyright, package boundaries, propagation
+coverage, generated-schema drift, repository structure, and version agreement. Add `make viewer` and
+`make docs` to match the full pull-request gate. See
+[testing](testing.md) for what each target runs and why a bare `pytest` is narrower than it looks.
 
 Run database-specific, hardware-in-the-loop, and facility acceptance tests in the deployment repository rather than treating simulator conformance as equipment qualification.

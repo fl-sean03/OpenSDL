@@ -2,6 +2,10 @@
 
 All notable changes to OpenSDL will be documented here. The project follows semantic versioning after the first stable release; pre-1.0 compatibility changes remain explicitly documented.
 
+No version below has been tagged or published to a package index. The headings name versions the
+workspace has carried, not artifacts anyone can install. See
+[releasing and publishing](docs/development/releasing.md).
+
 ## Unreleased
 
 ### Added

@@ -20,3 +20,9 @@ uv run --locked python scripts/release.py "$version"
 uv lock
 make test lint example
 uv build --all-packages --out-dir dist
+# `uv build` leaves setuptools' `<member>/build/lib/` behind: gitignored, importable, and stale the
+# moment the source moves on. Remove it here, where it is created, so the next recursive search of
+# the worktree has one answer per symbol. `scripts/validate-repository.py` fails if any survives.
+find . -path ./.venv -prune -o -path '*/node_modules' -prune -o -type d -name build -exec rm -rf {} +
+echo "distribution candidates are in dist/. Nothing has been published, signed, or tagged."
+echo "See docs/development/releasing.md for what publishing would additionally require."

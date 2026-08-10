@@ -5,6 +5,9 @@ repository, simulator, collaboration, live-equipment, and optional external-harn
 roadmap tracks product releases. The [development backlog](docs/development/backlog.md) is the
 running implementation list.
 
+No OpenSDL release exists yet: nothing is tagged and no distribution is published. "v0.1 alpha"
+below names the state the workspace reached, not something installable.
+
 ## Implemented in v0.1 alpha
 
 - uv Python monorepo with independently packaged members

@@ -7,6 +7,7 @@
 <p align="center">
   <a href="#project-status"><img src="https://img.shields.io/badge/status-alpha-orange" alt="Status: alpha"></a>
   <a href="https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml"><img src="https://github.com/fl-sean03/OpenSDL/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://seanflorez.com/OpenSDL/"><img src="https://img.shields.io/badge/docs-seanflorez.com%2FOpenSDL-blue" alt="Documentation"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python 3.12+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
 </p>
@@ -36,6 +37,13 @@ It is built as normal scientific software: installable packages, deployable appl
 Everything here runs today in a simulator-only reference profile. It is an alpha. Read [project
 status](#project-status) for what is implemented, and [SAFETY.md](SAFETY.md) for where the framework
 stops and a laboratory's own protective systems begin.
+
+## Documentation
+
+**<https://seanflorez.com/OpenSDL/>** — concepts, guides, and the CLI, API, configuration, and
+compatibility reference. It is rebuilt from `main` on every push, so it describes the alpha as it
+currently stands and not a released version. The same pages are in [`docs/`](docs/) in this
+repository.
 
 ## Quick start
 
@@ -128,8 +136,8 @@ to the relevant repository skills. See [lab onboarding](docs/architecture/lab-on
 <details>
 <summary>Package sources, generated layout, and CI for the new repository</summary>
 
-The generated lab needs a package source for the OpenSDL alpha distributions. If they are absent
-from your configured registry, build a local wheelhouse from this checkout for a smoke test:
+The generated lab needs a package source for the OpenSDL alpha distributions. None are published to
+any package index, so build a local wheelhouse from this checkout for a smoke test:
 
 ```bash
 uv build --all-packages --wheel --out-dir dist

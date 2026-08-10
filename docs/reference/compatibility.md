@@ -21,7 +21,8 @@ not a breaking change.
 No Git tag exists in the repository, and the release workflow is manually triggered, builds the 22
 distributions, and uploads them as a workflow artifact without publishing or tagging. The version has
 so far identified a working tree rather than a release, and a laboratory cannot install OpenSDL from
-an index at all.
+an index at all. [Releasing and publishing](../development/releasing.md) states what changing that
+would require and which parts of it cannot be undone.
 
 Semantic versioning applies after 1.0. Before 1.0 the version communicates ordering only.
 

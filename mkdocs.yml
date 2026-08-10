@@ -4,7 +4,6 @@ site_description: An open foundation for building computational and autonomous l
 repo_url: https://github.com/fl-sean03/OpenSDL
 repo_name: fl-sean03/OpenSDL
 edit_uri: edit/main/docs/
-site_description: Open foundation for computational and autonomous laboratories
 theme:
   name: material
   features:
@@ -40,6 +39,7 @@ nav:
       - Agent instructions and skills: development/agent-skills.md
       - Testing: development/testing.md
       - Validation: development/validation.md
+      - Releasing and publishing: development/releasing.md
   - Reference:
       - Configuration: reference/configuration.md
       - CLI: reference/cli.md

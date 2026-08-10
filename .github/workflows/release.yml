@@ -1,5 +1,14 @@
 name: Build distribution candidates
 
+# This workflow builds and does not publish. It produces every workspace wheel and sdist and
+# uploads them as an Actions artifact that expires with the run. It creates no tag, no GitHub
+# Release, no signature, no SBOM, and it uploads nothing to any package index. OpenSDL has never
+# been published or tagged, and enabling either is a deliberate act with irreversible parts:
+# docs/development/releasing.md states exactly what it would take and what it would cost.
+#
+# The gate below mirrors `make test lint example`, which is what `.agents/skills/release/run.sh`
+# runs locally, so a candidate built here and one built by hand are validated the same way.
+
 on:
   workflow_dispatch:
 
@@ -17,10 +26,8 @@ jobs:
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: uv.lock
-      - run: uv lock --check
       - run: uv sync --locked --all-packages --group dev
-      - run: uv run --locked pytest
-      - run: uv run --locked python scripts/check-version.py
+      - run: make test lint example
       - run: uv build --all-packages --out-dir dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -315,21 +316,29 @@ def test_generated_validator_checks_instruction_imports_and_malformed_metadata(
 
 def test_cli_wheel_contains_and_renders_hidden_skill_templates(tmp_path: Path) -> None:
     wheelhouse = tmp_path / "wheelhouse"
-    subprocess.run(
-        [
-            "uv",
-            "build",
-            "--wheel",
-            "--package",
-            "opensdl-cli",
-            "--out-dir",
-            str(wheelhouse),
-        ],
-        cwd=Path(__file__).parents[3],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "uv",
+                "build",
+                "--wheel",
+                "--package",
+                "opensdl-cli",
+                "--out-dir",
+                str(wheelhouse),
+            ],
+            cwd=Path(__file__).parents[3],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        # setuptools runs in the package directory and leaves `packages/cli/build/lib/` behind: a
+        # gitignored, importable copy of this package that goes stale the moment the source moves
+        # on, and that answers every recursive search of the worktree twice. This test is the only
+        # thing in the suite that creates it, so this test removes it.
+        # `scripts/validate-repository.py` fails while any survives.
+        shutil.rmtree(Path(__file__).parents[1] / "build", ignore_errors=True)
     wheel = next(wheelhouse.glob("opensdl_cli-*.whl"))
     with ZipFile(wheel) as archive:
         names = set(archive.namelist())

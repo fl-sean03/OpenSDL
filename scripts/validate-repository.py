@@ -36,6 +36,39 @@ def repository_files(pattern: str):
             yield path
 
 
+def validate_build_artifacts() -> None:
+    """Fail when a build directory holds a stale copy of a real module.
+
+    ``setuptools`` leaves ``<member>/build/lib/<package>/`` behind after ``uv build``. Those files
+    are gitignored, so nothing notices them, and they are copies of modules that keep changing, so
+    they go stale immediately. A recursive search of the worktree then returns two answers for
+    every symbol and no indication which one ships -- an ambiguity that has already misled an
+    analysis of this repository. Nothing reads them and no command needs them to survive a build.
+
+    Release output is left alone: an ``sdist`` or wheel under ``dist/`` shadows nothing, because it
+    is an archive rather than an importable file tree.
+    """
+    stale: list[str] = []
+    for name in ("build", "dist"):
+        for directory in ROOT.rglob(name):
+            relative = directory.relative_to(ROOT)
+            if not directory.is_dir() or directory.is_symlink():
+                continue
+            if any(part in {".git", ".venv", "node_modules"} for part in relative.parts):
+                continue
+            sources = sorted(path.relative_to(ROOT).as_posix() for path in directory.rglob("*.py"))
+            if sources:
+                count = f"{len(sources)} Python file" + ("s" if len(sources) != 1 else "")
+                stale.append(f"{relative.as_posix()}/ ({count}, e.g. {sources[0]})")
+    if stale:
+        raise SystemExit(
+            "build directories contain importable copies of repository modules:\n"
+            + "\n".join(f"  {entry}" for entry in stale)
+            + "\n  they are gitignored, go stale the moment the source changes, and make every "
+            "recursive search ambiguous\n  remove them with `make clean`"
+        )
+
+
 def validate_toml() -> None:
     for path in repository_files("*.toml"):
         with path.open("rb") as handle:
@@ -176,8 +209,10 @@ def main() -> None:
     validate_instruction_adapters()
     validate_skills()
     validate_markdown_links()
+    validate_build_artifacts()
     print(
-        "TOML, YAML, JSON, agent instructions, repository skills, and relative Markdown links are valid"
+        "TOML, YAML, JSON, agent instructions, repository skills, relative Markdown links, "
+        "and the absence of stale build output are valid"
     )
 
 

@@ -78,6 +78,10 @@ docs:
 api:
 	uv run --locked opensdl serve-api --manifest examples/simulated-color-mixing/opensdl.yaml
 
+# `build/` is setuptools' residue from `uv build`. It is gitignored and holds importable copies of
+# real modules, so leaving it behind makes every recursive search of the worktree ambiguous.
+# `scripts/validate-repository.py` fails while any of it survives.
 clean:
-	rm -rf .opensdl site .pytest_cache .ruff_cache .coverage htmlcov
-	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+	rm -rf .opensdl site dist .pytest_cache .ruff_cache .coverage htmlcov
+	find . -path ./.venv -prune -o -path '*/node_modules' -prune -o \
+		-type d \( -name __pycache__ -o -name build \) -print -exec rm -rf {} +

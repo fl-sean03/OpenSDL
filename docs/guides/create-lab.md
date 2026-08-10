@@ -1,5 +1,9 @@
 # Create a lab project
 
+Run this from a checkout of the framework repository. No OpenSDL distribution is published to a
+package index, so the new project installs from a wheelhouse you build here
+(`uv build --all-packages --wheel --out-dir dist`).
+
 ```bash
 uv run --locked opensdl init ../my-lab --name my-lab --owner my-organization
 cd ../my-lab

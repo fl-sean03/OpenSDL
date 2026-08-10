@@ -96,8 +96,8 @@ uv run --locked alembic -c database/alembic.ini upgrade head      # by hand, wit
 ```
 
 `opensdl migrate` is a thin wrapper over `opensdl_controller.migrate.plan` and
-`opensdl_controller.migrate.upgrade`. Until the `packages/cli` command lands, call those directly or
-use the Alembic commands above; the schema upgrade itself does not depend on the CLI.
+`opensdl_controller.migrate.upgrade`. Call those directly, or use the Alembic commands above, when
+the CLI is not installed; the schema upgrade itself does not depend on it.
 
 Set `OPENSDL_DATABASE_URL` before running the Alembic commands against a non-default database.
 `opensdl migrate` reads the manifest's `spec.storage.database.url` and honours the same override.
@@ -210,13 +210,17 @@ Generate a separate lab repository with `opensdl init`. That repository should c
 
 ## Releases
 
-1. all tests and conformance pass;
-2. `uv lock --check` passes and CI consumes the committed lockfile;
-3. generated schemas are current;
-4. migrations are present;
-5. public changes have release notes and migration guidance;
-6. artifacts and SBOM are built;
-7. packages share the selected release version;
-8. signed tags are preferred for public releases.
+OpenSDL has never been released: no tag exists and no distribution has been published to any package
+index. `.agents/skills/release/run.sh VERSION` and the manual **Build distribution candidates**
+workflow both end at wheels and sdists — one in a local `dist/`, one in an expiring Actions
+artifact. Neither publishes, signs, tags, or generates an SBOM.
+
+A candidate is ready when all tests and conformance pass, `uv lock --check` passes against the
+committed lockfile, generated schemas are current, migrations are present, every package carries the
+selected version, and public changes have release notes and migration guidance.
+
+Publishing is a separate, deliberate act with irreversible parts — a package-index name is claimed
+by its first upload and a published version can never be re-uploaded. What it would take is written
+out in [releasing and publishing](docs/development/releasing.md). Do not improvise it.
 
 The workspace remains pre-1.0; compatibility changes still require explicit notes.

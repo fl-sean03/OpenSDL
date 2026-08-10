@@ -6,12 +6,14 @@ Contributions should improve interoperability, reproducibility, reliability, ado
 
 ```bash
 uv sync --locked --all-packages --group dev
-uv run --locked pytest
-uv run --locked python scripts/check-boundaries.py
-uv run --locked python scripts/generate-schemas.py --check
+make test lint
 ```
 
-Read [DEVELOPMENT.md](DEVELOPMENT.md) and the nearest `AGENTS.md` before editing a subsystem.
+`make test`, `make lint`, `make viewer`, `make docs`, and `make example` together are what the
+pull-request CI job enforces, so running them locally is the way to know a change passes before you
+open one. A bare `uv run --locked pytest` is narrower than it looks — see
+[DEVELOPMENT.md](DEVELOPMENT.md) for what each target runs, and read the nearest `AGENTS.md` before
+editing a subsystem.
 
 ## Contribution types
 

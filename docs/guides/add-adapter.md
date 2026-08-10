@@ -81,8 +81,8 @@ Then sync:
 uv sync
 ```
 
-If the OpenSDL distributions are not in your configured index, add the wheelhouse built from the
-framework checkout, as described in the laboratory's `README.md`:
+No OpenSDL distribution is published to a package index, so point the sync at a wheelhouse built
+from the framework checkout, as described in the laboratory's `README.md`:
 
 ```bash
 uv sync --find-links ../opensdl/dist

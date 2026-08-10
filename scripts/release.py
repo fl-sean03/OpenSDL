@@ -91,7 +91,8 @@ def main() -> None:
         parser.error(str(error))
     relative = ", ".join(str(path.relative_to(ROOT)) for path in changed) or "none"
     print(f"updated release version to {version}: {relative}")
-    print("run the full test, schema, migration, metadata, and build checks before tagging")
+    print("run the full test, schema, migration, metadata, and build checks before building")
+    print("this writes files and nothing else: no commit, tag, signature, or upload")
 
 
 if __name__ == "__main__":

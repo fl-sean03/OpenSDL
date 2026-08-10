@@ -1616,3 +1616,77 @@ async def test_run_started_records_the_operator_that_submitted_it(tmp_path) -> N
         "operator/bob",
     ]
     assert repositories.get_run(failed.id).operator_id == "operator/alice"  # type: ignore[union-attr]
+
+
+async def test_a_resource_stays_leased_for_as_long_as_the_task_may_run(tmp_path) -> None:
+    """A task must not outlive the lease protecting the instrument it is driving.
+
+    The lease was taken for the configured TTL regardless of how long the task could take, so a
+    step slower than that TTL left its instrument reclaimable while it was still running. Two
+    holders of one instrument is the failure a lease exists to prevent, and this route needs no
+    race and no contention — one other task starting is enough.
+
+    Here the lease is configured at a fifth of a second and the work takes two, so the check a
+    second later falls well after the configured TTL would have expired and well before the task
+    finishes. Against the previous implementation the second holder is granted.
+    """
+
+    database = Database(f"sqlite:///{tmp_path / 'lab.db'}")
+    database.initialize()
+    repositories = Repositories(database)
+    repositories.upsert_resource(Resource(id="bench", name="Bench", type="simulator"))
+    registry = CapabilityRegistry()
+    registry.register(AwaitingAdapter(seconds=2.0))
+    runtime = ReferenceRuntime(
+        registry,
+        repositories,
+        PolicyEngine(default_effect="allow"),
+        LocalArtifactStore(tmp_path / "artifacts", repositories),
+        lease_ttl_seconds=0.2,
+        default_timeout_seconds=30.0,
+    )
+    workflow = WorkflowDefinition(
+        id="slow-workflow",
+        name="Slower than its lease",
+        input_schema={"type": "object"},
+        steps=[WorkflowStep(id="slow", capability="test.awaiting", inputs={}, resources=["bench"])],
+        outputs={},
+    )
+
+    running = asyncio.create_task(
+        runtime.run_workflow(workflow, {}, operator_id="operator/a", environment="simulation")
+    )
+    await asyncio.sleep(1.0)
+    # A separate connection, as a second controller would be.
+    contender = Repositories(Database(f"sqlite:///{tmp_path / 'lab.db'}"))
+    assert not contender.acquire_leases(["bench"], "a-different-task", 60)
+
+    run = await running
+    assert run.state is RunState.COMPLETED
+    # And the lease is released once the work is actually done, not merely once the TTL elapsed.
+    assert contender.acquire_leases(["bench"], "a-different-task", 60)
+
+
+def test_the_lease_covers_every_attempt_the_retry_loop_may_make(tmp_path) -> None:
+    """Retries run inside one lease, so the bound is per task and not per attempt.
+
+    Sizing the lease from a single attempt would leave it short by the retries and the backoff
+    between them, which is the same defect arriving by a slower route.
+    """
+
+    database = Database("sqlite:///:memory:")
+    database.initialize()
+    runtime = ReferenceRuntime(
+        CapabilityRegistry(),
+        Repositories(database),
+        PolicyEngine(default_effect="allow"),
+        LocalArtifactStore(tmp_path, Repositories(database)),
+        lease_ttl_seconds=1.0,
+    )
+
+    # The configured TTL is a floor: short work keeps it.
+    assert runtime._lease_seconds_for(timeout=0.1, max_retries=0) == 1.0
+    # Four attempts of ten seconds cannot be covered by a one-second lease.
+    assert runtime._lease_seconds_for(timeout=10.0, max_retries=3) >= 40.0
+    # The backoff between attempts is inside the lease too, so the bound exceeds the work alone.
+    assert runtime._lease_seconds_for(timeout=10.0, max_retries=3) > 40.0

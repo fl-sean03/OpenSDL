@@ -70,6 +70,22 @@ def may_repeat_after(definition: CapabilityDefinition, failure: BaseException) -
     return False
 
 
+#: Retry backoff, doubling from this and capped below.
+RETRY_BACKOFF_SECONDS = 0.05
+RETRY_BACKOFF_CAP_SECONDS = 1.0
+
+
+def _retry_backoff_seconds(attempt: int) -> float:
+    """How long the runtime waits before the attempt after this one.
+
+    One definition, used both to wait and to size the resource lease that has to cover the
+    waiting. Two copies of it would let the lease silently stop covering the retry loop the
+    moment either changed.
+    """
+
+    return min(RETRY_BACKOFF_SECONDS * (2**attempt), RETRY_BACKOFF_CAP_SECONDS)
+
+
 class ReferenceRuntime:
     """Small, durable workflow runtime used by local deployments and conformance tests."""
 
@@ -325,6 +341,23 @@ class ReferenceRuntime:
             )
         return replaced
 
+    def _lease_seconds_for(self, timeout: float, max_retries: int) -> float:
+        """How long this task's resource lease has to last.
+
+        A lease shorter than the work it protects becomes reclaimable while that work is still
+        running, and the instrument then has two holders — the failure the lease exists to
+        prevent, reached with no race at all and no concurrency beyond one other task starting.
+        The configured TTL is a floor rather than a ceiling: the lease covers every attempt the
+        retry loop may make and the backoff between them.
+
+        What this bounds is how long the *runtime* may hold the task, which is the only quantity
+        it knows. An instrument still moving after the runtime stopped waiting is a different
+        problem; the timeout path records it and this does not solve it.
+        """
+
+        backoff = sum(_retry_backoff_seconds(attempt) for attempt in range(max_retries))
+        return max(self.lease_ttl_seconds, (max_retries + 1) * timeout + backoff)
+
     def _emit_superseded(
         self,
         superseded: RunRecord,
@@ -501,13 +534,6 @@ class ReferenceRuntime:
             task.state = TaskState.WAITING_FOR_RESOURCES
             task.updated_at = utc_now()
             self.repositories.upsert_task(task)
-            if not self.repositories.acquire_leases(resources, task.id, self.lease_ttl_seconds):
-                task.state = TaskState.FAILED
-                task.error = f"resources busy: {resources}"
-                task.updated_at = utc_now()
-                self.repositories.upsert_task(task)
-                raise ResourceBusyError(task.error)
-
             max_retries = step.retries if step.retries is not None else definition.max_retries
             # What this timeout bounds is how long the runtime waits, and nothing else. Adapter
             # code runs on its own thread and loop so that the bound holds even for a blocking
@@ -519,6 +545,14 @@ class ReferenceRuntime:
             timeout = (
                 step.timeout_seconds or definition.timeout_seconds or self.default_timeout_seconds
             )
+            if not self.repositories.acquire_leases(
+                resources, task.id, self._lease_seconds_for(timeout, max_retries)
+            ):
+                task.state = TaskState.FAILED
+                task.error = f"resources busy: {resources}"
+                task.updated_at = utc_now()
+                self.repositories.upsert_task(task)
+                raise ResourceBusyError(task.error)
             request = ExecutionRequest(
                 capability_id=step.capability,
                 inputs=resolved_inputs,
@@ -664,7 +698,7 @@ class ReferenceRuntime:
                             raise
                         task.state = TaskState.RETRYING
                         self.repositories.upsert_task(task)
-                        await asyncio.sleep(min(0.05 * (2**attempt), 1.0))
+                        await asyncio.sleep(_retry_backoff_seconds(attempt))
                         continue
 
                     # The adapter reported completion, so the physical action has happened. A

@@ -6,8 +6,23 @@ import httpx
 
 
 class OpenSDLClient:
-    def __init__(self, base_url: str, *, timeout: float = 30.0) -> None:
-        self._client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout)
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        timeout: float = 30.0,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        """Open a client against a running OpenSDL API.
+
+        `transport` substitutes how requests are carried without changing anything above it: the
+        client remains an `httpx.Client` with this `base_url` and `timeout`, and every accessor,
+        query parameter, JSON body, and `raise_for_status` still runs. Tests use it to reach an
+        in-process application; a caller can use it for retries, proxying, or recording.
+        """
+        self._client = httpx.Client(
+            base_url=base_url.rstrip("/"), timeout=timeout, transport=transport
+        )
 
     def close(self) -> None:
         self._client.close()

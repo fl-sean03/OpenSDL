@@ -145,6 +145,15 @@ workspace has carried, not artifacts anyone can install. See
   root keeps what a tool or a person needs to find there: `README.md`, `LICENSE`, `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md`, the agent entry points, and `SAFETY.md` —
   which stays because source code, schemas and adapters cite it by that name;
+- the optional MCP transport requires `mcp>=2` and builds an `MCPServer`, which is what version 2
+  renamed `FastMCP` to. The tool decorators are unchanged, so the served surface is identical.
+  `mcp_available()` now tests for the server module rather than the `mcp` package, because 1.x
+  installs `mcp` without it and would otherwise report a transport this code cannot start;
+- the Python SDK client accepts a `transport`, and its integration tests carry requests into the
+  application through one instead of borrowing Starlette's `TestClient` wholesale. `TestClient`
+  subclasses `httpx2` when that package is importable and `httpx` when it is not, so installing the
+  unrelated `mcp` extra decided which library's response the SDK returned and which library's
+  `HTTPStatusError` it raised. The client is an `httpx` client under every combination of extras;
 - a decision is recorded *before* the run it selects, for every candidate proposed including ones
   that go on to fail or be refused, and it names the runs it was based on rather than the run it
   caused. The record used to be written afterwards with the score already in it, which inverted the

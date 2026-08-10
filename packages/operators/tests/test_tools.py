@@ -56,8 +56,8 @@ def build_gateway(tmp_path: Path, *, equipped: bool = False) -> OperatorGateway:
 
 
 def _structured(result: Any) -> Any:
-    """FastMCP returns `(content_blocks, structured_result)`; the second is the tool's value."""
-    payload = result[1] if isinstance(result, tuple) else result
+    """Read a tool's value out of the `CallToolResult` an `MCPServer` call returns."""
+    payload = result.structured_content
     return payload.get("result", payload) if isinstance(payload, dict) else payload
 
 
@@ -156,7 +156,9 @@ async def test_the_mcp_server_registers_and_runs_the_tools_it_advertises(tmp_pat
     the real optional dependency and calls every tool through it. It is skipped, and therefore
     proves nothing, in any environment that does not install the `mcp` extra.
     """
-    pytest.importorskip("mcp", reason="the optional 'mcp' extra is not installed")
+    pytest.importorskip(
+        mcp_module.SERVER_MODULE, reason="the optional 'mcp' extra is not installed"
+    )
     gateway = build_gateway(tmp_path, equipped=True)
 
     server = mcp_module.build_mcp_server(gateway)
@@ -167,7 +169,7 @@ async def test_the_mcp_server_registers_and_runs_the_tools_it_advertises(tmp_pat
         tool = registered[spec.name]
         assert tool.description == spec.description
         declared = set(spec.input_schema.get("required", []))
-        assert set(tool.inputSchema.get("required", [])) == declared, spec.name
+        assert set(tool.input_schema.get("required", [])) == declared, spec.name
 
     await server.call_tool("describe_lab", {})
     await server.call_tool("list_capabilities", {})

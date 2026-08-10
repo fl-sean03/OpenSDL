@@ -136,6 +136,13 @@ workspace has carried, not artifacts anyone can install. See
 
 ### Changed
 
+- a resource lease is taken by a write whose own `WHERE` decides whether it may be taken, so two
+  callers can no longer both be told they hold one instrument. Acquisition read every resource and
+  then wrote every resource, and another caller fits between those steps: against that code, six
+  contenders racing for one expired lease were granted it four or five at a time, on every run of
+  ten. The row recorded one holder while the others proceeded believing they were alone. Losing the
+  race now reaches the caller as `False` rather than as an integrity error, and a refused set leaves
+  no partial claim behind;
 - the long-form documents left the repository root for the published site. `ARCHITECTURE.md`,
   `DEVELOPMENT.md`, `ROADMAP.md`, `VALIDATION.md` and `IMPORT_PROVENANCE.md` are now
   `docs/architecture/overview.md`, `docs/development/index.md`, `docs/development/roadmap.md`,

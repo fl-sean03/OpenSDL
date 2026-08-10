@@ -311,3 +311,101 @@ def test_an_optimizer_may_still_spell_the_contract_in_python() -> None:
     assert Suggestion.model_validate({"parameters": {"x": 1}, "acquisitionFunction": "qEI"}) == (
         suggestion
     )
+
+
+def test_a_criterion_that_is_not_a_measurement_can_be_declared() -> None:
+    """A solver either converged or it did not, and `lower`/`upper` cannot say that at all.
+
+    `as_number` rejects `bool` on the correct ground that a `bool` is an `int` in Python and is
+    not a measurement, so before `equals` the whole class of yes-or-no criteria — converged,
+    trusted, in-spec — was inexpressible in a stored campaign and had to be recast as a number by
+    whatever parsed the code's output. That moved the criterion into the adapter, which is the one
+    place a declared criterion is not allowed to live.
+    """
+
+    converged = OutcomeConstraint(name="scf", output="scf.converged", equals=True)
+    assert converged.violation({"scf": {"converged": True}}) is None
+    assert converged.violation({"scf": {"converged": False}}) == (
+        "scf: scf.converged=False is not True"
+    )
+
+    # The instrument-quality case from audit finding A3: a vocabulary that could not express a bad
+    # measurement. `degraded` is now a recorded, excluded observation rather than a failed run.
+    trusted = OutcomeConstraint(name="quality", output="quality", equals="ok")
+    assert trusted.violation({"quality": "ok"}) is None
+    assert trusted.violation({"quality": "degraded"}) == "quality: quality='degraded' is not 'ok'"
+
+    # An absent output is still "feasibility cannot be established", not "does not equal".
+    assert converged.violation({}) == (
+        "scf: the run reported no scf.converged, so feasibility cannot be established"
+    )
+
+
+def test_an_exact_criterion_does_not_confuse_a_bool_with_the_number_it_equals() -> None:
+    """`True == 1` in Python, so `==` would make these two criteria satisfy each other.
+
+    A run reporting `1` has not reported that it converged, and a run reporting `True` has not
+    reported a count of one. Replacing `matches_exactly` with `==` turns both of these green.
+    """
+
+    converged = OutcomeConstraint(name="scf", output="flag", equals=True)
+    assert converged.violation({"flag": 1}) == "scf: flag=1 is not True"
+    assert converged.violation({"flag": 1.0}) == "scf: flag=1.0 is not True"
+
+    counted = OutcomeConstraint(name="cycles", output="flag", equals=1)
+    assert counted.violation({"flag": True}) == "cycles: flag=True is not 1"
+    assert counted.violation({"flag": 1}) is None
+
+    # A string is not the number or the flag that prints the same way.
+    labelled = OutcomeConstraint(name="label", output="flag", equals="1")
+    assert labelled.violation({"flag": 1}) == "label: flag=1 is not '1'"
+    assert labelled.violation({"flag": "1"}) is None
+
+
+def test_an_outcome_criterion_that_could_never_be_met_is_refused_at_load() -> None:
+    """Each of these is a declaration error, and each was accepted before.
+
+    A constraint that bounds nothing was already refused. Declaring a bound *and* an exact value
+    left it ambiguous which one applied, and an inverted interval is satisfied by no run at all —
+    both were accepted, and both fail every candidate silently once the campaign is running.
+    """
+
+    with pytest.raises(PydanticValidationError, match="bounds nothing"):
+        OutcomeConstraint(name="empty", output="pressure")
+    with pytest.raises(PydanticValidationError, match="a criterion is one or the other"):
+        OutcomeConstraint(name="both", output="pressure", upper=9.0, equals=True)
+    with pytest.raises(PydanticValidationError, match="empty interval"):
+        OutcomeConstraint(name="inverted", output="pressure", lower=9.0, upper=5.0)
+
+    # The bounded forms this must not have broken.
+    assert OutcomeConstraint(name="ok", output="pressure", lower=5.0, upper=9.0).upper == 9.0
+    assert OutcomeConstraint(name="point", output="pressure", lower=5.0, upper=5.0).lower == 5.0
+
+
+def test_an_exact_criterion_survives_the_serialised_form_a_campaign_is_stored_as() -> None:
+    """The point of a declared criterion is that it can be written down and read back.
+
+    A criterion that only exists as a Python object is the adapter-supplied callable this contract
+    exists to avoid, so `equals` is only useful if it round-trips through the stored document with
+    its type intact — `true` must not come back as `1`.
+    """
+
+    definition = CampaignDefinition(
+        id="campaign.dft",
+        name="Converged energies only",
+        objective="minimize energy",
+        workflow_id="relax",
+        optimizer="grid",
+        outcome_constraints=[
+            OutcomeConstraint(name="scf", output="scf.converged", equals=True),
+            OutcomeConstraint(name="quality", output="quality", equals="ok"),
+            OutcomeConstraint(name="pressure", output="pressure", upper=9.0),
+        ],
+    )
+
+    restored = CampaignDefinition.model_validate_json(definition.model_dump_json())
+    assert restored == definition
+    exact = restored.outcome_constraints[0].equals
+    assert exact is True and isinstance(exact, bool)
+    assert restored.outcome_constraints[1].equals == "ok"
+    assert restored.problem().outcome_constraints[0].violation({"scf": {"converged": False}})

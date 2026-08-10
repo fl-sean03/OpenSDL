@@ -267,14 +267,28 @@ class OutcomeConstraint(OpenSDLModel):
     output: str
     lower: float | None = None
     upper: float | None = None
+    #: The exact value the output must carry, for a criterion that is not a measurement. A solver
+    #: reporting whether it converged, and an instrument reporting whether it trusts a datum, are
+    #: the cases `lower` and `upper` cannot express at all. Floats are deliberately excluded:
+    #: exact equality on a measured quantity is almost never what a criterion means, and `lower`
+    #: with `upper` says the intended thing.
+    equals: bool | int | str | None = None
     description: str = ""
 
     @model_validator(mode="after")
     def _is_bounded(self) -> OutcomeConstraint:
-        if self.lower is None and self.upper is None:
+        bounded = self.lower is not None or self.upper is not None
+        if bounded and self.equals is not None:
             raise ValueError(
-                f"outcome constraint {self.name} bounds nothing: declare lower, upper, or both"
+                f"outcome constraint {self.name} declares both a bound and an exact value: "
+                "a criterion is one or the other"
             )
+        if not bounded and self.equals is None:
+            raise ValueError(
+                f"outcome constraint {self.name} bounds nothing: declare lower, upper, or equals"
+            )
+        if self.lower is not None and self.upper is not None and self.lower > self.upper:
+            raise ValueError(f"outcome constraint {self.name} declares an empty interval")
         return self
 
     def violation(self, outputs: Mapping[str, Any]) -> str | None:
@@ -285,6 +299,10 @@ class OutcomeConstraint(OpenSDLModel):
                 f"{self.name}: the run reported no {self.output}, "
                 "so feasibility cannot be established"
             )
+        if self.equals is not None:
+            if matches_exactly(raw, self.equals):
+                return None
+            return f"{self.name}: {self.output}={raw!r} is not {self.equals!r}"
         value = as_number(raw)
         if value is None:
             return f"{self.name}: {self.output}={raw!r} is not a number"
@@ -702,6 +720,22 @@ def as_number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value)
+
+
+def matches_exactly(value: Any, expected: bool | int | str) -> bool:
+    """Exact equality that keeps `bool`, `int` and `str` apart.
+
+    `True == 1` and `False == 0` in Python, so a plain `==` would let a criterion declaring
+    `equals: true` be satisfied by an output of `1`, and one declaring `equals: 1` be satisfied by
+    `True`. A criterion says which of those it means, and a run that reported the other one has
+    not met it.
+    """
+
+    if isinstance(expected, bool) or isinstance(value, bool):
+        return isinstance(value, bool) and isinstance(expected, bool) and value is expected
+    if isinstance(expected, str) or isinstance(value, str):
+        return isinstance(value, str) and isinstance(expected, str) and value == expected
+    return isinstance(value, int) and value == expected
 
 
 def read_path(value: Mapping[str, Any], path: str) -> Any:

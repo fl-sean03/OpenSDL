@@ -12,6 +12,19 @@ candidate outside it is refused before a run is created, a policy decision is ta
 leased. Every decision is recorded before the run it causes, naming the runs it rested on, the
 acquisition value and function, and the model that produced it. A campaign records why it stopped.
 
+A constraint on an outcome takes one of two forms, and a campaign declares whichever the criterion
+actually is. `lower` and `upper` bound a measurement. `equals` states an exact value for a criterion
+that is not a measurement at all — a solver reporting whether it converged, or an instrument
+reporting whether it trusts the datum it just produced. A bound and an exact value cannot both be
+declared on the same constraint, an inverted interval is refused at load rather than failing every
+run in silence, and an exact value keeps its type: a criterion declaring `true` is not met by a run
+reporting `1`.
+
+Violating an outcome constraint is not a failure. The run happened, the numbers are real, and they
+are recorded and handed to the optimizer as evidence about a candidate that does not satisfy the
+criterion. What the observation loses is its claim on the result: it is excluded from the best and
+cannot reach a target.
+
 An optimizer that proposes several candidates at once declares a batch size; a laboratory that can
 execute several at once declares its parallelism, which defaults to one, because how many candidates
 a method proposes and how many instruments a laboratory has are different questions.

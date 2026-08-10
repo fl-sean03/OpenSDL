@@ -156,6 +156,15 @@ workspace has carried, not artifacts anyone can install. See
   while it was still being driven, so a second task could take it with no race and no contention
   involved — one other task starting was enough. The lease now covers every attempt the retry loop
   may make and the backoff between them, and the configured TTL is a floor rather than a ceiling;
+- an outcome constraint can declare `equals` as well as `lower` and `upper`, so a criterion that is
+  not a measurement — a solver reporting whether it converged, an instrument reporting whether it
+  trusts a datum — can be stated in a stored campaign instead of being recast as a number by
+  whatever parses the code's output. Exact values keep their type, because `True == 1` in Python and
+  a criterion declaring `true` is not met by a run reporting `1`. Floats are excluded: exact
+  equality on a measured quantity is almost never the intended criterion, and `lower` with `upper`
+  says the intended thing. Declaring a bound and an exact value together, and declaring an interval
+  whose lower bound exceeds its upper, are both now refused at load rather than silently failing
+  every run;
 - the long-form documents left the repository root for the published site. `ARCHITECTURE.md`,
   `DEVELOPMENT.md`, `ROADMAP.md`, `VALIDATION.md` and `IMPORT_PROVENANCE.md` are now
   `docs/architecture/overview.md`, `docs/development/index.md`, `docs/development/roadmap.md`,

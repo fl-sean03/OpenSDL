@@ -1,3 +1,4 @@
+import threading
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -13,6 +14,7 @@ from opensdl_core import (
     TaskRecord,
     TaskState,
 )
+from opensdl_storage.db_models import LeaseRow
 from opensdl_storage import (
     ArtifactStore,
     Database,
@@ -215,3 +217,98 @@ def test_claiming_a_run_that_does_not_exist_reports_it(tmp_path) -> None:
 
     assert repo.start_run("run_absent") is None
     database.dispose()
+
+
+def _expired_lease(database, resource_id: str, holder_id: str) -> None:
+    """Leave `resource_id` holding a lease that has already run out."""
+
+    with database.session() as session:
+        session.add(
+            LeaseRow(
+                resource_id=resource_id,
+                holder_id=holder_id,
+                expires_at=datetime.now(UTC) - timedelta(seconds=60),
+            )
+        )
+
+
+def test_a_lease_that_has_run_out_goes_to_exactly_one_of_the_callers_racing_for_it(
+    tmp_path,
+) -> None:
+    """Two holders of one instrument is the failure this lease exists to prevent.
+
+    Acquisition used to read every resource and then write every resource. Between those two
+    steps another caller fits: both read the lease as expired, both take it, and both are told
+    they hold it. The row records one of them; the other drives the same instrument believing it
+    is alone. Against that implementation this test granted four or five of six callers on every
+    run of ten, so it is not a probabilistic guard — it is the defect, reproduced.
+
+    A file-backed store is required: `sqlite:///:memory:` gives each connection its own database,
+    so the callers would not contend at all and this would pass against anything.
+    """
+
+    database = Database(f"sqlite:///{tmp_path / 'lab.db'}")
+    database.initialize()
+    _expired_lease(database, "balance", "the-holder-that-timed-out")
+
+    contenders = 6
+    ready = threading.Barrier(contenders, timeout=30)
+    outcomes: dict[str, object] = {}
+
+    def contend(holder_id: str) -> None:
+        repositories = Repositories(Database(f"sqlite:///{tmp_path / 'lab.db'}"))
+        ready.wait()
+        try:
+            outcomes[holder_id] = repositories.acquire_leases(["balance"], holder_id, 60)
+        except Exception as exc:  # noqa: BLE001 - the point is that nothing escapes
+            outcomes[holder_id] = f"{type(exc).__name__}: {exc}"
+
+    threads = [
+        threading.Thread(target=contend, args=(f"task-{index}",)) for index in range(contenders)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(30)
+
+    granted = [holder for holder, result in outcomes.items() if result is True]
+    assert len(granted) == 1, outcomes
+    # Losing a race is an answer, not an error: contention must reach the caller as `False`.
+    assert [result for result in outcomes.values() if isinstance(result, str)] == []
+    assert sorted(outcomes.values(), key=repr) == sorted([True] + [False] * 5, key=repr)
+
+
+def test_a_lease_is_taken_whole_or_not_at_all(tmp_path) -> None:
+    """A caller told it does not hold the set must hold no part of it.
+
+    Claiming resource by resource means the refusal can arrive with earlier claims already
+    written. Leaving those behind would strand an instrument nobody is using and nobody released,
+    until its lease ran out. Removing the rollback turns the last assertion here red.
+    """
+
+    database, repositories = build_repository(tmp_path)
+    assert repositories.acquire_leases(["mixer"], "task-incumbent", 60)
+
+    # `balance` sorts first, so it is claimed before `mixer` refuses the set.
+    assert not repositories.acquire_leases(["balance", "mixer"], "task-latecomer", 60)
+
+    # `balance` must be free for the next caller, and the incumbent must still hold `mixer`.
+    assert repositories.acquire_leases(["balance"], "task-third-party", 60)
+    assert not repositories.acquire_leases(["mixer"], "task-third-party", 60)
+
+
+def test_a_lease_is_refused_while_live_taken_over_once_expired_and_renewed_by_its_holder(
+    tmp_path,
+) -> None:
+    """The three answers the conditional write has to give, stated one at a time."""
+
+    database, repositories = build_repository(tmp_path)
+
+    assert repositories.acquire_leases(["balance"], "task-a", 60)
+    assert not repositories.acquire_leases(["balance"], "task-b", 60)
+    # Its own holder renews rather than refusing itself.
+    assert repositories.acquire_leases(["balance"], "task-a", 60)
+
+    _expired_lease(database, "colorimeter", "task-departed")
+    assert repositories.acquire_leases(["colorimeter"], "task-c", 60)
+    assert not repositories.acquire_leases(["colorimeter"], "task-d", 60)

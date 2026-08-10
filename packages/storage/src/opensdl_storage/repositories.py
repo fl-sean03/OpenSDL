@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any, Iterable
 
-from sqlalchemy import CursorResult, delete, select, update
+from sqlalchemy import CursorResult, delete, insert, or_, select, update
+from sqlalchemy.exc import IntegrityError
 
 from opensdl_core import (
     STARTABLE_RUN_STATES,
@@ -276,24 +277,62 @@ class Repositories:
             ]
 
     def acquire_leases(self, resource_ids: list[str], holder_id: str, ttl_seconds: float) -> bool:
+        """Hold every named resource, or none of them.
+
+        Each lease is taken by a write whose own `WHERE` decides whether it may be taken, so the
+        database settles the question rather than this process. Checking every resource and then
+        writing every resource, as this did, is two steps another holder fits between: two callers
+        both read a lease as expired, both take it, and both are told they hold it. The row records
+        one of them and the other drives the same instrument believing it is alone.
+
+        Resources are claimed in sorted order so that two callers wanting overlapping sets contend
+        over the same resource first and cannot deadlock holding halves of each other's set.
+        """
+
         if not resource_ids:
             return True
         now = datetime.now(UTC)
         expires = now + timedelta(seconds=ttl_seconds)
         with self.database.session() as session:
             for resource_id in sorted(set(resource_ids)):
-                row = session.get(LeaseRow, resource_id)
-                if row and self._aware(row.expires_at) > now and row.holder_id != holder_id:
+                if not self._claim_lease(session, resource_id, holder_id, now, expires):
+                    # All or nothing: a caller told it does not hold the set must hold no part of it.
+                    session.rollback()
                     return False
-            for resource_id in sorted(set(resource_ids)):
-                row = session.get(LeaseRow, resource_id)
-                if row is None:
-                    session.add(
-                        LeaseRow(resource_id=resource_id, holder_id=holder_id, expires_at=expires)
+        return True
+
+    @staticmethod
+    def _claim_lease(
+        session: Any, resource_id: str, holder_id: str, now: datetime, expires: datetime
+    ) -> bool:
+        """Take one lease, reporting whether it was taken. Never raises on contention."""
+
+        taken = session.execute(
+            update(LeaseRow)
+            .where(
+                LeaseRow.resource_id == resource_id,
+                # Free to take when it has run out, or when it is already ours to renew.
+                or_(LeaseRow.expires_at <= now, LeaseRow.holder_id == holder_id),
+            )
+            .values(holder_id=holder_id, expires_at=expires)
+        ).rowcount
+        if taken:
+            return True
+        # Nothing matched: either no row exists yet, or a live lease belongs to someone else. The
+        # insert distinguishes them without a second read — the primary key refuses the live one,
+        # and refuses a concurrent insert of the same resource, which is the same answer.
+        try:
+            with session.begin_nested():
+                session.execute(
+                    insert(LeaseRow).values(
+                        resource_id=resource_id,
+                        holder_id=holder_id,
+                        expires_at=expires,
+                        created_at=now,
                     )
-                else:
-                    row.holder_id = holder_id
-                    row.expires_at = expires
+                )
+        except IntegrityError:
+            return False
         return True
 
     def release_leases(self, holder_id: str) -> None:

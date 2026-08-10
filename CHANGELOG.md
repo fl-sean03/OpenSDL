@@ -136,6 +136,14 @@ workspace has carried, not artifacts anyone can install. See
 
 ### Changed
 
+- a campaign's consecutive-failure limit counts batches that completed nothing rather than every
+  observation that did not succeed. A laboratory declaring more parallelism than it has exclusive
+  instruments produces a loser in every batch, and counting those stopped the campaign on its first
+  batch reporting the failure as systematic rather than routine — four candidates against one
+  instrument measured one of eight and named a cause an operator would look for in the instrument
+  or the chemistry. A batch that completed nothing still counts every attempt in it, so a genuinely
+  failing laboratory stops exactly as promptly as before, and a campaign running one candidate at a
+  time is unchanged;
 - a resource lease is taken by a write whose own `WHERE` decides whether it may be taken, so two
   callers can no longer both be told they hold one instrument. Acquisition read every resource and
   then wrote every resource, and another caller fits between those steps: against that code, six

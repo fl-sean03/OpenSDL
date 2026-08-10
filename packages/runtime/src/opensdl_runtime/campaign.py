@@ -31,6 +31,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from itertools import groupby
 from typing import Any
 
 from pydantic import Field, computed_field
@@ -475,19 +476,29 @@ class CampaignRunner:
                 await _call(optimizer.observe, observation)
 
             stopped = False
-            for observation in observations:
-                if not observation.succeeded:
-                    consecutive_failures += 1
-                    if consecutive_failures >= max_consecutive_failures:
-                        stop_reason = CampaignStopReason.FAILURE_LIMIT
-                        stop_detail = (
-                            f"{consecutive_failures} consecutive iterations failed, so the failure "
-                            f"is systematic rather than routine; last error: {observation.error}"
-                        )
-                        stopped = True
-                        break
-                    continue
+            # A batch that got something through is a working laboratory, so the candidates that
+            # lost a race for an instrument in that batch say nothing about whether failure is
+            # systematic. Counting each of them separately stopped a campaign whose only problem
+            # was being asked to run more at once than the laboratory owns: four candidates against
+            # one exclusive instrument reached the default limit of three on the first batch and
+            # reported the failure as systematic, having measured one candidate out of eight.
+            # A batch in which nothing succeeded still counts every attempt in it, so a laboratory
+            # that is genuinely failing stops exactly as promptly as before.
+            if observations and not any(item.succeeded for item in observations):
+                consecutive_failures += len(observations)
+                if consecutive_failures >= max_consecutive_failures:
+                    stop_reason = CampaignStopReason.FAILURE_LIMIT
+                    stop_detail = (
+                        f"{consecutive_failures} consecutive iterations failed with nothing "
+                        "completing in between, so the failure is systematic rather than routine; "
+                        f"last error: {observations[-1].error}"
+                    )
+                    stopped = True
+            elif observations:
                 consecutive_failures = 0
+            for observation in [] if stopped else observations:
+                if not observation.succeeded:
+                    continue
                 if _reaches_targets(observation, problem):
                     stop_reason = CampaignStopReason.TARGET_REACHED
                     stop_detail = _target_detail(observation, problem)
@@ -1325,13 +1336,19 @@ def _trailing_failures(history: Sequence[CampaignObservation]) -> int:
 
     The consecutive-failure limit is a statement about the laboratory, not about one process, so a
     restart that reset this count would let an unattended loop fail past the limit it declared.
+
+    Counted per batch, matching the loop: a batch in which anything succeeded ends the run, because
+    a laboratory that completed one candidate is working and the rest lost a race rather than
+    revealing a fault. Counting per observation here would let a resume reach the limit the loop
+    itself would not have.
     """
 
     count = 0
-    for observation in reversed(history):
-        if observation.succeeded:
+    for _, batch in groupby(reversed(history), key=lambda item: item.batch):
+        attempts = list(batch)
+        if any(item.succeeded for item in attempts):
             break
-        count += 1
+        count += len(attempts)
     return count
 
 

@@ -245,12 +245,20 @@ class OpenSDLSystem:
     async def start(self, *, reconcile: bool = False) -> list[RunRecord]:
         """Start the configured adapters and return the runs reconciliation moved.
 
-        Reconciliation is opt-in and reported. It transitions every `RUNNING` or `ABORTING` run to
-        `INTERVENTION_REQUIRED`, releases its leases, and appends recovery events — the correct
-        response to a controller restart, and the destruction of the operational record of an
-        experiment in flight when it happens during one. It used to run unconditionally and
-        silently on every `start()`, including the one behind `opensdl doctor`. A caller that wants
-        it now asks for it and is told what moved.
+        Reconciliation is opt-in and reported. It reads every `RUNNING` or `ABORTING` run, releases
+        the leases its interrupted tasks held, and appends recovery events. What each task becomes
+        is read off its capability's declaration rather than assumed: `retry_safety: repeatable`
+        records the task `FAILED`, which a resume dispatches again, and every other declaration —
+        including a capability the registry no longer exposes — records `INTERVENTION_REQUIRED`,
+        which nothing clears. The run follows its tasks, except that an interrupted `ABORTING` run
+        stays ambiguous, because whether an operator's abort took effect is a different question
+        from whether a task may be repeated.
+
+        This is the correct response to a controller restart, and it still destroys the operational
+        record of an experiment in flight when it happens during one — for a capability that cannot
+        declare repeating safe, irreversibly. It used to run unconditionally and silently on every
+        `start()`, including the one behind `opensdl doctor`. A caller that wants it now asks for it
+        and is told what moved.
         """
         if reconcile and self.read_only:
             raise ValueError("a read-only OpenSDL system cannot reconcile runs")

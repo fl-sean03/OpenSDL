@@ -1,7 +1,7 @@
 # Development backlog
 
 This page is the maintained list of framework work that remains.
-[ROADMAP.md](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md) keeps the release view. A
+[The roadmap](roadmap.md) keeps the release view. A
 laboratory repository keeps its own work in `docs/lab/setup-plan.md`.
 
 The [2026-08-05 repository audit](audit-2026-08-05.md) stress-tested the framework against its own

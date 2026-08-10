@@ -46,8 +46,9 @@ Begin with partial input. Ask for only the highest-value missing information.
 Do not run `doctor`, capability listing, inspection, or event queries merely for onboarding. They
 read without writing and will not create a store that is not there, but they report operational
 evidence rather than declared configuration, which is a different question from setting a
-laboratory up. Never pass `doctor --reconcile` during onboarding: it moves running runs to
-`intervention_required` and releases their leases.
+laboratory up. Never pass `doctor --reconcile` during onboarding: it releases the leases of running
+runs and records their interrupted tasks as failed or as `intervention_required` depending on what
+each capability declared, and nothing clears `intervention_required`.
 
 ## Completion
 

@@ -665,6 +665,210 @@ def test_recovery_marks_ambiguous_tasks_and_releases_their_leases(tmp_path) -> N
     assert "controller restarted" in run_recovery_event.payload["error"]
 
 
+def test_recovery_records_an_interrupted_repeatable_task_as_a_failure(tmp_path) -> None:
+    """A restart asks the question the timeout path asks, so it reads the same declaration.
+
+    The runtime knows no more after a restart than after an abandoned wait: nothing reported an
+    outcome either way. What `retry_safety='repeatable'` says is that the not-knowing has no
+    consequence — repeating a deterministic solver job costs the compute and nothing else. So the
+    record here is an interrupted attempt, not an unknown physical outcome, and the state is the
+    one the timeout path already gives that declaration: `FAILED`, which a resume may dispatch.
+    """
+
+    adapter = ProbeAdapter()
+    assert adapter.capability_definitions()[0].retry_safety is RetrySafety.REPEATABLE
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    run = repositories.create_run(RunRecord(workflow_id="probe-workflow", state=RunState.RUNNING))
+    task = repositories.upsert_task(
+        TaskRecord(
+            run_id=run.id,
+            step_id="probe",
+            capability_id="test.probe",
+            state=TaskState.RUNNING,
+            attempt=1,
+        )
+    )
+    assert repositories.acquire_leases(["probe-resource"], task.id, 60)
+
+    recovered = runtime.recover_incomplete_runs()
+
+    assert [item.id for item in recovered] == [run.id]
+    assert [item.state for item in recovered] == [RunState.FAILED]
+    stored = repositories.list_tasks(run.id)[0]
+    assert stored.state == TaskState.FAILED
+    assert "controller restarted" in (stored.error or "")
+    assert RetrySafety.REPEATABLE.value in (stored.error or "")
+    # The claim the old message made about every task alike. It is what makes a task unresumable,
+    # and this capability has declared that it does not apply.
+    assert "physical outcome is unknown" not in (stored.error or "")
+    stored_run = repositories.get_run(run.id)
+    assert stored_run is not None
+    assert stored_run.state == RunState.FAILED
+    assert "controller restarted" in (stored_run.error or "")
+    events = repositories.list_events(run_id=run.id, limit=None)
+    task_failed = next(event for event in events if event.type == "TaskFailed")
+    assert task_failed.task_id == task.id
+    assert task_failed.payload["previousState"] == TaskState.RUNNING.value
+    assert task_failed.payload["reason"] == "controller_restarted"
+    assert task_failed.payload["error"] == stored.error
+    run_failed = next(event for event in events if event.type == "RunFailed")
+    assert run_failed.payload["error"] == stored_run.error
+    assert not any(
+        event.type in {"TaskRecoveryRequired", "RunRecoveryRequired"} for event in events
+    )
+    # The lease is released whatever the recorded state, as it is for an ambiguous task.
+    assert repositories.acquire_leases(["probe-resource"], "replacement-after-restart", 60)
+
+
+@pytest.mark.asyncio
+async def test_a_reconciled_repeatable_run_can_be_resumed(tmp_path) -> None:
+    """What the recorded state above is for: a restart interrupts the run, it does not end it.
+
+    `INTERVENTION_REQUIRED` is unresumable by design and there is no operation for acknowledging
+    one, so recording it is permanent. A campaign of solver jobs that lost its controller used to
+    end there.
+    """
+
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    workflow = probe_workflow()
+    run = repositories.create_run(RunRecord(workflow_id=workflow.id, state=RunState.RUNNING))
+    task = repositories.upsert_task(
+        TaskRecord(
+            run_id=run.id,
+            step_id="probe",
+            capability_id="test.probe",
+            state=TaskState.RUNNING,
+            attempt=1,
+        )
+    )
+    assert repositories.acquire_leases(["probe-resource"], task.id, 60)
+
+    runtime.recover_incomplete_runs()
+    resumed = await runtime.run_workflow(workflow, {}, run_id=run.id)
+
+    assert adapter.calls == 1
+    assert resumed.state == RunState.COMPLETED
+    assert resumed.outputs == {"result": {"ok": True}}
+    assert [item.state for item in repositories.list_tasks(run.id)] == [TaskState.SUCCEEDED]
+
+
+@pytest.mark.parametrize(
+    "retry_safety",
+    [RetrySafety.NOT_REPEATABLE, RetrySafety.REPEATABLE_IF_NOT_DISPATCHED],
+)
+def test_recovery_leaves_a_task_the_capability_cannot_repeat_ambiguous(
+    tmp_path, retry_safety: RetrySafety
+) -> None:
+    """`REPEATABLE_IF_NOT_DISPATCHED` is a claim about evidence, and a dead controller leaves none.
+
+    Only the adapter can establish that the command never went out, and it says so by raising
+    `NotDispatchedError`. A restart is silence rather than that evidence, so reconciliation gives
+    the answer `may_repeat_after` gives any other failure: no.
+    """
+
+    adapter = ProbeAdapter(retry_safety=retry_safety)
+    runtime, repositories = build_probe_runtime(tmp_path / retry_safety.value, adapter)
+    run = repositories.create_run(RunRecord(workflow_id="probe-workflow", state=RunState.RUNNING))
+    repositories.upsert_task(
+        TaskRecord(
+            run_id=run.id,
+            step_id="probe",
+            capability_id="test.probe",
+            state=TaskState.RUNNING,
+            attempt=1,
+        )
+    )
+
+    recovered = runtime.recover_incomplete_runs()
+
+    assert [item.state for item in recovered] == [RunState.INTERVENTION_REQUIRED]
+    stored = repositories.list_tasks(run.id)[0]
+    assert stored.state == TaskState.INTERVENTION_REQUIRED
+    assert "physical outcome is unknown" in (stored.error or "")
+    events = repositories.list_events(run_id=run.id, limit=None)
+    assert any(event.type == "TaskRecoveryRequired" for event in events)
+    assert any(event.type == "RunRecoveryRequired" for event in events)
+    assert not any(event.type in {"TaskFailed", "RunFailed"} for event in events)
+
+
+def test_recovery_still_refers_an_interrupted_abort_to_a_person(tmp_path) -> None:
+    """A declaration about repeating a task says nothing about whether an abort took effect.
+
+    The task may be dispatched again and is recorded as the failure it is. The run may not be
+    continued over an abort an operator requested and nothing observed the end of, which is what
+    `RUN_TRANSITIONS` means by an interrupted abort needing a human.
+    """
+
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    run = repositories.create_run(RunRecord(workflow_id="probe-workflow", state=RunState.ABORTING))
+    repositories.upsert_task(
+        TaskRecord(
+            run_id=run.id,
+            step_id="probe",
+            capability_id="test.probe",
+            state=TaskState.RUNNING,
+            attempt=1,
+        )
+    )
+
+    recovered = runtime.recover_incomplete_runs()
+
+    assert [item.state for item in recovered] == [RunState.INTERVENTION_REQUIRED]
+    assert repositories.list_tasks(run.id)[0].state == TaskState.FAILED
+    events = repositories.list_events(run_id=run.id, limit=None)
+    assert any(event.type == "TaskFailed" for event in events)
+    assert any(event.type == "RunRecoveryRequired" for event in events)
+    assert not any(event.type == "RunFailed" for event in events)
+
+
+def test_recovery_reads_the_run_state_off_the_tasks_it_reconciled(tmp_path) -> None:
+    """One task whose outcome is unknown decides the run, exactly as on the failure path.
+
+    A run recorded as a clean failure over a task recorded as ambiguous would be resumable while
+    its own task is not, which is the disagreement `run_workflow` already refuses to write.
+    """
+
+    runtime, repositories = build_multi_adapter_runtime(
+        tmp_path,
+        ProbeAdapter(retry_safety=RetrySafety.NOT_REPEATABLE),
+        LocalComputeAdapter(),
+    )
+    run = repositories.create_run(RunRecord(workflow_id="mixed", state=RunState.RUNNING))
+    repeatable = repositories.upsert_task(
+        TaskRecord(
+            run_id=run.id,
+            step_id="solve",
+            capability_id="compute.euclidean_distance",
+            state=TaskState.RUNNING,
+        )
+    )
+    ambiguous = repositories.upsert_task(
+        TaskRecord(
+            run_id=run.id,
+            step_id="probe",
+            capability_id="test.probe",
+            state=TaskState.RETRYING,
+        )
+    )
+
+    recovered = runtime.recover_incomplete_runs()
+
+    assert [item.state for item in recovered] == [RunState.INTERVENTION_REQUIRED]
+    tasks = {task.id: task for task in repositories.list_tasks(run.id)}
+    assert tasks[repeatable.id].state == TaskState.FAILED
+    assert tasks[ambiguous.id].state == TaskState.INTERVENTION_REQUIRED
+    events = repositories.list_events(run_id=run.id, limit=None)
+    task_failed = next(event for event in events if event.type == "TaskFailed")
+    task_recovery = next(event for event in events if event.type == "TaskRecoveryRequired")
+    assert task_failed.task_id == repeatable.id
+    assert task_recovery.task_id == ambiguous.id
+    assert task_recovery.payload["previousState"] == TaskState.RETRYING.value
+    assert any(event.type == "RunRecoveryRequired" for event in events)
+    assert not any(event.type == "RunFailed" for event in events)
+
+
 @pytest.mark.asyncio
 async def test_resume_refuses_a_task_whose_physical_outcome_is_unknown(tmp_path) -> None:
     adapter = ProbeAdapter()

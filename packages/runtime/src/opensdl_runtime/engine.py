@@ -8,6 +8,7 @@ from opensdl_capabilities import CapabilityRegistry, NotDispatchedError, validat
 from opensdl_core import (
     STARTABLE_RUN_STATES,
     CapabilityDefinition,
+    CapabilityNotFoundError,
     EventRecord,
     ExecutionDeniedError,
     ExecutionRequest,
@@ -43,6 +44,17 @@ UNRESUMABLE_TASK_STATES = frozenset(
 )
 
 
+def may_repeat_without_outcome(definition: CapabilityDefinition) -> bool:
+    """Whether this capability may be dispatched again when nothing reported an outcome at all.
+
+    The question below, asked where there is no failure to inspect: an abandoned wait, a
+    controller that died holding the task. Only `REPEATABLE` answers it, because
+    `REPEATABLE_IF_NOT_DISPATCHED` is a claim about evidence the adapter supplies and silence is
+    not that evidence.
+    """
+    return definition.retry_safety is RetrySafety.REPEATABLE
+
+
 def may_repeat_after(definition: CapabilityDefinition, failure: BaseException) -> bool:
     """Whether this failure permits dispatching this capability again.
 
@@ -51,7 +63,7 @@ def may_repeat_after(definition: CapabilityDefinition, failure: BaseException) -
     success is proof that something did. So `retry_safety` answers it, and the only failure that
     can add anything is one the adapter raised to say the command never left the client.
     """
-    if definition.retry_safety is RetrySafety.REPEATABLE:
+    if may_repeat_without_outcome(definition):
         return True
     if definition.retry_safety is RetrySafety.REPEATABLE_IF_NOT_DISPATCHED:
         return isinstance(failure, NotDispatchedError)
@@ -380,8 +392,10 @@ class ReferenceRuntime:
             f"run {run.id} is recorded as '{current.state.value}' and could not be claimed for "
             f"execution; a run may only start from {sorted(state.value for state in STARTABLE_RUN_STATES)}. "
             "Either another caller is already executing it, or a controller stopped while it was "
-            "active and nothing has reconciled it since — `opensdl doctor --reconcile` moves such "
-            "a run to 'intervention_required' so a person can establish what the equipment did."
+            "active and nothing has reconciled it since — `opensdl doctor --reconcile` reconciles "
+            "such a run against what the tasks it left in flight declare: 'failed', which this "
+            "run can then be resumed from, when every one of them declares repeating safe, and "
+            "'intervention_required' otherwise, so a person can establish what the equipment did."
         )
 
     def _assert_run_can_resume(self, run: RunRecord) -> None:
@@ -566,7 +580,7 @@ class ReferenceRuntime:
                         # declared repeating it safe, recording a clean failure would both
                         # overstate what is known and leave the task resumable, so the next
                         # resume would dispatch the action a second time.
-                        if timed_out and definition.retry_safety is not RetrySafety.REPEATABLE:
+                        if timed_out and not may_repeat_without_outcome(definition):
                             unknown = (
                                 f"{error}. The runtime stopped waiting; it did not stop the "
                                 "equipment, and nothing reported an outcome, so the physical "
@@ -708,42 +722,103 @@ class ReferenceRuntime:
                 self.repositories.release_leases(task.id)
 
     def recover_incomplete_runs(self) -> list[RunRecord]:
+        """Reconcile the runs a stopped controller left active, from what each task may claim.
+
+        A restart poses the question `may_repeat_without_outcome` answers, and the same one the
+        timeout path answers: the runtime dispatched the task and never learned what became of it.
+        This path used to answer it for itself, driving every active task to
+        `INTERVENTION_REQUIRED` — which is unresumable by design, and which no operation clears —
+        so a restart permanently ended a run even for a capability that had declared repeating it
+        harmless. Both paths now read the same declaration.
+        """
+
         recovered: list[RunRecord] = []
         for run in self.repositories.list_runs(states=[RunState.RUNNING, RunState.ABORTING]):
-            run_error = "controller restarted while run was active"
-            updated = self.repositories.update_run(
-                run.id,
-                state=RunState.INTERVENTION_REQUIRED,
-                error=run_error,
-            )
-            for task in self.repositories.list_tasks(run.id):
+            tasks = self.repositories.list_tasks(run.id)
+            reconciled: list[tuple[TaskRecord, TaskState, str]] = []
+            for task in tasks:
                 if task.state not in {TaskState.RUNNING, TaskState.RETRYING}:
                     continue
                 previous_state = task.state
-                task_error = (
-                    "controller restarted while task was active; physical outcome is unknown"
-                )
-                task.state = TaskState.INTERVENTION_REQUIRED
-                task.error = task_error
+                if self._interrupted_task_may_repeat(task.capability_id):
+                    # The interruption is a fact and is recorded as one. What the old message
+                    # added to it — that the physical outcome is unknown in the sense that stops
+                    # the run — is the claim this declaration withdraws.
+                    task.state = TaskState.FAILED
+                    task.error = (
+                        "controller restarted while task was active, so nothing reported an "
+                        f"outcome. {task.capability_id} declares retry_safety "
+                        f"'{RetrySafety.REPEATABLE.value}', so repeating it under that "
+                        "uncertainty cannot harm anything: the attempt is recorded as a failure, "
+                        "which a resume dispatches again, rather than as requiring intervention, "
+                        "which nothing clears."
+                    )
+                    event_type = "TaskFailed"
+                else:
+                    task.state = TaskState.INTERVENTION_REQUIRED
+                    task.error = (
+                        "controller restarted while task was active; physical outcome is unknown"
+                    )
+                    event_type = "TaskRecoveryRequired"
                 task.updated_at = utc_now()
                 self.repositories.upsert_task(task)
                 self.repositories.release_leases(task.id)
+                reconciled.append((task, previous_state, event_type))
+
+            # The run's recorded state is read off its tasks, as it is on the failure path in
+            # `run_workflow`: a run reporting a clean failure over a task whose outcome is unknown
+            # would be resumable while its own task is not. A run with nothing in flight is left
+            # as it was handled before — no declaration was consulted, so nothing new is known
+            # about where the controller died, and the conservative answer stands. So is a run
+            # that was aborting: `retry_safety` says whether a task may be dispatched again, not
+            # whether an operator's abort took effect, and `RUN_TRANSITIONS` records that an
+            # interrupted abort needs a human rather than an automatic conclusion.
+            unknown = any(task.state is TaskState.INTERVENTION_REQUIRED for task in tasks)
+            if reconciled and not unknown and run.state is RunState.RUNNING:
+                run_error = (
+                    "controller restarted while run was active. Every task it left in flight "
+                    "declares repeating safe, so this is recorded as a failure the run resumes "
+                    "from rather than as requiring intervention."
+                )
+                run_state = RunState.FAILED
+                run_event = "RunFailed"
+            else:
+                run_error = "controller restarted while run was active"
+                run_state = RunState.INTERVENTION_REQUIRED
+                run_event = "RunRecoveryRequired"
+            updated = self.repositories.update_run(run.id, state=run_state, error=run_error)
+
+            for task, previous_state, event_type in reconciled:
                 self._emit(
-                    "TaskRecoveryRequired",
+                    event_type,
                     run=updated,
                     task=task,
                     payload={
                         "previousState": previous_state.value,
-                        "error": task_error,
+                        "error": task.error,
+                        "reason": "controller_restarted",
                     },
                 )
             self._emit(
-                "RunRecoveryRequired",
+                run_event,
                 run=updated,
-                payload={"error": run_error},
+                payload={"error": run_error, "reason": "controller_restarted"},
             )
             recovered.append(updated)
         return recovered
+
+    def _interrupted_task_may_repeat(self, capability_id: str) -> bool:
+        """Whether a task this controller left in flight may be dispatched again.
+
+        A capability this laboratory no longer exposes has no declaration to read, and an absent
+        declaration is not permission: an undeclared capability already means `NOT_REPEATABLE`.
+        """
+
+        try:
+            definition = self.registry.get_definition(capability_id)
+        except CapabilityNotFoundError:
+            return False
+        return may_repeat_without_outcome(definition)
 
     def _emit(
         self,

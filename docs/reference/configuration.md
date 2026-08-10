@@ -110,7 +110,7 @@ constrains nobody, because the caller it names sends a different string instead.
 `environments`, and `risk_classes` to bound what a laboratory can do. Treat `operators` as a label on
 a decision record rather than as access control, and treat the actor recorded on every event as
 self-declared. Authentication and scoped service identities are v0.4 work on the
-[roadmap](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md).
+[roadmap](../development/roadmap.md).
 
 ## Environment overrides
 

@@ -57,6 +57,10 @@ is not in the pull-request path. Details worth knowing:
 `scripts/bootstrap.sh`, `scripts/test.sh`, and `scripts/lint.sh` cover the common subset for
 environments without Make.
 
+One workflow enforces nothing: [the pull request reviewer](pull-request-reviewer.md) reviews a pull
+request against the rules in `AGENTS.md` and posts a comment. It is off until `ANTHROPIC_API_KEY`
+exists, it cannot push, merge, or block a merge, and no gate above depends on it.
+
 ## Run the local stack
 
 SQLite-only:
@@ -221,6 +225,6 @@ selected version, and public changes have release notes and migration guidance.
 
 Publishing is a separate, deliberate act with irreversible parts — a package-index name is claimed
 by its first upload and a published version can never be re-uploaded. What it would take is written
-out in [releasing and publishing](docs/development/releasing.md). Do not improvise it.
+out in [releasing and publishing](releasing.md). Do not improvise it.
 
 The workspace remains pre-1.0; compatibility changes still require explicit notes.

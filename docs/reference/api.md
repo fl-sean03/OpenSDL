@@ -27,7 +27,7 @@ adapter's own message can carry an endpoint or a credential. Workflow inputs are
 verbatim in the permanent event log, so treat those as readable by anyone who can read a run.
 
 Authentication and scoped service identities are v0.4 work on the
-[roadmap](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md).
+[roadmap](../development/roadmap.md).
 
 ## Endpoints
 

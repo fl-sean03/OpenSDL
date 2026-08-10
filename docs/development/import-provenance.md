@@ -29,4 +29,4 @@ the artifact making the claim.
 Reproducibility of the *current* repository is established by different means, each of which is
 enforced rather than asserted: Git history, the committed `uv.lock` consumed with `--locked`
 everywhere, a headless rebuild that compares the reference scene's exported bytes, and the checks
-listed in [VALIDATION.md](VALIDATION.md).
+listed in [validation report](validation.md).

@@ -302,8 +302,10 @@ def doctor(
         bool,
         typer.Option(
             "--reconcile",
-            help="Also move runs left RUNNING by a stopped controller to INTERVENTION_REQUIRED "
-            "and release their leases. Never do this during a live run.",
+            help="Also reconcile runs left RUNNING by a stopped controller and release their "
+            "leases. An interrupted task whose capability declares retry_safety 'repeatable' is "
+            "recorded FAILED and can be resumed; anything else becomes INTERVENTION_REQUIRED, "
+            "which nothing clears. Never do this during a live run.",
         ),
     ] = False,
 ) -> None:
@@ -609,11 +611,14 @@ def start_campaign(
     own would write a provenance record its laboratory never authorized.
 
     `--resume` continues a campaign already recorded under `--campaign-id`. Note what this
-    command does first: it reconciles, which moves any run still recorded as running to
-    `intervention_required`. So resuming after a hard kill converts the run that was in flight
-    into an ambiguous one, and the resume then refuses it by name. That composition is
-    intended — the process died holding that run, and nothing here knows what the equipment
-    did.
+    command does first: it reconciles, and what that produces depends on what the interrupted
+    tasks declared. A task whose capability declares `retry_safety: repeatable` is recorded as
+    failed, which a resume dispatches again. Any other declaration — and an unknown capability —
+    is recorded as `intervention_required`, which nothing clears, and the resume then refuses
+    that run by name. So a campaign built entirely from repeatable capabilities resumes after a
+    hard kill, and one that was holding a task nobody may repeat blindly does not. That is the
+    intended composition: the process died holding the run, and the declaration is the only
+    thing that says whether repeating it under that uncertainty is safe.
     """
     record = asyncio.run(
         _run_campaign(

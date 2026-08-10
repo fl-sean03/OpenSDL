@@ -187,6 +187,70 @@ def validate_skills() -> None:
         raise SystemExit("invalid repository skills:\n" + "\n".join(failures))
 
 
+AGENT_ACTION = "anthropics/claude-code-action"
+
+
+def agent_workflow_failures() -> list[str]:
+    """Enforce the one input that decides what an agent workflow's token can do.
+
+    ``anthropics/claude-code-action`` has no default for ``github_token``. Its ``setupGitHubToken``
+    returns the supplied token when there is one and otherwise exchanges the workflow's OIDC token
+    for a Claude GitHub App token carrying Contents, Issues and Pull Requests *write*. So omitting
+    the input does one of two things, and both are wrong here: with ``id-token: write`` the action
+    quietly acquires a write token that ignores every permission the job narrowed, and without it
+    the action fails before the model runs.
+
+    Neither shows up in review. GitHub ignores unknown ``with:`` keys with a warning, so a typo in
+    the input name reads exactly like the correct spelling, and nothing else in this repository
+    inspects workflow semantics -- ``validate_yaml`` only parses. This repository shipped a
+    reviewer workflow that could never start for precisely this reason while its own comments
+    described the token it would have held.
+    """
+    failures: list[str] = []
+    workflows = ROOT / ".github" / "workflows"
+    if not workflows.is_dir():
+        return failures
+    for path in sorted(workflows.glob("*.yml")) + sorted(workflows.glob("*.yaml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            continue
+        relative = path.relative_to(ROOT).as_posix()
+        for job_name, job in (document.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            permissions = job.get("permissions")
+            grants_id_token = (
+                isinstance(permissions, dict) and permissions.get("id-token") == "write"
+            )
+            for step in job.get("steps") or []:
+                if not isinstance(step, dict):
+                    continue
+                uses = str(step.get("uses", ""))
+                if not uses.startswith(f"{AGENT_ACTION}@"):
+                    continue
+                where = f"{relative}: job '{job_name}'"
+                if "github_token" not in (step.get("with") or {}):
+                    failures.append(
+                        f"{where} runs {AGENT_ACTION} without a `github_token:` input, so the "
+                        "action falls back to exchanging an OIDC token for a Contents/Issues/"
+                        "PullRequests-write GitHub App token"
+                    )
+                if grants_id_token:
+                    failures.append(
+                        f"{where} grants `id-token: write` alongside {AGENT_ACTION}, which lets "
+                        "that exchange succeed if `github_token:` is ever dropped"
+                    )
+                if "@" in uses and len(uses.split("@", 1)[1].split()[0]) != 40:
+                    failures.append(f"{where} does not pin {AGENT_ACTION} to a full commit SHA")
+    return failures
+
+
+def validate_agent_workflows() -> None:
+    failures = agent_workflow_failures()
+    if failures:
+        raise SystemExit("unsafe agent workflow configuration:\n" + "\n".join(failures))
+
+
 def validate_markdown_links() -> None:
     failures: list[str] = []
     for path in repository_files("*.md"):
@@ -208,11 +272,12 @@ def main() -> None:
     validate_json()
     validate_instruction_adapters()
     validate_skills()
+    validate_agent_workflows()
     validate_markdown_links()
     validate_build_artifacts()
     print(
-        "TOML, YAML, JSON, agent instructions, repository skills, relative Markdown links, "
-        "and the absence of stale build output are valid"
+        "TOML, YAML, JSON, agent instructions, repository skills, agent workflow tokens, "
+        "relative Markdown links, and the absence of stale build output are valid"
     )
 
 

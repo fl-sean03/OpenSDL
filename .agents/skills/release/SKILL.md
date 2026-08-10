@@ -25,7 +25,8 @@ publishing would additionally require, and what it costs irreversibly, is writte
 3. Review synchronized workspace versions, installed CLI and API version reporting, citation
    metadata, generated dependency floors, public API changes, schemas, and migration guidance.
 4. Do not recreate the import-evidence files at the repository root. They describe the imported
-   snapshot and live at the import commit; `IMPORT_PROVENANCE.md` records where and why.
+   snapshot and live at the import commit; `docs/development/import-provenance.md` records where
+   and why.
 5. Inspect every wheel and source archive under `dist/`.
 6. Record the exact validation evidence and unresolved release work.
 

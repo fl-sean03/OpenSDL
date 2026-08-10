@@ -47,7 +47,7 @@ Semantic versioning applies after 1.0. Before 1.0 the version communicates order
 - No migration is guaranteed to exist for any contract change other than the database schema,
   which does upgrade in place. See below.
 - There is no cross-version test suite. Nothing verifies that a release reads data written by its
-  predecessor. [`ROADMAP.md`](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md) makes 1.0
+  predecessor. [The roadmap](../development/roadmap.md) makes 1.0
   conditional on a compatibility suite with external adopters; that suite does not exist and is not
   yet designed.
 - No version is supported for production operation. See

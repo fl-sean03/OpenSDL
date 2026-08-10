@@ -34,12 +34,18 @@ nav:
       - Add an adapter: guides/add-adapter.md
       - Closed-loop campaign: guides/closed-loop-campaign.md
   - Development:
+      - development/index.md
+      - Roadmap: development/roadmap.md
       - Development backlog: development/backlog.md
       - Repository audit 2026-08-05: development/audit-2026-08-05.md
       - Agent instructions and skills: development/agent-skills.md
       - Testing: development/testing.md
-      - Validation: development/validation.md
+      - Claims auditor: development/claims-audit.md
+      - Issue responder: development/issue-responder.md
+      - Pull request reviewer: development/pull-request-reviewer.md
+      - Validation report: development/validation.md
       - Releasing and publishing: development/releasing.md
+      - Import provenance: development/import-provenance.md
   - Reference:
       - Configuration: reference/configuration.md
       - CLI: reference/cli.md

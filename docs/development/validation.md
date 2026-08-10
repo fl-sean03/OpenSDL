@@ -1,11 +1,54 @@
-# Validation
+# Validation report
 
-The repository root contains the maintained
-[validation report](https://github.com/fl-sean03/OpenSDL/blob/main/VALIDATION.md). It distinguishes
-source-tested behavior, clean package-install tests, configuration-only integrations, and
-deployment-specific work that has not been exercised.
+**Release candidate:** `0.1.0a0`
 
-For a local verification run:
+**Validation date:** 2026-08-06
+
+**Scope:** locked source workspace, simulator and digital-twin checks, and the checks hosted CI runs
+on every change
+
+OpenSDL is an executable public alpha. This report records the checks run against the prepared Git
+repository. Deployment teams must produce separate evidence for their equipment, infrastructure,
+and operating procedures.
+
+## How to read this report
+
+Claims are grouped by **how they are kept true**, not by subsystem, because that difference turned
+out to matter more than the subject.
+
+The strongest check this repository owns — a headless rebuild proving the committed scene bytes are
+reproducible from source — was true and **unenforced** for the project's entire life. Blender is not
+installed on the hosted runners, so the test took its skip path and CI reported green. Reading that
+report did not distinguish "this passed" from "this did not run". Everything below is therefore
+labelled with what keeps it true, and a claim that nothing keeps true is stated separately rather
+than listed beside the ones that are checked.
+
+## Enforced on every change
+
+These run in hosted CI and fail the build.
+
+| Check | Workflow | What it establishes |
+|---|---|---|
+| Complete source suite on CPython 3.12, 3.13 and 3.14 | `ci.yml` | Package units, migrations, API and controller integration, adapter conformance, and the simulated closed loop, each in an environment built from the committed lock |
+| Reference-example adapter overlay | `ci.yml` | The digital-twin example against its own editable adapter |
+| `opensdl twin validate` | `ci.yml` | The reference twin definition matches its declared scene digest |
+| Ruff lint and formatting, Pyright | `ci.yml` | Zero errors or warnings |
+| Package import boundaries | `ci.yml` | Every shipped package is declared and stays inside its declared dependencies; an unmapped package fails rather than being skipped |
+| Propagation-graph coverage | `ci.yml` | Every tracked file matches a node, so the blast-radius tool cannot go blind again |
+| Generated JSON Schema freshness | `ci.yml` | The 16 committed schemas match the models |
+| Repository structure | `ci.yml` | TOML, YAML, JSON, agent instructions, the 11 canonical skills, and every relative Markdown link |
+| Release-version consistency | `ci.yml`, `release.yml` | One version across 22 workspace members, the citation file, and generated dependency floors |
+| Viewer suite, typecheck, build and asset drift | `ci.yml` | 67 Vitest tests, Biome, TypeScript, a deterministic static build, and the committed bundle matching its source |
+| Adapter conformance | `conformance.yml` | The reference adapter conformance profile |
+| Five-iteration simulated campaign | `conformance.yml` | The complete closed loop, with no hardware, cloud account, model API or broker |
+| Strict documentation build | `docs.yml` | `mkdocs build --strict` |
+| **Headless scene rebuild** | `scene.yml` | A Blender 5.2.0 rebuild in a temporary directory reproduces the GLB, node inventory and motion report **byte for byte**. The workflow reads the required version from the scene's own node inventory, so the two cannot drift, and a `pytest` plugin turns a skip into a failure |
+
+The scene workflow runs on every push to `main`, on any change to the scene or its tests, and weekly.
+It is separate from the pull-request job because it installs Blender and takes several minutes.
+`make scene` runs the same check locally.
+
+## Reproducing these checks locally
 
 ```bash
 uv sync --locked --all-packages --group dev
@@ -14,7 +57,111 @@ make test lint example
 
 `make lint` covers the lockfile, Ruff lint and format, Pyright, package boundaries, propagation
 coverage, generated-schema drift, repository structure, and version agreement. Add `make viewer` and
-`make docs` to match the full pull-request gate. See
-[testing](testing.md) for what each target runs and why a bare `pytest` is narrower than it looks.
+`make docs` to match the full pull-request gate, and `make scene` for the rebuild that runs
+separately. [Testing](testing.md) states what each target runs and why a bare `pytest` is narrower
+than it looks.
 
-Run database-specific, hardware-in-the-loop, and facility acceptance tests in the deployment repository rather than treating simulator conformance as equipment qualification.
+Database-specific, hardware-in-the-loop, and facility acceptance tests belong in the deployment
+repository. Simulator conformance is not equipment qualification.
+
+## Measured on 2026-08-06
+
+Run against the current source workspace. These are evidence about the repository on that date rather
+than continuous guarantees.
+
+- the reference scene is a purpose-built self-driving-laboratory frame: **2340 exported nodes**, 32
+  authored animations, and a 1176-frame authored timeline at 24 frames per second;
+- the generated motion report marked all **107** checks as passed. Most are scalar checks on deck,
+  labware, gripper, tip, liquid, lid and module values; one measures the machine's stillness either
+  side of the single cut; the remainder compare bodies to each other — carry rigidity, grip contact,
+  mesh interpenetration, and mechanism continuity from the carriage through to the bridge rail — and
+  run before the export. An eye-trace check additionally projects the active subject through the
+  camera every frame and requires it to stay clear of the frame edges;
+- the reference GLB received no issues from the Khronos validator;
+- a laboratory generated by `opensdl init` installs from a local wheelhouse, validates, runs its
+  workflow, and passes its tests. The adapter guide's full path — generate an adapter, install it,
+  register it, run a workflow through it — was executed and then replayed from a fresh `opensdl init`
+  to confirm the documented commands work verbatim;
+- a store created by the pre-Alembic path was captured from a real campaign run, reproduced the
+  documented migration failure, and was then adopted and upgraded on that same file, after which a
+  full campaign ran against it;
+- a declared timeout was measured against a deliberately blocking adapter before and after the
+  worker-thread change: 2.011 seconds with no error became 0.116 seconds and a recorded timeout, and
+  a concurrent run stopped waiting on a blocker it had nothing to do with.
+
+## Asserted, not verified
+
+Stated plainly, because the distance between a documented claim and a kept one is what this report
+exists to expose.
+
+- **PostgreSQL.** The models use portable column types and a driver is declared. No PostgreSQL
+  service is exercised by any test or CI job. Foreign keys are the one place the two backends
+  provably diverge: SQLite ignores them unless a pragma is set per connection, which nothing sets,
+  while PostgreSQL always enforces them.
+- **Concurrent run submission is bounded at the store, and exercised on SQLite only.** Starting a
+  run is one conditional `UPDATE` over the states the declared machine permits a start from, so two
+  callers cannot both claim the same run, and a test drives two concurrent submissions against one.
+  Resource leasing is still a check-then-act — every lease is read and then written in two passes
+  inside one session — and no PostgreSQL service exercises either path.
+- **Retry safety is expressible but not enforced.** A capability declares whether repeating it is
+  safe and the runtime honours the declaration, but the conformance profile does not require an
+  operational adapter to make one. `SAFETY.md`'s requirement is satisfiable rather than checked.
+- **Plugin trust.** Loading a manifest executes the code it names. Reference-adapter provenance is
+  checked on the composition path and an allowlist is available, but a laboratory that sets no
+  allowlist trusts whatever is installed.
+- **Secret handling.** A manifest names credentials with `${env:NAME}`, refuses to resolve one to
+  nothing, and writes resolved values back as references. Nothing prevents a credential being typed
+  into a manifest directly: there is no secret scanning in `make lint` or CI, and an adapter that
+  echoes its own configuration through `health()` or an exception is not filtered.
+- **Nothing has been published or tagged.** `git tag -l` is empty and the release workflow builds
+  distributions without publishing, so a laboratory cannot install OpenSDL from an index and a
+  generated lock records a local wheelhouse path.
+- **Security tooling.** No SAST, no secret scanning, no dependency audit. Dependabot covers `uv` and
+  GitHub Actions; the viewer's npm dependencies and the container base images are unmonitored.
+
+## Validated execution profiles
+
+| Profile | Status | Evidence |
+|---|---|---|
+| Python 3.12, 3.13 and 3.14 | Verified continuously | Locked full suite and the example overlay on all three interpreters, with boundary, propagation, schema-freshness and twin-validation checks |
+| Simulator-only local laboratory | Verified continuously | Unit, integration, end-to-end, conformance, and the complete campaign |
+| Digital-twin scene reproducibility | Verified continuously | Headless Blender rebuild comparing exported bytes, with a skip treated as a failure |
+| Structured human attestation | Verified as a synchronous reference path | Adapter and generated-workflow tests. The attestation records a caller-supplied name that nothing verifies |
+| SQLite metadata and local artifacts | Verified continuously | Storage, migration, controller, API and campaign tests, plus a comparison of the migrated schema against the declared models |
+| PostgreSQL metadata | Models and migrations implemented | No live service exercised; see *Asserted, not verified* |
+| HTTP API | Verified continuously | FastAPI lifecycle and endpoint integration tests, including status-code differentiation and viewer-path containment. The API has no authentication |
+| Optional MCP transport | Verified continuously | The transport is installed, and its registrations including the write path are exercised |
+| CLI and Python packages | Verified on Python 3.12 | Source tests, wheels and source archives for every member, clean installation, public imports, and twin validation |
+| Container image | Verified once | Podman built the pinned Dockerfile; image CLI and `doctor` checks passed. The image runs as root and binds every interface |
+| Physical equipment | Not validated | No hardware qualification or commissioning was attempted |
+
+## Known warnings and tool limits
+
+Test runs emit one upstream Starlette warning about its `TestClient` dependency transition. OpenSDL
+emits no project-code deprecation warnings.
+
+GitHub Actions provides the final workflow-parser and runner check; the repository validator parses
+workflow YAML but does not run `actionlint` locally.
+
+A pre-publication pattern scan found no likely secrets, private keys, or unfinished-code markers in
+the then-current source files. That scan is supporting evidence, not a substitute for a dedicated
+secret scan, GitHub secret scanning, or push protection.
+
+## Explicit non-claims
+
+This validation does not establish:
+
+- production readiness or high availability;
+- safety integrity or regulatory compliance;
+- suitability for hazardous operations;
+- authenticated or authorized access. The HTTP API has none, and the actor identity every interface
+  records is a string the caller asserts, so a policy rule scoped to an operator constrains nobody;
+- correct behavior of arbitrary third-party adapters;
+- live PostgreSQL, S3, Slurm, Kubernetes, SiLA 2, MADSci, or robotics compatibility;
+- an end-to-end cancellation or equipment-abort protocol. A timeout bounds how long the runtime waits
+  and does not stop equipment; abandoned adapter work continues;
+- performance guarantees; or
+- package-registry release readiness.
+
+Those outcomes require deployment-specific engineering, testing, commissioning, and evidence. The
+current repository is a simulator-first reference foundation and extension surface.

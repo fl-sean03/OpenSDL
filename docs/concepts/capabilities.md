@@ -54,4 +54,4 @@ depend on it. A physical stop comes from the deployment's own protective systems
 [SAFETY.md](https://github.com/fl-sean03/OpenSDL/blob/main/SAFETY.md).
 
 Explicit cancellation and abort receipts are v0.2 work on the
-[roadmap](https://github.com/fl-sean03/OpenSDL/blob/main/ROADMAP.md).
+[roadmap](../development/roadmap.md).

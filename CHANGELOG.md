@@ -109,9 +109,42 @@ workspace has carried, not artifacts anyone can install. See
   itself records so the two cannot drift, with a pytest plugin that turns a skip into a failure. The
   reproducibility claim was the strongest check the repository owned and the only one that had never
   run: Blender is not installed on the runners, so the test took its skip path and reported green.
+- a pull request reviewer that runs Claude Code headlessly and posts one comment, reviewing against
+  this repository's architecture rules and against its own catalogue of checks that reported green
+  while constraining nothing — for every check a change adds, what that check would have to see in
+  order to fail. It is advisory and sits behind the existing gates rather than beside them: it holds
+  `contents: read` and `pull-requests: write`, cannot push, merge or approve, blocks nothing, and
+  stays inert until `ANTHROPIC_API_KEY` exists, failing a deliberate dispatch rather than reporting a
+  review that did not happen. It reads the pull request through `gh pr diff` with the base branch
+  checked out, so no contributor-authored file is executed and none can rewrite the reviewer's own
+  instructions. See [the pull request reviewer](docs/development/pull-request-reviewer.md).
+- an issue responder that reads a newly opened issue, classifies it, answers only what it can
+  establish from the code or a command it ran, and posts one comment. It holds `contents: read`, so
+  nothing it does reaches `main`, and it is told that the audit register and the validation report
+  outrank every other document — including the README — when they disagree. See
+  [the issue responder](docs/development/issue-responder.md).
+- a weekly claims auditor that re-reads the documentation against the code and opens an issue when
+  the two disagree. It exists because every gate here checks the code against itself and none can
+  check it against a sentence, which is where this project's failures have actually happened. The
+  job that runs the model holds `contents: read`; a second job with no model in it opens the issue.
+  See [the claims auditor](docs/development/claims-audit.md).
+- `scripts/validate-repository.py` now checks that every `anthropics/claude-code-action` step passes
+  `github_token:`, is pinned to a full commit SHA, and sits in a job without `id-token: write`.
+  Omitting that input makes the action mint its own GitHub App token with Contents, Issues and Pull
+  Requests write, which ignores the job's `permissions:` block entirely — and GitHub accepts an
+  unknown `with:` key with only a warning, so a typo reads exactly like the correct spelling.
 
 ### Changed
 
+- the long-form documents left the repository root for the published site. `ARCHITECTURE.md`,
+  `DEVELOPMENT.md`, `ROADMAP.md`, `VALIDATION.md` and `IMPORT_PROVENANCE.md` are now
+  `docs/architecture/overview.md`, `docs/development/index.md`, `docs/development/roadmap.md`,
+  `docs/development/validation.md` and `docs/development/import-provenance.md`, and
+  `GOVERNANCE.md` is a section of `CONTRIBUTING.md`. Two site pages existed only to send a reader
+  to GitHub for content the site should have been serving; they are the moved documents now. The
+  root keeps what a tool or a person needs to find there: `README.md`, `LICENSE`, `CONTRIBUTING.md`,
+  `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md`, the agent entry points, and `SAFETY.md` —
+  which stays because source code, schemas and adapters cite it by that name;
 - a decision is recorded *before* the run it selects, for every candidate proposed including ones
   that go on to fail or be refused, and it names the runs it was based on rather than the run it
   caused. The record used to be written afterwards with the score already in it, which inverted the
@@ -211,6 +244,37 @@ workspace has carried, not artifacts anyone can install. See
 
 ### Fixed
 
+- restart reconciliation answered "may this be repeated when nothing reported an outcome?" for
+  itself instead of reading the capability's `retry_safety` declaration, contradicting the timeout
+  path in the same file over the same question. Every interrupted task became
+  `INTERVENTION_REQUIRED`, which no operation clears and which a campaign resume refuses by name, so
+  a controller restart permanently ended a multi-day campaign even when every capability in flight
+  had declared repeating it harmless. One helper now serves every path that asks the question
+  without an outcome in hand: a task whose capability declares `repeatable` is recorded `FAILED` and
+  a resume dispatches it again; every other declaration, and a capability the registry no longer
+  exposes, still records `INTERVENTION_REQUIRED`. The run's state is read off its tasks, as on the
+  ordinary failure path. Two cases keep the conservative answer because `retry_safety` does not
+  speak to them: a run with nothing in flight, and a run that was already `aborting`, since whether
+  an operator's abort took effect is a different question.
+- the claims auditor's issue-body size cap could destroy the report it was capping. `head -c 60000 |
+  head -n -1` drops the last line unconditionally, so a report whose first 60000 bytes contained no
+  newline lost everything: a 200 KB single-line report produced a 30-byte issue containing only the
+  truncation notice. The cut is now trimmed to the last complete line only when there is one, and an
+  empty body fails the run.
+- the issue responder's delivery check could not observe what it claimed to. It counted marked
+  comments only after the session, and `workflow_dispatch` bypasses the answered-once guard, so on
+  the path the documentation prescribes for rehearsal — dispatch against an existing issue — the
+  issue already carried a reply and the check passed whether or not the run posted anything. Both
+  the responder and the reviewer now count before and after and require an increase. Both also
+  require the comment's author to be the Actions bot, because the marker is published in a public
+  workflow file and anyone could otherwise plant one to silence the responder.
+- the pull request reviewer could not start. It passed no `github_token:` and granted no
+  `id-token: write`, so the action's OIDC exchange had to fail before the model ran — every review
+  would have been a red job posting nothing, from the moment the secret was added. Passing the job's
+  own token fixes that and simultaneously makes the documented `contents: read` ceiling describe the
+  token the model actually holds. The reviewer also now refuses a dispatch against a fork pull
+  request, which ran on the base repository with secrets live and defeated the `pull_request`
+  trigger's whole purpose.
 - a declared timeout did not bind an adapter that blocks. `asyncio.wait_for` can only interrupt at an
   await point, so a synchronous call inside an `async def` — the shape a vendor SDK forces — ran to
   completion whatever `timeout_seconds` said, and held the event loop while it did, which made
@@ -513,4 +577,4 @@ Initial executable alpha.
 
 ### Status
 
-This release is suitable for evaluation, extension development, and simulator-based laboratory prototyping. It is not qualified for production or hazardous physical control. See [VALIDATION.md](VALIDATION.md).
+This release is suitable for evaluation, extension development, and simulator-based laboratory prototyping. It is not qualified for production or hazardous physical control. See the [validation report](docs/development/validation.md).

@@ -46,10 +46,6 @@ nodes:
     description: Public guidance and architecture
     paths:
       - "README.md"
-      - "ARCHITECTURE.md"
-      - "DEVELOPMENT.md"
-      - "ROADMAP.md"
-      - "VALIDATION.md"
       - "SAFETY.md"
       - "CHANGELOG.md"
       - "mkdocs.yml"
@@ -81,18 +77,11 @@ nodes:
       - "CITATION.cff"
       - "CODE_OF_CONDUCT.md"
       - "CONTRIBUTING.md"
-      - "GOVERNANCE.md"
       - "SECURITY.md"
       - ".github/CODEOWNERS"
       - ".github/PULL_REQUEST_TEMPLATE.md"
       - ".github/ISSUE_TEMPLATE/**"
       - ".github/dependabot.yml"
-  - id: import-provenance
-    # The files this node used to list describe the imported snapshot and now live only at the
-    # import commit, which is where they cannot rot. See IMPORT_PROVENANCE.md.
-    description: The record of the imported source archive
-    paths:
-      - "IMPORT_PROVENANCE.md"
   - id: deployment
     description: Containers, CI, and development environments
     paths:

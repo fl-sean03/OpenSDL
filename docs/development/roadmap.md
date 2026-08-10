@@ -1,8 +1,8 @@
 # Roadmap
 
-The [agent-native operation plan](docs/architecture/agent-native-operation.md) defines the
+The [agent-native operation plan](../architecture/agent-native-operation.md) defines the
 repository, simulator, collaboration, live-equipment, and optional external-harness sequence. This
-roadmap tracks product releases. The [development backlog](docs/development/backlog.md) is the
+roadmap tracks product releases. The [development backlog](backlog.md) is the
 running implementation list.
 
 No OpenSDL release exists yet: nothing is tagged and no distribution is published. "v0.1 alpha"
@@ -33,7 +33,7 @@ below names the state the workspace reached, not something installable.
 
 ## Unreleased
 
-Merged after the v0.1 alpha and not yet part of a release. See [CHANGELOG.md](CHANGELOG.md).
+Merged after the v0.1 alpha and not yet part of a release. See [CHANGELOG.md](https://github.com/fl-sean03/OpenSDL/blob/main/CHANGELOG.md).
 
 - versioned, engine-neutral digital-twin scene binding with a digest-pinned scene asset
 - deterministic projection of persisted run events into immutable visual cues
@@ -45,7 +45,7 @@ Merged after the v0.1 alpha and not yet part of a release. See [CHANGELOG.md](CH
 
 Historical replay across twin revisions, general scene validation, and an on-demand
 build-digital-twin skill remain open work. See
-[lab-specific digital twins](docs/architecture/digital-twin.md).
+[lab-specific digital twins](../architecture/digital-twin.md).
 
 ## v0.2 — real integration and richer human work
 
@@ -93,6 +93,9 @@ build-digital-twin skill remain open work. See
 
 OpenSDL reaches 1.0 only after multiple independent laboratories run the same public contracts through different physical and computational backends, migrations have been exercised across releases, and the compatibility suite has external adopters.
 
-No compatibility suite exists yet, and no laboratory database can currently be migrated at all.
-[Compatibility and versioning](docs/reference/compatibility.md) states what each public surface
+No compatibility suite exists yet. The database schema is the one contract that does move in place:
+every change ships an Alembic revision, as [compatibility and versioning](../reference/compatibility.md)
+records. What has not happened is exercising those migrations *across releases*, because there are no
+releases yet.
+[Compatibility and versioning](../reference/compatibility.md) states what each public surface
 guarantees today and what the missing suite would have to cover.

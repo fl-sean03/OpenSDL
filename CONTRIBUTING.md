@@ -12,8 +12,8 @@ make test lint
 `make test`, `make lint`, `make viewer`, `make docs`, and `make example` together are what the
 pull-request CI job enforces, so running them locally is the way to know a change passes before you
 open one. A bare `uv run --locked pytest` is narrower than it looks — see
-[DEVELOPMENT.md](DEVELOPMENT.md) for what each target runs, and read the nearest `AGENTS.md` before
-editing a subsystem.
+the [development guide](docs/development/index.md) for what each target runs, and read the nearest
+`AGENTS.md` before editing a subsystem.
 
 ## Contribution types
 
@@ -36,6 +36,23 @@ Must distinguish implemented behavior, simulation evidence, physical validation,
 ## Pull requests
 
 Include the problem, implementation, contract impact, tests, migration or rollback, safety and security impact, and propagation review. Keep changes focused.
+
+## Governance
+
+OpenSDL is maintainer-led. Maintainers review changes, approve releases, handle security reports,
+and enforce project scope; a package, adapter, or domain-pack maintainer owns that subsystem's
+compatibility, conformance evidence, and scientific schemas. Governance should become more
+distributed once a real contributor and deployment community exists.
+
+Routine compatible changes go through pull requests. Public schema changes, architecture boundaries,
+licensing, governance, and security-model changes need a written design proposal in an issue before
+implementation. [Compatibility and versioning](docs/reference/compatibility.md) is the operative
+release policy: it lists the public surfaces, what each guarantees today, how a breaking change is
+announced, and which of those mechanisms are not yet implemented. Amending it follows the same
+design-proposal path. Semantic versioning applies after 1.0; before it the version communicates
+ordering only, and migrations and release notes are still required.
+
+The project does not use “certified safe” language unless a real certification program exists.
 
 ## Developer Certificate of Origin
 

@@ -55,10 +55,16 @@ so a supervising script can tell a refusal from a crash without parsing prose. `
 laboratory read-only. They will not create a store, seed capabilities, or reconcile runs, and reading
 a laboratory that has never run reports that rather than creating an empty one.
 
-`doctor --reconcile` is the exception and it writes. It moves every run left `running` by a stopped
-controller to `intervention_required` and releases its leases, then reports what it moved. That is
-recovery after a controller stopped, not a health check — running it while work is in flight destroys
-the record of the run in flight.
+`doctor --reconcile` is the exception and it writes. It reads every run left `running` by a stopped
+controller, releases the leases its interrupted tasks held, and reports what it moved. What each
+task becomes depends on what its capability declared: `retry_safety: repeatable` records the task
+`failed`, which a resume dispatches again, while every other declaration — including a capability
+the registry no longer exposes — records `intervention_required`, which no operation clears. The run
+follows its tasks, except that a run already `aborting` stays `intervention_required` regardless.
+
+That is recovery after a controller stopped, not a health check. Running it while work is in flight
+still destroys the record of the run in flight, and for a capability that cannot declare repeating
+safe there is no way back.
 
 Inputs accepted by `opensdl run` may be provided as an inline JSON object or as `@path/to/inputs.json`.
 

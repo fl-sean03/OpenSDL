@@ -31,6 +31,7 @@ from opensdl_core import (
 from opensdl_policy import PolicyEngine, PolicyRule
 from opensdl_runtime import ReferenceRuntime
 from opensdl_runtime.campaign import (
+    _trailing_failures,
     BatchOptimizer,
     CampaignIterationState,
     CampaignObservation,
@@ -2349,3 +2350,106 @@ async def test_a_campaign_that_found_nothing_records_no_best(tmp_path) -> None:
     )
     assert result.best is None
     assert completed.payload["best"] is None
+
+
+@pytest.mark.asyncio
+async def test_losing_a_race_for_an_instrument_does_not_stop_the_campaign(tmp_path) -> None:
+    """A laboratory that completed a candidate is working, whatever else contended for the bench.
+
+    Every non-succeeding observation used to count toward `max_consecutive_failures`, so a
+    laboratory asked to run more at once than it owns stopped on its first batch and reported the
+    failure as systematic. Four candidates against one exclusive instrument reached the default
+    limit of three immediately, having measured one candidate out of eight, and named a cause an
+    operator would go looking for in the instrument or the chemistry.
+    """
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter)
+    repositories.upsert_resource(Resource(id="probe-bench", name="Probe bench", type="simulator"))
+
+    result = await runner.run(
+        probe_workflow(
+            capability="test.score_exclusive", outputs={"score": "${steps.score.output.score}"}
+        ),
+        ScriptedOptimizer(
+            [
+                [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+                [{"x": 5.0}, {"x": 6.0}, {"x": 7.0}, {"x": 8.0}],
+            ]
+        ),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=8,
+        batch_size=4,
+        max_parallel_runs=4,
+    )
+
+    assert result.stop_reason is CampaignStopReason.MAX_ITERATIONS
+    # Both batches got a candidate through, so both are laboratories that worked.
+    assert len(result.successes) == 2
+    assert all("resources busy" in (item.error or "") for item in result.failures)
+
+
+@pytest.mark.asyncio
+async def test_a_batch_that_completes_nothing_still_stops_the_campaign(tmp_path) -> None:
+    """The stop rule has to keep working, or the fix above has traded one failure for another.
+
+    Nothing succeeding is what "systematic" means. Every attempt in a batch that got nothing
+    through still counts, so a genuinely failing laboratory stops exactly as promptly as it did
+    before — three failed attempts, whether they arrive one batch at a time or all at once.
+    """
+
+    adapter = ScoreAdapter(fail_on={1.0, 2.0, 3.0, 4.0})
+    runner, _ = build_campaign(tmp_path, adapter)
+
+    result = await runner.run(
+        probe_workflow(),
+        ScriptedOptimizer([[{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}]]),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=8,
+        batch_size=4,
+        max_parallel_runs=4,
+    )
+
+    assert result.stop_reason is CampaignStopReason.FAILURE_LIMIT
+    assert "systematic rather than routine" in result.stop_detail
+    assert result.successes == []
+
+
+def test_the_trailing_failure_count_a_resume_rebuilds_is_read_per_batch(tmp_path) -> None:
+    """A resume must reach the same count the loop itself would have, or it stops early.
+
+    Counting observations rather than batches here would let a restart inherit a limit the running
+    campaign had already reset, and stop a campaign the loop was willing to continue.
+    """
+
+    def observation(iteration: int, batch: int, *, succeeded: bool) -> CampaignObservation:
+        return CampaignObservation(
+            iteration=iteration,
+            candidate={"x": float(iteration)},
+            batch=batch,
+            score=1.0 if succeeded else None,
+            status=(
+                CampaignObservationStatus.SUCCEEDED
+                if succeeded
+                else CampaignObservationStatus.FAILED
+            ),
+            error=None if succeeded else "resources busy: ['bench']",
+        )
+
+    # One batch, one winner and three losers: the laboratory worked, so nothing trails.
+    served = [
+        observation(0, 0, succeeded=True),
+        observation(1, 0, succeeded=False),
+        observation(2, 0, succeeded=False),
+        observation(3, 0, succeeded=False),
+    ]
+    assert _trailing_failures(served) == 0
+
+    # A batch that got nothing through counts every attempt in it.
+    dead = served + [observation(index, 1, succeeded=False) for index in range(4, 8)]
+    assert _trailing_failures(dead) == 4
+
+    # And an earlier working batch still ends the count.
+    assert _trailing_failures(dead + [observation(8, 2, succeeded=True)]) == 0

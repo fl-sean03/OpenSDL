@@ -105,15 +105,15 @@ about reachability, clearance, transfer accuracy, calibration, or safe placement
 a projection can and cannot show.
 
 <p align="center">
-  <img src="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell-loop.webp" width="720"
-       alt="A gantry cell lifts a microplate out of its input hotel, lands it on the dispensing stage, then parks the gripper head and couples the pipetting head">
+  <img src="examples/digital-twin-surrogate/scene/assets/preview.png" width="720"
+       alt="An enclosed benchtop cell: an aluminium-extrusion frame over a deck of microplate positions, with a gantry beam carrying the head above it">
   <br>
   <sub>The repository's one reference scene, rendered from the procedural Blender source committed
-  beside it; the optional viewer scrubs this same authored timeline when replaying a recorded run.
-  OpenSDL ships no equipment-model catalog — a laboratory authors its own scene in its own
-  repository. <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">Full
-  49-second render</a> · <a href="examples/digital-twin-surrogate/README.md">the example behind it</a>
-  · <a href="docs/guides/build-a-twin-scene.md">building a scene</a>.</sub>
+  beside it; the optional viewer draws this same scene when replaying a recorded run. OpenSDL ships
+  no equipment-model catalog — a laboratory authors its own scene in its own repository.
+  <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">The 49-second
+  render</a> · <a href="examples/digital-twin-surrogate/README.md">the example behind it</a> ·
+  <a href="docs/guides/build-a-twin-scene.md">building a scene</a>.</sub>
 </p>
 
 ## Build a laboratory of your own

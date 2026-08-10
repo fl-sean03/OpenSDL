@@ -7,8 +7,22 @@ from typing import Any
 from .tools import DEFAULT_TOOL_OPERATOR, TOOL_SPECS_BY_NAME, OperatorGateway
 
 
+SERVER_MODULE = "mcp.server.mcpserver"
+
+
 def mcp_available() -> bool:
-    return find_spec("mcp") is not None
+    """Report whether an MCP version this code can serve is installed.
+
+    The check names the server module rather than the `mcp` package. Version 1.x installs `mcp`
+    but carries the server as `FastMCP` under a module 2.x removed, so testing the package name
+    would answer "available" and then fail at serve time with an import error instead of the
+    instruction to install the extra.
+    """
+    try:
+        return find_spec(SERVER_MODULE) is not None
+    except ModuleNotFoundError:
+        # `find_spec` raises rather than returns when a parent package is itself absent.
+        return False
 
 
 def build_mcp_server(gateway: OperatorGateway) -> Any:
@@ -24,11 +38,13 @@ def build_mcp_server(gateway: OperatorGateway) -> Any:
     the CLI, SDK, and HTTP API.
     """
     try:
-        FastMCP = import_module("mcp.server.fastmcp").FastMCP
-    except ImportError as exc:
-        raise RuntimeError("install the optional MCP dependency to serve this interface") from exc
+        server_class = import_module(SERVER_MODULE).MCPServer
+    except (ImportError, AttributeError) as exc:
+        raise RuntimeError(
+            "install the optional MCP dependency (mcp>=2) to serve this interface"
+        ) from exc
 
-    server = FastMCP("OpenSDL")
+    server = server_class("OpenSDL")
 
     @server.tool(name="describe_lab", description=TOOL_SPECS_BY_NAME["describe_lab"].description)
     async def describe_lab() -> dict[str, Any]:

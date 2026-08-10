@@ -44,13 +44,51 @@ def test_sdk_reexports_the_core_contracts_it_advertises() -> None:
     assert opensdl.RunRecord is opensdl_core.RunRecord
 
 
+class _ServedApplication(httpx.BaseTransport):
+    """Carry the SDK's requests into an in-process ASGI application.
+
+    `TestClient` drives an ASGI app from synchronous code, which is what this client needs, but
+    Starlette binds `TestClient` to `httpx2` whenever that package is importable and to `httpx`
+    otherwise. Installing the optional `mcp` extra pulls `httpx2` in, so handing `TestClient`
+    straight to the SDK made an unrelated extra decide which library's `Response` — and which
+    library's `HTTPStatusError` — the SDK returned and raised.
+
+    Bridging at the transport confines that choice to this class. Above it the SDK is an `httpx`
+    client and stays one, no matter what else the environment has installed.
+    """
+
+    def __init__(self, served: Any) -> None:
+        self._served = served
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        response = self._served.request(
+            request.method,
+            str(request.url),
+            content=request.read(),
+            headers=list(request.headers.items()),
+        )
+        # The inner client already decoded and framed the body, so its `content-encoding` and
+        # `content-length` describe a payload that no longer exists. Forwarding them would have
+        # `httpx` decode an already-decoded body or read past its end.
+        headers = [
+            (name, value)
+            for name, value in response.headers.items()
+            if name.lower() not in {"content-encoding", "content-length"}
+        ]
+        return httpx.Response(
+            response.status_code,
+            headers=headers,
+            content=response.content,
+            request=request,
+        )
+
+
 @pytest.fixture
 def live_client(tmp_path: Path) -> Iterator[OpenSDLClient]:
     """An `OpenSDLClient` whose transport is the FastAPI application this repository ships.
 
-    `TestClient` is an `httpx.Client` bound to the application, so substituting it for the
-    client's own transport keeps every line of `OpenSDLClient` — the paths, the query parameters,
-    the JSON bodies, and `raise_for_status` — on the executed path.
+    Every line of `OpenSDLClient` — the paths, the query parameters, the JSON bodies, and
+    `raise_for_status` — stays on the executed path; only the wire is replaced.
     """
     from fastapi.testclient import TestClient
     from opensdl_api import create_app
@@ -61,10 +99,8 @@ def live_client(tmp_path: Path) -> Iterator[OpenSDLClient]:
 
     # Entering the context manager runs the application lifespan, which builds the laboratory.
     with TestClient(app, base_url="http://opensdl.test") as served:
-        client = OpenSDLClient("http://opensdl.test")
-        client.close()
-        client._client = served
-        yield client
+        with OpenSDLClient("http://opensdl.test", transport=_ServedApplication(served)) as client:
+            yield client
 
 
 @pytest.mark.integration

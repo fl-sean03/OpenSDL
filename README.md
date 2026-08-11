@@ -11,14 +11,15 @@
 </p>
 
 <p align="center">
-  <img src="examples/discovering-colors/renders/discovering-colors.png" width="880"
-       alt="Left: a 96-well microplate photographed from directly above inside the reference cell, every well a different color. Right: the campaign that produced them, showing the target color, the closest sample so far, and the search space contracting">
+  <img src="examples/digital-twin-surrogate/scene/assets/preview.png" width="880"
+       alt="An enclosed benchtop cell: an aluminium-extrusion frame over a deck of microplate positions, with a gantry beam carrying the head above it">
   <br>
-  <sub>A closed loop part-way through: ninety-six dye recipes on one plate, each well carrying the
-  color its own run measured, beside the search that proposed them. Both halves are generated from
-  that run's record rather than drawn by hand.
-  <a href="examples/discovering-colors/README.md">The example</a> ·
-  <a href="docs/guides/closed-loop-campaign.md">how a campaign works</a>.</sub>
+  <sub>The repository's one reference scene, rendered from the procedural Blender source committed
+  beside it; the optional viewer draws this same scene when replaying a recorded run. OpenSDL ships
+  no equipment-model catalog — a laboratory authors its own scene in its own repository.
+  <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">The 49-second
+  render</a> · <a href="examples/digital-twin-surrogate/README.md">the example behind it</a> ·
+  <a href="docs/guides/build-a-twin-scene.md">building a scene</a>.</sub>
 </p>
 
 ## What OpenSDL is
@@ -88,6 +89,17 @@ gets back to within half a percent of the recipe it was never shown. It also car
 photograph the finished plate inside the reference cell and compose the published frame from the
 campaign's own record.
 
+<p align="center">
+  <img src="examples/discovering-colors/renders/discovering-colors.png" width="880"
+       alt="Left: a 96-well microplate photographed from directly above inside the reference cell, every well a different color. Right: the campaign that produced them, showing the target color, the closest sample so far, and the search space contracting">
+  <br>
+  <sub>That campaign part-way through: ninety-six recipes on one plate, each well carrying the color
+  its own run measured, beside the search that proposed them. Both halves are generated from the
+  run's record rather than drawn by hand.
+  <a href="examples/discovering-colors/README.md">The example</a> ·
+  <a href="docs/guides/closed-loop-campaign.md">how a campaign works</a>.</sub>
+</p>
+
 ## What the alpha provides
 
 - a versioned laboratory manifest, and domain-neutral models for capabilities, resources, workflows,
@@ -119,19 +131,8 @@ The viewer is read-only and draws only what the stored records contain. A scene 
 kinematics, or collision model, so what it shows is evidence about the run that was recorded, not
 about reachability, clearance, transfer accuracy, calibration, or safe placement.
 [Lab-specific digital twins](docs/architecture/digital-twin.md) sets out the ownership model and what
-a projection can and cannot show.
-
-<p align="center">
-  <img src="examples/digital-twin-surrogate/scene/assets/preview.png" width="720"
-       alt="An enclosed benchtop cell: an aluminium-extrusion frame over a deck of microplate positions, with a gantry beam carrying the head above it">
-  <br>
-  <sub>The repository's one reference scene, rendered from the procedural Blender source committed
-  beside it; the optional viewer draws this same scene when replaying a recorded run. OpenSDL ships
-  no equipment-model catalog — a laboratory authors its own scene in its own repository.
-  <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">The 49-second
-  render</a> · <a href="examples/digital-twin-surrogate/README.md">the example behind it</a> ·
-  <a href="docs/guides/build-a-twin-scene.md">building a scene</a>.</sub>
-</p>
+a projection can and cannot show. The cell at the top of this page is the reference scene the viewer
+draws; [building a scene](docs/guides/build-a-twin-scene.md) is how a laboratory authors its own.
 
 ## Build a laboratory of your own
 

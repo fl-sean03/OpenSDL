@@ -23,6 +23,7 @@ dependencies = [
   "opensdl-adapter-simulated-lab",
   "opensdl-adapter-local-compute",
   "opensdl-adapter-grid-optimizer",
+  "opensdl-adapter-contracting-search",
   "opensdl-adapter-human-task",
   "opensdl-domain-materials",
   "opensdl-domain-chemistry",
@@ -52,7 +53,7 @@ docs = [
 package = false
 
 [tool.uv.workspace]
-members = ['packages/core', 'packages/schemas', 'packages/twin', 'packages/capabilities', 'packages/policy', 'packages/workflows', 'packages/storage', 'packages/simulation', 'packages/runtime', 'packages/provenance', 'packages/operators', 'packages/sdk', 'packages/cli', 'apps/controller', 'apps/api', 'adapters/simulated-lab', 'adapters/local-compute', 'adapters/grid-optimizer', 'adapters/human-task', 'domain-packs/materials', 'domain-packs/chemistry', 'domain-packs/physics']
+members = ['packages/core', 'packages/schemas', 'packages/twin', 'packages/capabilities', 'packages/policy', 'packages/workflows', 'packages/storage', 'packages/simulation', 'packages/runtime', 'packages/provenance', 'packages/operators', 'packages/sdk', 'packages/cli', 'apps/controller', 'apps/api', 'adapters/simulated-lab', 'adapters/local-compute', 'adapters/grid-optimizer', 'adapters/contracting-search', 'adapters/human-task', 'domain-packs/materials', 'domain-packs/chemistry', 'domain-packs/physics']
 
 [tool.uv.sources]
 opensdl-core = { workspace = true }
@@ -73,6 +74,7 @@ opensdl-api = { workspace = true }
 opensdl-adapter-simulated-lab = { workspace = true }
 opensdl-adapter-local-compute = { workspace = true }
 opensdl-adapter-grid-optimizer = { workspace = true }
+opensdl-adapter-contracting-search = { workspace = true }
 opensdl-adapter-human-task = { workspace = true }
 opensdl-domain-materials = { workspace = true }
 opensdl-domain-chemistry = { workspace = true }

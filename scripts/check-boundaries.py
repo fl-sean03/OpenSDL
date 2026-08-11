@@ -89,6 +89,9 @@ ALLOWED: dict[str, set[str]] = {
     # depending on storage, policy, workflows and SQLAlchemy. The contract moved to
     # `opensdl_core.campaign`; the exception is gone.
     "opensdl_adapter_grid_optimizer": {"opensdl_core"},
+    # The second published optimizer, and the same boundary as the first: an optimizer plugin
+    # costs a dependency on the declarations and protocols, and on nothing that runs a laboratory.
+    "opensdl_adapter_contracting_search": {"opensdl_core"},
     "opensdl_adapter_human_task": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_adapter_cell_surrogate": {"opensdl_core", "opensdl_capabilities"},
     "opensdl_domain_materials": {"opensdl_core"},

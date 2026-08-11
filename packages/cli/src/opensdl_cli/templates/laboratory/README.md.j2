@@ -19,11 +19,8 @@ evidence stays in the configured OpenSDL store, and credentials stay outside Git
 
 ## Start locally
 
-OpenSDL alpha packages must be available from a configured registry. For a local smoke test before
-registry publication, build a wheelhouse in the OpenSDL framework checkout and pass it to `uv`:
-
 ```bash
-uv sync --find-links /path/to/OpenSDL/dist
+uv sync
 uv run opensdl validate opensdl.yaml \
   --workflow workflows/first-run.yaml \
   --workflow workflows/manual-check.yaml
@@ -32,10 +29,16 @@ uv run opensdl run workflows/first-run.yaml \
   --manifest opensdl.yaml \
   --inputs '{"red_fraction":0.5,"blue_fraction":0.5,"sample_id":"demo","total_mass_g":5}'
 ```
-
-`uv sync --find-links` writes that local wheelhouse into `uv.lock` as a registry, so the lock is
-ignored by Git rather than shipped to clones that cannot resolve it. `DEVELOPMENT.md` has the four
-steps that reverse this once the packages come from a real index, and the pin to apply with them.
+{% if framework_sources %}
+OpenSDL is not on a package index yet, so `pyproject.toml` carries a `[tool.uv.sources]` block
+naming the checkout this laboratory was generated from. That is what makes `uv sync` above resolve.
+`DEVELOPMENT.md` has the steps that reverse it once the packages come from a real index.
+{% else %}
+This laboratory declares the framework against a package index. OpenSDL is not published yet, so
+`uv sync` will not resolve it until either the packages are released or this repository is
+regenerated with `opensdl init --framework-path <opensdl checkout>`, which writes a
+`[tool.uv.sources]` block pointing at a source tree.
+{% endif %}
 CI always validates the repository agent contract; its full job remains visibly skipped until the
 packages resolve from a stable source and the repository variable `OPENSDL_PACKAGES_AVAILABLE` is
 set to `true`.

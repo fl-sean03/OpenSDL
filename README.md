@@ -71,6 +71,12 @@ the same laboratory over HTTP with its OpenAPI page at `/docs`. The
 [quick start](docs/getting-started/quickstart.md) adds running one workflow directly and inspecting a
 manifest; [closed-loop campaign](docs/guides/closed-loop-campaign.md) explains what the campaign does.
 
+A second example searches instead of sweeping. `examples/discovering-colors` is given one measured
+color and has to find the three-dye recipe that reproduces it, ninety-six candidates a round, and it
+gets back to within half a percent of the recipe it was never shown. It also carries the scripts that
+photograph the finished plate inside the reference cell and compose the published frame from the
+campaign's own record.
+
 ## What the alpha provides
 
 - a versioned laboratory manifest, and domain-neutral models for capabilities, resources, workflows,

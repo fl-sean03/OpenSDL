@@ -55,6 +55,7 @@ nodes:
     paths:
       - "AGENTS.md"
       - "CLAUDE.md"
+      - "WRITING-RULES.md"
       - "**/AGENTS.md"
       - "**/CLAUDE.md"
       - ".agents/**"

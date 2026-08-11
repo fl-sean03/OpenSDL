@@ -10,6 +10,17 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
 </p>
 
+<p align="center">
+  <img src="examples/discovering-colors/renders/discovering-colors.png" width="880"
+       alt="Left: a 96-well microplate photographed from directly above inside the reference cell, every well a different color. Right: the campaign that produced them, showing the target color, the closest sample so far, and the search space contracting">
+  <br>
+  <sub>A closed loop part-way through: ninety-six dye recipes on one plate, each well carrying the
+  color its own run measured, beside the search that proposed them. Both halves are generated from
+  that run's record rather than drawn by hand.
+  <a href="examples/discovering-colors/README.md">The example</a> ·
+  <a href="docs/guides/closed-loop-campaign.md">how a campaign works</a>.</sub>
+</p>
+
 ## What OpenSDL is
 
 OpenSDL is a framework for declaring what a laboratory can do, executing those declarations as

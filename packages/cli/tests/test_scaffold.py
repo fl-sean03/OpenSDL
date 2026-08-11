@@ -9,7 +9,13 @@ from zipfile import ZipFile
 
 import pytest
 
-from opensdl_cli.scaffold import create_adapter, create_domain_pack, create_laboratory
+from opensdl_cli.scaffold import (
+    FRAMEWORK_PACKAGES,
+    create_adapter,
+    create_domain_pack,
+    create_laboratory,
+    find_framework_checkout,
+)
 from opensdl_controller import OpenSDLSystem
 from opensdl_schemas import load_manifest, validate_workflow_file
 
@@ -374,3 +380,63 @@ def test_cli_wheel_contains_and_renders_hidden_skill_templates(tmp_path: Path) -
         capture_output=True,
         text=True,
     )
+
+
+def test_a_generated_laboratory_can_resolve_the_framework_it_declares(tmp_path: Path) -> None:
+    """Issue #9: `opensdl init` produced a repository that `uv sync` could not install.
+
+    Nothing named in the dependency list is on a package index, so a laboratory that declares only
+    registry dependencies is dead at step one. Generated from a checkout, it names that checkout.
+    """
+    root = create_laboratory(tmp_path / "my-lab", owner="example")
+    project = (root / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert "[tool.uv.sources]" in project
+    for distribution in FRAMEWORK_PACKAGES:
+        assert f"{distribution} = {{ path =" in project, distribution
+
+
+def test_a_declared_framework_checkout_is_the_one_that_gets_named(tmp_path: Path) -> None:
+    checkout = find_framework_checkout()
+    assert checkout is not None, "these tests run from a checkout"
+    root = create_laboratory(tmp_path / "my-lab", owner="example", framework_path=checkout)
+    project = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert str((checkout / "adapters" / "human-task").resolve()) in project
+
+
+def test_a_laboratory_beside_its_framework_points_at_it_relatively(tmp_path: Path) -> None:
+    """The pair stays workable when it is moved or cloned somewhere else together."""
+
+    checkout = find_framework_checkout()
+    assert checkout is not None
+    root = create_laboratory(checkout.parent / f"neighbour-lab-{tmp_path.name}", owner="example")
+    try:
+        project = (root / "pyproject.toml").read_text(encoding="utf-8")
+        assert f'{{ path = "../{checkout.name}/adapters/human-task" }}' in project
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_the_registry_form_is_available_and_says_it_cannot_install_yet(tmp_path: Path) -> None:
+    """The shape a laboratory takes once the packages are published, asked for deliberately."""
+
+    root = create_laboratory(tmp_path / "my-lab", owner="example", use_registry=True)
+    project = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.uv.sources]" not in project
+    assert '"opensdl-adapter-human-task>=0.1.0a0,<0.2.0"' in project
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "not published yet" in readme
+
+
+def test_a_framework_path_that_is_not_a_checkout_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="no OpenSDL checkout"):
+        create_laboratory(tmp_path / "my-lab", owner="example", framework_path=tmp_path / "nope")
+
+
+def test_the_generated_start_instructions_match_how_it_was_generated(tmp_path: Path) -> None:
+    """The old README told the reader to build a wheelhouse. That is no longer the way in."""
+
+    root = create_laboratory(tmp_path / "my-lab", owner="example")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "--find-links" not in readme
+    assert "uv sync\n" in readme

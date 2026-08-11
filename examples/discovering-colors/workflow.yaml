@@ -1,0 +1,35 @@
+id: discover-color
+name: Mix a dye recipe and score it against a target color
+version: 0.1.0
+description: >-
+  One well of the plate: three dyes and water combined, the result read by a colorimeter, and the
+  reading scored against the color the campaign is looking for. The recipe that produced it is
+  carried into the outputs so the record says what was made, not only how well it did.
+steps:
+  - id: mix
+    capability: sim.mix_dyes
+    inputs:
+      sample_id: ${inputs.sample_id}
+      cyan: ${inputs.cyan}
+      magenta: ${inputs.magenta}
+      yellow: ${inputs.yellow}
+      well_volume_ul: ${inputs.well_volume_ul}
+  - id: color
+    capability: sim.measure_color
+    depends_on: [mix]
+    inputs:
+      sample_id: ${steps.mix.output.sample_id}
+  - id: score
+    capability: compute.euclidean_distance
+    depends_on: [color]
+    inputs:
+      a: ${steps.color.output.rgb}
+      b: ${inputs.target_rgb}
+outputs:
+  sample_id: ${steps.mix.output.sample_id}
+  cyan: ${steps.mix.output.cyan}
+  magenta: ${steps.mix.output.magenta}
+  yellow: ${steps.mix.output.yellow}
+  predicted_rgb: ${steps.mix.output.rgb}
+  measured_rgb: ${steps.color.output.rgb}
+  score: ${steps.score.output.distance}

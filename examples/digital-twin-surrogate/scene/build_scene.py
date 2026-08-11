@@ -682,6 +682,25 @@ def args_from_blender() -> argparse.Namespace:
     parser.add_argument("--resolution", default="1280x720")
     parser.add_argument("--frame", type=int, default=548)
     parser.add_argument("--no-export", action="store_true")
+    # The showcase render. These are opt-in on purpose: the committed scene is checked byte for
+    # byte against a rebuild that passes no arguments at all, so a flag nobody sets cannot move it.
+    parser.add_argument(
+        "--well-colors",
+        default="",
+        help="campaign plates.json; paints each well with what the colorimeter read",
+    )
+    parser.add_argument("--plate-round", type=int, default=1, help="which round to paint")
+    parser.add_argument("--render-plate", action="store_true", help="shoot the plate from above")
+    parser.add_argument("--plate-out", default="", help="where the plate render is written")
+    parser.add_argument("--plate-height", type=float, default=0.62, help="camera height, metres")
+    parser.add_argument("--plate-lens", type=float, default=85.0, help="camera lens, millimetres")
+    parser.add_argument("--plate-exposure", type=float, default=0.0, help="stops, plate shot")
+    parser.add_argument(
+        "--plate-light",
+        type=float,
+        default=0.22,
+        help="scales the room lights for the plate shot; the wells emit and are unaffected",
+    )
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
@@ -8636,8 +8655,181 @@ def render_poses(options: argparse.Namespace) -> None:
     scene.render.filepath = str(PREVIEW_PATH)
 
 
+def paint_plate_from_campaign(path: str, round_number: int) -> dict[str, object]:
+    """Give every well the color the colorimeter read for it, and fill it.
+
+    The ninety-six liquid discs share one mesh, which is why the plate is cheap to build and why
+    they cannot carry ninety-six colors by default: a material assigned to mesh data is the same
+    material for every object using it. Switching the slot's link to OBJECT moves the assignment
+    onto the object without copying the mesh, so the plate stays one instanced disc and still
+    reads as ninety-six separate samples.
+
+    Colors come from the campaign record and nowhere else. A well whose run failed is left empty
+    rather than given a plausible color, because an empty well is what the plate would look like.
+    """
+    with open(path, encoding="utf-8") as handle:
+        campaign = json.load(handle)
+    plates = [plate for plate in campaign["plates"] if plate["round"] == round_number]
+    if not plates:
+        available = ", ".join(str(plate["round"]) for plate in campaign["plates"])
+        raise SystemExit(f"round {round_number} is not in {path}; it has rounds {available}")
+    plate = plates[0]
+
+    # The dispense animation drives these scales, and this is a still of a finished plate rather
+    # than a frame of that film, so the keyframes come off and the wells are simply full.
+    for column in range(12):
+        holder = bpy.data.objects.get(f"SampleCarrier_LiquidColumn_{column + 1:02d}")
+        if holder is not None:
+            holder.animation_data_clear()
+            holder.scale = (1.0, 1.0, 1.0)
+
+    painted = 0
+    for well in plate["wells"]:
+        disc = bpy.data.objects.get(f"SampleCarrier_Liquid_{well['row']:02d}_{well['column']:02d}")
+        if disc is None:
+            continue
+        measured = well.get("measured_rgb")
+        if measured is None:
+            disc.hide_render = True
+            continue
+        # A plate reader lights the sample from below and measures what comes through, and this
+        # frame is a picture of that reading. So the well emits the color the colorimeter
+        # reported, and its base color is left dark: the room's key light falling on a white
+        # plate would otherwise add several tens of counts to a number the instrument already
+        # established, and every well would drift toward the same pale tint.
+        material = make_material(
+            f"Well_{well['well']}",
+            (*(_srgb_to_linear(channel / 255.0) for channel in measured), 1.0),
+            roughness=0.30,
+            coat=0.18,
+            emission=1.0,
+        )
+        bsdf = material.node_tree.nodes["Principled BSDF"]
+        bsdf.inputs["Base Color"].default_value = (0.02, 0.02, 0.02, 1.0)
+        slot = disc.material_slots[0]
+        slot.link = "OBJECT"
+        slot.material = material
+        painted += 1
+    print(f"PLATE PAINTED: round {plate['round']}, {painted} wells")
+    return plate
+
+
+def _srgb_to_linear(value: float) -> float:
+    """Blender's base color is linear; the colorimeter reports sRGB, as instruments do."""
+
+    return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def render_plate_top(options: argparse.Namespace) -> None:
+    """Shoot the plate straight down, on a long lens so the wells read as circles.
+
+    A wide lens directly above a plate still shows the outer wells from the side: the frame is
+    ninety-six little ellipses looking into the walls of the outer ones. The long lens and the
+    height that goes with it flatten that out, which is also how a plate reader photographs one.
+    """
+    scene = bpy.context.scene
+    camera = scene.camera
+    plate = bpy.data.objects.get("SampleCarrier")
+    if plate is None:
+        raise SystemExit("the plate is not in this scene")
+
+    suspended = suspend_camera_choreography(camera)
+    # The plate travels during the workflow, so where it is depends on when. Read that off the
+    # animation at the requested frame, then pin it there: the liquid levels below are set by hand
+    # and would otherwise be overwritten the next time the depsgraph evaluated the timeline.
+    scene.frame_set(max(1, min(FRAME_END, options.frame)))
+    bpy.context.view_layer.update()
+    seated = plate.matrix_world.translation.copy()
+    plate.animation_data_clear()
+    plate.location = seated
+    plate.rotation_euler = (0.0, 0.0, 0.0)
+    bpy.context.view_layer.update()
+    centre = plate.matrix_world.translation.copy()
+
+    camera.location = (centre.x, centre.y, centre.z + options.plate_height)
+    # Straight down, with the twelve columns lying across the frame: the way a plate is drawn on
+    # every plate map, and the way its own barcode label reads.
+    camera.rotation_euler = (0.0, 0.0, 0.0)
+    camera.data.lens = options.plate_lens
+    camera.data.dof.focus_distance = options.plate_height
+    camera.data.dof.aperture_fstop = 11.0
+
+    # Anything the transport left parked over the deck would be between the camera and the plate,
+    # and the neighbouring stations crowd the edge of a frame this tight without saying anything.
+    # The deck, its hold-downs and the plate stay: they are what places the sample in a machine.
+    hidden: list[bpy.types.Object] = []
+    for obj in scene.objects:
+        if obj.hide_render:
+            continue
+        if obj.name.startswith(
+            (
+                "Mover",
+                "Bridge",
+                "Gripper",
+                "Pipette",
+                "Tip",
+                "Truck",
+                "Drag",
+                "Reservoir",
+                "Hotel",
+                "Characterizer",
+                "Mixer",
+                "Waste",
+                "HeadDock",
+            )
+        ):
+            obj.hide_render = True
+            hidden.append(obj)
+
+    # The film grade exists to make the machine photograph well, and it earns that everywhere
+    # else. Here it is in the way: AgX rolls saturated colour toward white, so a plate graded for
+    # the film would report a reading the instrument never took. This one frame is shot flat.
+    graded = (
+        scene.view_settings.view_transform,
+        scene.view_settings.look,
+        float(scene.view_settings.exposure),
+    )
+    scene.view_settings.view_transform = "Standard"
+    scene.view_settings.look = "None"
+    scene.view_settings.exposure = options.plate_exposure
+
+    # Bring the room down rather than the exposure. Pulling exposure would darken the wells too,
+    # and the wells are the measurement — they emit, so dimming the lights leaves them exactly as
+    # the instrument reported them while the deck and the white plate stop competing.
+    dimmed = [(light, light.data.energy) for light in scene.objects if light.type == "LIGHT"]
+    for light, energy in dimmed:
+        light.data.energy = energy * options.plate_light
+    world = scene.world
+    background = world.node_tree.nodes.get("Background") if world and world.use_nodes else None
+    world_strength = float(background.inputs["Strength"].default_value) if background else None
+    if background is not None:
+        background.inputs["Strength"].default_value = world_strength * options.plate_light
+
+    out = Path(options.plate_out) if options.plate_out else RENDER_DIR / "plate-top.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.filepath = str(out)
+    bpy.ops.render.render(write_still=True)
+    print(f"PLATE RENDERED: {out}")
+
+    (
+        scene.view_settings.view_transform,
+        scene.view_settings.look,
+        scene.view_settings.exposure,
+    ) = graded
+    for light, energy in dimmed:
+        light.data.energy = energy
+    if background is not None and world_strength is not None:
+        background.inputs["Strength"].default_value = world_strength
+    for obj in hidden:
+        obj.hide_render = False
+    resume_camera_choreography(camera, suspended)
+
+
 def render_outputs(options: argparse.Namespace) -> None:
     scene = bpy.context.scene
+    if options.render_plate:
+        render_plate_top(options)
     if options.render_poses:
         render_poses(options)
     if options.render_still:
@@ -8806,6 +8998,10 @@ def build_scene(options: argparse.Namespace) -> None:
     motion_checks.extend(validate_cut_stillness())
     motion_checks.extend(validate_spatial_invariants())
     bpy.context.scene.frame_set(max(1, min(FRAME_END, options.frame)))
+    if options.well_colors:
+        # After validation, so the scene the invariants checked is the scene that was built. This
+        # only changes materials and liquid levels, and it only runs when asked.
+        paint_plate_from_campaign(options.well_colors, options.plate_round)
     bpy.ops.wm.save_as_mainfile(filepath=str(BLEND_PATH))
     if not options.no_export:
         export_glb()

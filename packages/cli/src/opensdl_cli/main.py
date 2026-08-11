@@ -269,10 +269,36 @@ def init(
     destination: Annotated[Path, typer.Argument(help="New organization laboratory repository")],
     name: Annotated[str | None, typer.Option()] = None,
     owner: Annotated[str, typer.Option()] = "your-organization",
+    framework_path: Annotated[
+        Path | None,
+        typer.Option("--framework-path", help="OpenSDL checkout to resolve the framework from"),
+    ] = None,
+    use_registry: Annotated[
+        bool,
+        typer.Option(
+            "--use-registry",
+            help="declare the framework against a package index instead of a checkout",
+        ),
+    ] = False,
 ) -> None:
     """Create a working organization-specific laboratory repository."""
-    root = create_laboratory(destination, name=name, owner=owner)
+    root = create_laboratory(
+        destination,
+        name=name,
+        owner=owner,
+        framework_path=framework_path,
+        use_registry=use_registry,
+    )
     console.print(f"Created laboratory repository at [bold]{root}[/bold]")
+    if use_registry or not (root / "pyproject.toml").read_text(encoding="utf-8").count(
+        "[tool.uv.sources]"
+    ):
+        # Saying so beats letting `uv sync` be the thing that reports it.
+        console.print(
+            "[yellow]The framework packages are not published, and this laboratory declares them "
+            "against a package index, so `uv sync` will not resolve them. Re-run with "
+            "--framework-path <opensdl checkout> to point at a source tree.[/yellow]"
+        )
 
 
 @app.command()

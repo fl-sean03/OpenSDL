@@ -55,6 +55,27 @@ reads the schema for is the document the store holds.
 Write them in Python with the field names — `acquisition_function=`, `run_id=` — and read the
 recorded form in the stream's camelCase. Both validate.
 
+## A second optimizer, and what it costs to publish one
+
+`GridOptimizer` enumerates a fixed list, which is a baseline and not a search. `ContractingSearch`
+in `adapters/contracting-search` is the counterpart: it samples a batch inside a region centred on
+the best point observed, re-centres on whatever came back, and shrinks the region each round. The
+method is Luus-Jaakola. It fits no model, so it is not competitive with Bayesian optimization when
+evaluations are expensive, and it converges, which is what the reference campaigns needed.
+
+The two divide the plugin contract between them. A grid has no state worth preserving and
+implements neither `state()` nor `load_state()`. A contracting search carries a trust region and a
+random stream, the two things `ResumableOptimizer` names as unrecoverable by replaying
+observations, so it implements both and a resumed campaign continues the same search.
+
+Both depend on `opensdl-core` and nothing else, and `scripts/check-boundaries.py` holds them to it.
+That is the whole claim the contract makes to a third party: publishing a BoTorch or Ax optimizer
+costs a dependency on the declarations and protocols, not on storage, policy and workflows.
+
+`examples/discovering-colors` runs it over three dye concentrations, ninety-six candidates a round,
+recovering a recipe from its color alone. That example also carries the scripts that turn a
+recorded round into a rendered plate and a composed frame.
+
 ## What is still open
 
 The runner does not schedule around resource leases, so two candidates needing the same exclusive

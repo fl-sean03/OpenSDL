@@ -16,3 +16,10 @@ node_modules/
 !.env.example
 .DS_Store
 site/
+
+# Intermediate showcase output. The campaign record and the published frame are tracked, because
+# the README shows the frame and the frame is only meaningful if the run behind it is readable.
+# The plate renders and full-resolution masters they are built from are not: they are large, and
+# `render_plate.py` reproduces them from the record.
+examples/discovering-colors/renders/*
+!examples/discovering-colors/renders/discovering-colors.png

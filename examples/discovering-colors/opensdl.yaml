@@ -1,0 +1,57 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: Laboratory
+metadata:
+  name: discovering-colors
+  owner: OpenSDL
+  description: A closed loop that rediscovers a dye recipe from its color alone
+  tags: [reference, simulation, showcase]
+spec:
+  environment: simulation
+  storage:
+    database:
+      url: sqlite:///./.opensdl/opensdl.db
+    artifacts:
+      root: .opensdl/artifacts
+  runtime:
+    max_concurrency: 8
+    default_timeout_seconds: 30
+    lease_ttl_seconds: 60
+  adapters:
+    - name: simulated-lab
+      plugin: simulated-lab
+      config:
+        seed: 11
+        # Colorimeter repeatability, in 8-bit sRGB counts. A real reader does not return the same
+        # number twice, and a campaign that converged only because its instrument was noiseless
+        # would be demonstrating arithmetic rather than an experiment. This is what puts a floor
+        # under the error trace: the search stops improving when it reaches the instrument, which
+        # is the correct place for it to stop.
+        color_noise: 1.5
+    - name: local-compute
+      plugin: local-compute
+  capabilities:
+    - capability: sim.mix_dyes
+      adapter: simulated-lab
+    - capability: sim.measure_color
+      adapter: simulated-lab
+    - capability: compute.euclidean_distance
+      adapter: local-compute
+  resources:
+    - id: virtual-mixer
+      name: Virtual mixer
+      type: simulator
+    - id: virtual-colorimeter
+      name: Virtual colorimeter
+      type: simulator
+  policy:
+    default_effect: deny
+    version: example/v1
+    rules:
+      - id: allow-simulation
+        effect: allow
+        capability: "*"
+        environments: [simulation]
+        operators: ["*"]
+        risk_classes: [R0, R1]
+        reason: Simulator-only reference profile
+        priority: 10

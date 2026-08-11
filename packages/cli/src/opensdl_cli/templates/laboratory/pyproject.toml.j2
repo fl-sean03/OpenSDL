@@ -12,6 +12,20 @@ dependencies = [
   "opensdl-adapter-local-compute>=0.1.0a0,<0.2.0",
   "opensdl-adapter-human-task>=0.1.0a0,<0.2.0",
 ]
+{% if framework_sources %}
+# OpenSDL is not on a package index yet, so the versions above cannot be resolved from one and
+# these entries say where to find each package instead: the checkout this laboratory was generated
+# from. `uv sync` reads them; the dependency declarations above stay as they are, so when the
+# packages are published this whole block is what gets deleted and nothing else changes.
+#
+# The paths are relative, so moving or cloning the pair together keeps working. Move the laboratory
+# on its own and they need updating — `opensdl init --framework-path <checkout>` regenerates them,
+# or point them at wherever the framework now lives.
+[tool.uv.sources]
+{% for source in framework_sources -%}
+{{ source.name }} = { path = "{{ source.path }}" }
+{% endfor -%}
+{% endif %}
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24"]

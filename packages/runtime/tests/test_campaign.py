@@ -232,6 +232,7 @@ def build_campaign(
     *,
     policy: PolicyEngine | None = None,
     repositories: Repositories | None = None,
+    lease_wait_seconds: float = 120.0,
 ) -> tuple[CampaignRunner, Repositories]:
     if repositories is None:
         database = Database("sqlite:///:memory:")
@@ -244,6 +245,7 @@ def build_campaign(
         repositories,
         policy or PolicyEngine(default_effect="allow"),
         LocalArtifactStore(tmp_path, repositories),
+        lease_wait_seconds=lease_wait_seconds,
     )
     return CampaignRunner(runtime, repositories), repositories
 
@@ -905,14 +907,14 @@ async def test_a_declared_parallelism_runs_the_batch_concurrently(tmp_path) -> N
 
 
 @pytest.mark.asyncio
-async def test_parallel_candidates_contending_for_one_instrument_are_recorded_as_failures(
+async def test_parallel_candidates_contending_for_one_instrument_both_complete(
     tmp_path,
 ) -> None:
-    """The honest limit of parallel execution: the runner does not schedule around a lease.
+    """Two candidates, one exclusive instrument, and both experiments get measured.
 
-    Two candidates needing the same exclusive instrument are dispatched together, and the loser
-    fails on the lease. It is recorded as an attempted iteration, because a lease failure is a
-    laboratory fact and not a framework error.
+    Dispatching them together used to mean the loser failed on the lease, which is why
+    `max_parallel_runs` defaulted to one: asking a laboratory to run more at once than it owns
+    threw away the surplus. The loser now queues for the bench and runs when it is free.
     """
 
     adapter = ScoreAdapter()
@@ -931,8 +933,12 @@ async def test_parallel_candidates_contending_for_one_instrument_are_recorded_as
         max_parallel_runs=2,
     )
 
-    assert len(result.failures) == 1
-    assert "resources busy" in (result.failures[0].error or "")
+    assert not result.failures
+    assert len(result.successes) == 2
+    assert sorted(item.score for item in result.successes if item.score is not None) == [
+        2.0,
+        3.0,
+    ]
 
 
 # --- 2. Multi-objective and constraints -------------------------------------
@@ -2400,14 +2406,15 @@ async def test_a_campaign_that_found_nothing_records_no_best(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_losing_a_race_for_an_instrument_does_not_stop_the_campaign(tmp_path) -> None:
-    """A laboratory that completed a candidate is working, whatever else contended for the bench.
+async def test_more_candidates_at_once_than_the_laboratory_owns_still_measures_all_of_them(
+    tmp_path,
+) -> None:
+    """Four candidates at a time against one exclusive instrument, and none of them is wasted.
 
-    Every non-succeeding observation used to count toward `max_consecutive_failures`, so a
-    laboratory asked to run more at once than it owns stopped on its first batch and reported the
-    failure as systematic. Four candidates against one exclusive instrument reached the default
-    limit of three immediately, having measured one candidate out of eight, and named a cause an
-    operator would go looking for in the instrument or the chemistry.
+    This measured one candidate out of eight and stopped, calling the result systematic failure:
+    every non-succeeding observation counted toward `max_consecutive_failures`, and three lease
+    losses in the first batch reached the limit. The lease losses came first, so they are what is
+    fixed here; the rule that a busy bench is not a failing science is covered below.
     """
 
     adapter = ScoreAdapter()
@@ -2432,9 +2439,9 @@ async def test_losing_a_race_for_an_instrument_does_not_stop_the_campaign(tmp_pa
     )
 
     assert result.stop_reason is CampaignStopReason.MAX_ITERATIONS
-    # Both batches got a candidate through, so both are laboratories that worked.
-    assert len(result.successes) == 2
-    assert all("resources busy" in (item.error or "") for item in result.failures)
+    # Every candidate queued for the one bench and every candidate was measured.
+    assert not result.failures
+    assert len(result.successes) == 8
 
 
 @pytest.mark.asyncio
@@ -2500,3 +2507,40 @@ def test_the_trailing_failure_count_a_resume_rebuilds_is_read_per_batch(tmp_path
 
     # And an earlier working batch still ends the count.
     assert _trailing_failures(dead + [observation(8, 2, succeeded=True)]) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_busy_bench_is_still_not_a_failing_science(tmp_path) -> None:
+    """The rule from before the wait existed, kept where it can still be reached.
+
+    Queuing removes lease losses from the ordinary path, so the scenario that first exposed this
+    no longer produces one. It can still happen: a wait that runs out, or a laboratory configured
+    to refuse rather than queue. When it does, a lease loss must not count toward
+    `max_consecutive_failures`, because a campaign that measured a candidate is a campaign whose
+    science is working, and stopping would send an operator looking at the chemistry.
+    """
+
+    adapter = ScoreAdapter()
+    runner, repositories = build_campaign(tmp_path, adapter, lease_wait_seconds=0)
+    repositories.upsert_resource(Resource(id="probe-bench", name="Probe bench", type="simulator"))
+
+    result = await runner.run(
+        probe_workflow(
+            capability="test.score_exclusive", outputs={"score": "${steps.score.output.score}"}
+        ),
+        ScriptedOptimizer(
+            [
+                [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+                [{"x": 5.0}, {"x": 6.0}, {"x": 7.0}, {"x": 8.0}],
+            ]
+        ),
+        environment="simulation",
+        operator_id="operator/alice",
+        max_iterations=8,
+        batch_size=4,
+        max_parallel_runs=4,
+    )
+
+    assert result.stop_reason is CampaignStopReason.MAX_ITERATIONS
+    assert result.successes
+    assert all("resources busy" in (item.error or "") for item in result.failures)

@@ -223,6 +223,7 @@ class OpenSDLSystem:
             max_concurrency=manifest.spec.runtime.max_concurrency,
             default_timeout_seconds=manifest.spec.runtime.default_timeout_seconds,
             lease_ttl_seconds=manifest.spec.runtime.lease_ttl_seconds,
+            lease_wait_seconds=manifest.spec.runtime.lease_wait_seconds,
             default_run_context=(
                 {"twinBinding": twin_binding} if twin_binding is not None else None
             ),

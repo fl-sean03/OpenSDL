@@ -197,6 +197,7 @@ def build_probe_runtime(
     adapter: ProbeAdapter,
     *,
     policy_effect: Literal["allow", "deny"] = "allow",
+    lease_wait_seconds: float = 120.0,
 ):
     database = Database("sqlite:///:memory:")
     database.initialize()
@@ -211,6 +212,7 @@ def build_probe_runtime(
         repositories,
         PolicyEngine(default_effect=policy_effect),
         LocalArtifactStore(tmp_path, repositories),
+        lease_wait_seconds=lease_wait_seconds,
     )
     return runtime, repositories
 
@@ -996,8 +998,15 @@ async def test_unregistered_resource_stops_the_task_before_dispatch(tmp_path) ->
 
 @pytest.mark.asyncio
 async def test_held_lease_fails_the_task_and_leaves_the_holder_in_place(tmp_path) -> None:
+    """The fail-fast configuration: `lease_wait_seconds=0` refuses rather than queues.
+
+    A caller that wants to know immediately that the bench is busy sets the wait to zero, and then
+    everything below holds: the adapter is never called, the task carries the reason, and the
+    holder's lease is untouched by the attempt.
+    """
+
     adapter = ProbeAdapter()
-    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    runtime, repositories = build_probe_runtime(tmp_path, adapter, lease_wait_seconds=0)
     assert repositories.acquire_leases(["probe-resource"], "other-task", 60)
     expected = "resources busy: ['probe-resource']"
 
@@ -1690,3 +1699,51 @@ def test_the_lease_covers_every_attempt_the_retry_loop_may_make(tmp_path) -> Non
     assert runtime._lease_seconds_for(timeout=10.0, max_retries=3) >= 40.0
     # The backoff between attempts is inside the lease too, so the bound exceeds the work alone.
     assert runtime._lease_seconds_for(timeout=10.0, max_retries=3) > 40.0
+
+
+@pytest.mark.asyncio
+async def test_a_task_waits_for_an_instrument_and_runs_when_it_is_released(tmp_path) -> None:
+    """The behaviour the wait exists for: queue for the bench instead of abandoning the work."""
+
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter, lease_wait_seconds=10)
+    assert repositories.acquire_leases(["probe-resource"], "other-task", 60)
+
+    async def release_shortly() -> None:
+        await asyncio.sleep(0.2)
+        repositories.release_leases("other-task")
+
+    releaser = asyncio.create_task(release_shortly())
+    await runtime.execute_capability("test.probe", {})
+    await releaser
+
+    assert adapter.calls == 1
+    run = repositories.list_runs()[0]
+    task = repositories.list_tasks(run.id)[0]
+    assert run.state == RunState.COMPLETED
+    assert task.state == TaskState.SUCCEEDED
+    events = [event.type for event in repositories.list_events(run_id=run.id, limit=None)]
+    # The wait is on the record. A gap in the timestamps would leave an operator guessing.
+    assert "TaskWaitingForResources" in events
+    assert "TaskResourcesAcquired" in events
+    assert events.index("TaskWaitingForResources") < events.index("TaskStarted")
+
+
+@pytest.mark.asyncio
+async def test_the_wait_is_bounded_and_fails_the_way_it_always_did(tmp_path) -> None:
+    """A task that queues forever is worse than one that says the bench is busy."""
+
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter, lease_wait_seconds=0.3)
+    # Held well past the wait, so the wait is what ends this rather than the lease expiring.
+    assert repositories.acquire_leases(["probe-resource"], "other-task", 600)
+
+    with pytest.raises(ResourceBusyError) as raised:
+        await runtime.execute_capability("test.probe", {})
+
+    assert adapter.calls == 0
+    assert str(raised.value) == "resources busy: ['probe-resource']"
+    run = repositories.list_runs()[0]
+    assert run.state == RunState.FAILED
+    # The holder is undisturbed by having been waited on.
+    assert not repositories.acquire_leases(["probe-resource"], "third-task", 60)

@@ -21,6 +21,9 @@ nodes:
   - id: runtime
     description: Workflow and campaign execution
     paths: ["packages/runtime/**", "packages/workflows/**", "packages/policy/**"]
+  - id: benchmark
+    description: Deterministic scoring of agent operation
+    paths: ["packages/benchmark/**"]
   - id: provenance
     description: Run exports, research graphs, and propagation
     paths: ["packages/provenance/**"]
@@ -138,6 +141,12 @@ edges:
   - source: storage-model
     target: provenance
     reason: exports and graphs read durable state
+  - source: storage-model
+    target: benchmark
+    reason: grading answers its checks from durable state
+  - source: core-contracts
+    target: benchmark
+    reason: checks are stated against public records and lifecycle states
   - source: storage-model
     target: cross-package-tests
     reason: migrations require integration evidence

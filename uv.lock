@@ -16,6 +16,7 @@ members = [
     "opensdl-adapter-local-compute",
     "opensdl-adapter-simulated-lab",
     "opensdl-api",
+    "opensdl-benchmark",
     "opensdl-capabilities",
     "opensdl-cli",
     "opensdl-controller",
@@ -1013,6 +1014,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "opensdl-benchmark"
+version = "0.1.0a0"
+source = { editable = "packages/benchmark" }
+dependencies = [
+    { name = "opensdl-core" },
+    { name = "opensdl-storage" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "opensdl-core", editable = "packages/core" },
+    { name = "opensdl-storage", editable = "packages/storage" },
+]
+
+[[package]]
 name = "opensdl-capabilities"
 version = "0.1.0a0"
 source = { editable = "packages/capabilities" }
@@ -1323,6 +1339,7 @@ dependencies = [
     { name = "opensdl-adapter-local-compute" },
     { name = "opensdl-adapter-simulated-lab" },
     { name = "opensdl-api" },
+    { name = "opensdl-benchmark" },
     { name = "opensdl-capabilities" },
     { name = "opensdl-cli" },
     { name = "opensdl-controller" },
@@ -1365,6 +1382,7 @@ requires-dist = [
     { name = "opensdl-adapter-local-compute", editable = "adapters/local-compute" },
     { name = "opensdl-adapter-simulated-lab", editable = "adapters/simulated-lab" },
     { name = "opensdl-api", editable = "apps/api" },
+    { name = "opensdl-benchmark", editable = "packages/benchmark" },
     { name = "opensdl-capabilities", editable = "packages/capabilities" },
     { name = "opensdl-cli", editable = "packages/cli" },
     { name = "opensdl-controller", editable = "apps/controller" },

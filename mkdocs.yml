@@ -34,6 +34,7 @@ nav:
       - Build a twin scene: guides/build-a-twin-scene.md
       - Add an adapter: guides/add-adapter.md
       - Closed-loop campaign: guides/closed-loop-campaign.md
+      - Benchmark an agent: guides/benchmark-an-agent.md
   - Development:
       - development/index.md
       - Roadmap: development/roadmap.md

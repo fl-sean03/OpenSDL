@@ -1020,12 +1020,14 @@ source = { editable = "packages/benchmark" }
 dependencies = [
     { name = "opensdl-core" },
     { name = "opensdl-storage" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "opensdl-core", editable = "packages/core" },
     { name = "opensdl-storage", editable = "packages/storage" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
 ]
 
 [[package]]
@@ -1050,6 +1052,7 @@ source = { editable = "packages/cli" }
 dependencies = [
     { name = "jinja2" },
     { name = "opensdl-api" },
+    { name = "opensdl-benchmark" },
     { name = "opensdl-controller" },
     { name = "opensdl-operators" },
     { name = "opensdl-provenance" },
@@ -1064,6 +1067,7 @@ dependencies = [
 requires-dist = [
     { name = "jinja2", specifier = ">=3.1,<4" },
     { name = "opensdl-api", editable = "apps/api" },
+    { name = "opensdl-benchmark", editable = "packages/benchmark" },
     { name = "opensdl-controller", editable = "apps/controller" },
     { name = "opensdl-operators", editable = "packages/operators" },
     { name = "opensdl-provenance", editable = "packages/provenance" },

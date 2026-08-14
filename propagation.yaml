@@ -23,7 +23,7 @@ nodes:
     paths: ["packages/runtime/**", "packages/workflows/**", "packages/policy/**"]
   - id: benchmark
     description: Deterministic scoring of agent operation
-    paths: ["packages/benchmark/**"]
+    paths: ["packages/benchmark/**", "benchmarks/**"]
   - id: provenance
     description: Run exports, research graphs, and propagation
     paths: ["packages/provenance/**"]
@@ -147,6 +147,12 @@ edges:
   - source: core-contracts
     target: benchmark
     reason: checks are stated against public records and lifecycle states
+  - source: benchmark
+    target: operator-interfaces
+    reason: the CLI supplies the agent and runs a suite the package cannot start itself
+  - source: benchmark
+    target: cross-package-tests
+    reason: a suite has to be shown passable and failable by agents with known correct scores
   - source: storage-model
     target: cross-package-tests
     reason: migrations require integration evidence

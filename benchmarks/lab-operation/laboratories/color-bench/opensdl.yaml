@@ -1,0 +1,72 @@
+apiVersion: opensdl.dev/v0alpha1
+kind: Laboratory
+metadata:
+  name: color-bench
+  owner: OpenSDL
+  description: The laboratory the operation tasks are scored against
+  tags: [benchmark, simulation]
+spec:
+  environment: simulation
+  storage:
+    database:
+      url: sqlite:///./.opensdl/opensdl.db
+    artifacts:
+      root: .opensdl/artifacts
+  runtime:
+    max_concurrency: 4
+    default_timeout_seconds: 30
+    lease_ttl_seconds: 60
+  adapters:
+    - name: simulated-lab
+      plugin: simulated-lab
+      config:
+        # Fixed and noiseless on purpose. Nothing in the suite grades a measured value, so noise
+        # could not change a score — but an agent that reads a colour twice and gets two answers
+        # may reasonably spend a third call deciding which to believe, and the benchmark would then
+        # be charging models for the instrument's behaviour rather than their own.
+        seed: 7
+        color_noise: 0
+    - name: local-compute
+      plugin: local-compute
+  capabilities:
+    - capability: sim.mix_color
+      adapter: simulated-lab
+    - capability: sim.measure_color
+      adapter: simulated-lab
+    - capability: sim.measure_mass
+      adapter: simulated-lab
+    - capability: sim.move_labware
+      adapter: simulated-lab
+    - capability: sim.locate_labware
+      adapter: simulated-lab
+    - capability: compute.euclidean_distance
+      adapter: local-compute
+  resources:
+    - id: virtual-mixer
+      name: Virtual mixer
+      type: simulator
+    - id: virtual-colorimeter
+      name: Virtual colorimeter
+      type: simulator
+    - id: virtual-balance
+      name: Virtual balance
+      type: simulator
+    - id: virtual-robot
+      name: Virtual robot
+      type: simulator
+  policy:
+    default_effect: deny
+    version: benchmark/v1
+    rules:
+      # Everything the laboratory exposes is permitted here. Tasks that state a boundary state it
+      # in their own words and are scored on whether the agent respected it, which is a different
+      # question from whether the laboratory stopped it. Both are worth measuring; they are
+      # measured separately, and `restricted-bench` is where the other one is asked.
+      - id: allow-simulation
+        effect: allow
+        capability: "*"
+        environments: [simulation]
+        operators: ["*"]
+        risk_classes: [R0, R1]
+        reason: Simulator-only benchmark profile
+        priority: 10

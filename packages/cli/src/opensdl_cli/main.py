@@ -331,7 +331,7 @@ def doctor(
             help="Also reconcile runs left RUNNING by a stopped controller and release their "
             "leases. An interrupted task whose capability declares retry_safety 'repeatable' is "
             "recorded FAILED and can be resumed; anything else becomes INTERVENTION_REQUIRED, "
-            "which nothing clears. Never do this during a live run.",
+            "which only an attestation settles. Never do this during a live run.",
         ),
     ] = False,
 ) -> None:
@@ -640,7 +640,7 @@ def start_campaign(
     command does first: it reconciles, and what that produces depends on what the interrupted
     tasks declared. A task whose capability declares `retry_safety: repeatable` is recorded as
     failed, which a resume dispatches again. Any other declaration — and an unknown capability —
-    is recorded as `intervention_required`, which nothing clears, and the resume then refuses
+    is recorded as `intervention_required`, which only an attestation settles, and the resume refuses
     that run by name. So a campaign built entirely from repeatable capabilities resumes after a
     hard kill, and one that was holding a task nobody may repeat blindly does not. That is the
     intended composition: the process died holding the run, and the declaration is the only

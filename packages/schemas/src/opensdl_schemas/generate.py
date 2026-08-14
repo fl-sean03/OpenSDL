@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from opensdl_core import (
     ArtifactRecord,
+    Attestation,
     CampaignDefinition,
     CampaignObservation,
     CampaignProblem,
@@ -50,6 +51,7 @@ SCHEMAS: dict[str, Type[BaseModel]] = {
     "task": TaskRecord,
     "event": EventRecord,
     "artifact": ArtifactRecord,
+    "attestation": Attestation,
     "execution-request": ExecutionRequest,
     "execution-result": ExecutionResult,
 }

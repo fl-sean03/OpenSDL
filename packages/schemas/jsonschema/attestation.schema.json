@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "AttestationFinding": {
+      "description": "What a person established about a task whose outcome the laboratory never learned.\n\nDeliberately three answers and no fourth. A person standing at the bench can see whether an\noperation happened; they cannot see what an instrument measured, and there is no finding here\nthat would let them say so. Recovering a reading means running the measurement again.",
+      "enum": [
+        "completed",
+        "did_not_occur",
+        "abandoned"
+      ],
+      "title": "AttestationFinding",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A person's finding about a task whose physical outcome the laboratory never learned.\n\nThis is the only way past `intervention_required`, and it is a record rather than an override.\nA run continues because someone established what the equipment did, and the record says who,\nwhen, and on what basis. There is no force flag: a caller who cannot state a basis has not\nestablished anything.\n\nIt carries no outputs, and that is the design rather than an omission. A person at the bench\ncan see that a plate was mixed; they cannot see what the colorimeter would have read. Letting\nan operator supply a measurement would put a typed number into the evidence store wearing the\nsame clothes as an instrument's, and every downstream claim would inherit it. A step that\nneeded the reading fails for want of it, which is the honest outcome.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 80,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "finding": {
+      "$ref": "#/$defs/AttestationFinding"
+    },
+    "operator_id": {
+      "title": "Operator Id",
+      "type": "string"
+    },
+    "basis": {
+      "minLength": 1,
+      "title": "Basis",
+      "type": "string"
+    },
+    "artifact_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "established_at": {
+      "format": "date-time",
+      "title": "Established At",
+      "type": "string"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "run_id",
+    "task_id",
+    "finding",
+    "operator_id",
+    "basis"
+  ],
+  "title": "Attestation",
+  "type": "object"
+}

@@ -4,10 +4,13 @@ import time
 from typing import Any, Literal
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from opensdl_adapter_local_compute import LocalComputeAdapter
 from opensdl_capabilities import CapabilityAdapter, CapabilityRegistry, NotDispatchedError
 from opensdl_core import (
+    Attestation,
+    AttestationFinding,
     CapabilityDefinition,
     EventRecord,
     ExecutionDeniedError,
@@ -30,6 +33,7 @@ from opensdl_core import (
 )
 from opensdl_policy import PolicyEngine
 from opensdl_runtime import ReferenceRuntime
+from opensdl_runtime.engine import UNRESUMABLE_TASK_STATES
 from opensdl_storage import Database, LocalArtifactStore, Repositories
 
 
@@ -1747,3 +1751,154 @@ async def test_the_wait_is_bounded_and_fails_the_way_it_always_did(tmp_path) -> 
     assert run.state == RunState.FAILED
     # The holder is undisturbed by having been waited on.
     assert not repositories.acquire_leases(["probe-resource"], "third-task", 60)
+
+
+# --- Attestation: the only exit from intervention_required ------------------
+
+
+async def _stop_a_task_for_intervention(
+    tmp_path, *, policy_effect: Literal["allow", "deny"] = "allow"
+):
+    """Reach `intervention_required` the way a laboratory does, rather than by writing the state.
+
+    A capability that cannot be repeated times out: the runtime abandoned its wait, the instrument
+    did not stop, and nothing established what happened. Forcing the state instead would be a test
+    of a situation the machine does not actually produce.
+    """
+
+    adapter = ProbeAdapter(
+        delay_seconds=30, timeout_seconds=0.01, retry_safety=RetrySafety.NOT_REPEATABLE
+    )
+    runtime, repositories = build_probe_runtime(tmp_path, adapter, policy_effect=policy_effect)
+    with pytest.raises(WorkflowExecutionError):
+        await runtime.execute_capability("test.probe", {})
+    run = repositories.list_runs()[0]
+    task = repositories.list_tasks(run.id)[0]
+    assert task.state is TaskState.INTERVENTION_REQUIRED
+    return runtime, repositories, run, task
+
+
+@pytest.mark.asyncio
+async def test_attesting_that_it_happened_settles_the_task_without_repeating_it(tmp_path) -> None:
+    runtime, repositories, run, task = await _stop_a_task_for_intervention(tmp_path)
+
+    attestation = runtime.attest_task(
+        task.id,
+        finding=AttestationFinding.COMPLETED,
+        operator_id="operator/alice",
+        basis="plate seated in the mixer with the lid closed; deck otherwise clear",
+    )
+
+    settled = repositories.get_task(task.id)
+    assert settled is not None
+    assert settled.state is TaskState.SUCCEEDED
+    # The point of the whole design: it happened, and nothing claims to know what it produced.
+    assert settled.outputs == {}
+    assert attestation.finding is AttestationFinding.COMPLETED
+    assert attestation.operator_id == "operator/alice"
+    events = [event.type for event in repositories.list_events(run_id=run.id, limit=None)]
+    assert "TaskAttested" in events
+    assert "RunInterventionResolved" in events
+    resolved = repositories.get_run(run.id)
+    assert resolved is not None and resolved.state is RunState.FAILED
+
+
+@pytest.mark.asyncio
+async def test_an_attestation_cannot_carry_a_measurement(tmp_path) -> None:
+    """A person establishes that an operation happened, never what an instrument would have read."""
+
+    _, _, _, _ = await _stop_a_task_for_intervention(tmp_path)
+    assert "outputs" not in Attestation.model_fields
+    assert "result" not in Attestation.model_fields
+
+
+@pytest.mark.asyncio
+async def test_attesting_that_it_did_not_happen_leaves_the_task_dispatchable(tmp_path) -> None:
+    runtime, repositories, _, task = await _stop_a_task_for_intervention(tmp_path)
+
+    runtime.attest_task(
+        task.id,
+        finding=AttestationFinding.DID_NOT_OCCUR,
+        operator_id="operator/alice",
+        basis="reservoir untouched and the tip still racked",
+    )
+
+    settled = repositories.get_task(task.id)
+    assert settled is not None
+    assert settled.state is TaskState.FAILED
+    assert settled.state not in UNRESUMABLE_TASK_STATES
+
+
+@pytest.mark.asyncio
+async def test_abandoning_stops_the_work_without_claiming_an_outcome(tmp_path) -> None:
+    runtime, repositories, _, task = await _stop_a_task_for_intervention(tmp_path)
+
+    runtime.attest_task(
+        task.id,
+        finding=AttestationFinding.ABANDONED,
+        operator_id="operator/alice",
+        basis="sample discarded; the question is being asked a different way",
+    )
+
+    settled = repositories.get_task(task.id)
+    assert settled is not None
+    assert settled.state is TaskState.CANCELLED
+    assert settled.state in UNRESUMABLE_TASK_STATES
+
+
+@pytest.mark.asyncio
+async def test_an_attestation_without_a_basis_is_refused(tmp_path) -> None:
+    """A caller who cannot say how they know has not established anything."""
+
+    runtime, _, _, task = await _stop_a_task_for_intervention(tmp_path)
+
+    with pytest.raises(PydanticValidationError):
+        runtime.attest_task(
+            task.id,
+            finding=AttestationFinding.COMPLETED,
+            operator_id="operator/alice",
+            basis="",
+        )
+
+
+@pytest.mark.asyncio
+async def test_only_a_task_awaiting_intervention_is_attested_to(tmp_path) -> None:
+    adapter = ProbeAdapter()
+    runtime, repositories = build_probe_runtime(tmp_path, adapter)
+    run = await runtime.run_workflow(probe_workflow(), {})
+    task = repositories.list_tasks(run.id)[0]
+    assert task.state is TaskState.SUCCEEDED
+
+    with pytest.raises(LifecycleError, match="requiring intervention"):
+        runtime.attest_task(
+            task.id,
+            finding=AttestationFinding.COMPLETED,
+            operator_id="operator/alice",
+            basis="it looked fine",
+        )
+
+
+@pytest.mark.asyncio
+async def test_attesting_grants_no_authority(tmp_path) -> None:
+    """Saying what already happened is not permission to do anything else.
+
+    A laboratory whose policy denies the capability still denies it after an attestation. If this
+    ever passes by widening what the operator may do, the operation has become an override.
+    """
+
+    runtime, repositories, run, task = await _stop_a_task_for_intervention(tmp_path)
+
+    runtime.attest_task(
+        task.id,
+        finding=AttestationFinding.DID_NOT_OCCUR,
+        operator_id="operator/alice",
+        basis="nothing on the deck moved",
+    )
+
+    resolved = repositories.get_run(run.id)
+    assert resolved is not None and resolved.state is RunState.FAILED
+
+    # The attested run is resolvable, and a laboratory that refuses this work still refuses it.
+    denying, _ = build_probe_runtime(tmp_path / "denied", ProbeAdapter(), policy_effect="deny")
+    with pytest.raises(ExecutionDeniedError):
+        await denying.execute_capability("test.probe", {})

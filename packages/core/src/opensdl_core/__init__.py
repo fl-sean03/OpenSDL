@@ -20,6 +20,7 @@ from .campaign import (
 )
 from .digest import canonical_digest, canonical_json
 from .enums import (
+    AttestationFinding,
     ArtifactKind,
     AuthorizationEffect,
     ExecutorType,
@@ -46,6 +47,7 @@ from .lifecycle import (
 )
 from .models import (
     ArtifactRecord,
+    Attestation,
     AuthorizationReceipt,
     CapabilityDefinition,
     Decision,
@@ -108,6 +110,8 @@ __all__ = [
     "Resource",
     "ResourceBusyError",
     "ResumableOptimizer",
+    "Attestation",
+    "AttestationFinding",
     "RetrySafety",
     "RiskClass",
     "RUN_ID_PATTERN",

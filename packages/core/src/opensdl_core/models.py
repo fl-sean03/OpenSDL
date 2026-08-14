@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from .enums import (
     ArtifactKind,
+    AttestationFinding,
     AuthorizationEffect,
     ExecutorType,
     OperatorType,
@@ -206,6 +207,36 @@ class EventRecord(OpenSDLModel):
     causation_id: str | None = None
     correlation_id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class Attestation(OpenSDLModel):
+    """A person's finding about a task whose physical outcome the laboratory never learned.
+
+    This is the only way past `intervention_required`, and it is a record rather than an override.
+    A run continues because someone established what the equipment did, and the record says who,
+    when, and on what basis. There is no force flag: a caller who cannot state a basis has not
+    established anything.
+
+    It carries no outputs, and that is the design rather than an omission. A person at the bench
+    can see that a plate was mixed; they cannot see what the colorimeter would have read. Letting
+    an operator supply a measurement would put a typed number into the evidence store wearing the
+    same clothes as an instrument's, and every downstream claim would inherit it. A step that
+    needed the reading fails for want of it, which is the honest outcome.
+    """
+
+    id: str = Field(default_factory=lambda: new_id("attestation"))
+    run_id: RunId
+    task_id: str
+    finding: AttestationFinding
+    #: Who established it. Recorded as given; this layer does not authenticate an operator.
+    operator_id: str
+    #: What they inspected to establish it. Required, because an attestation without a basis is an
+    #: assertion, and the record would not survive anyone asking how it was known.
+    basis: str = Field(min_length=1)
+    #: Evidence supporting the basis: a photograph of the deck, an instrument log, a printout.
+    artifact_ids: tuple[str, ...] = ()
+    established_at: datetime = Field(default_factory=utc_now)
+    notes: str | None = None
 
 
 class ArtifactRecord(OpenSDLModel):

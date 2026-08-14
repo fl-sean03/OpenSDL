@@ -206,12 +206,28 @@ def test_terminal_runs_cannot_be_restarted(current: RunState, target: RunState) 
         (TaskState.CANCELLED, TaskState.RUNNING),
         (TaskState.CANCELLED, TaskState.WAITING_FOR_RESOURCES),
         (TaskState.INTERVENTION_REQUIRED, TaskState.WAITING_FOR_RESOURCES),
-        (TaskState.INTERVENTION_REQUIRED, TaskState.SUCCEEDED),
     ],
 )
 def test_settled_tasks_cannot_be_redispatched(current: TaskState, target: TaskState) -> None:
     with pytest.raises(LifecycleError):
         validate_task_transition(current, target)
+
+
+def test_an_ambiguous_task_may_be_settled_as_having_happened() -> None:
+    """`SUCCEEDED` is reachable from `intervention_required`, and only one operation performs it.
+
+    This was refused, under the rule that a settled task is never redispatched. It never was a
+    redispatch — `SUCCEEDED` dispatches nothing — it was the older position that nobody may
+    conclude an ambiguous task happened. A person at the bench can conclude exactly that, and
+    `ReferenceRuntime.attest_task` is where they record how they know, so the machine has to be
+    able to express the outcome. Repeating the action is still refused: the dispatching states
+    stay unreachable from here.
+    """
+
+    validate_task_transition(TaskState.INTERVENTION_REQUIRED, TaskState.SUCCEEDED)
+    for dispatching in (TaskState.WAITING_FOR_RESOURCES, TaskState.RETRYING):
+        with pytest.raises(LifecycleError):
+            validate_task_transition(TaskState.INTERVENTION_REQUIRED, dispatching)
 
 
 @pytest.mark.parametrize(

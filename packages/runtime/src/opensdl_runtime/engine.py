@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import random
 import time
+from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any
 
 from opensdl_capabilities import CapabilityRegistry, NotDispatchedError, validate_instance
 from opensdl_core import (
+    Attestation,
+    AttestationFinding,
     STARTABLE_RUN_STATES,
     CapabilityDefinition,
     CapabilityNotFoundError,
@@ -32,6 +35,16 @@ from opensdl_core import (
 from opensdl_policy import PolicyEvaluator
 from opensdl_storage import ArtifactStore, RepositoryStore
 from opensdl_workflows import resolve_mapping, topological_layers, validate_workflow_graph
+
+#: What each finding settles the task as. `COMPLETED` reaches `SUCCEEDED` carrying no outputs,
+#: which is the whole shape of the decision: a person establishes that an operation happened and
+#: never what it measured, so a later step wanting the reading fails for want of it rather than
+#: consuming a number nobody instrument-measured.
+_ATTESTED_TASK_STATE = {
+    AttestationFinding.COMPLETED: TaskState.SUCCEEDED,
+    AttestationFinding.DID_NOT_OCCUR: TaskState.FAILED,
+    AttestationFinding.ABANDONED: TaskState.CANCELLED,
+}
 
 #: How long a task waits before asking again for equipment somebody else holds, and the ceiling
 #: that backoff climbs to. Short enough that a freed instrument is picked up promptly, long enough
@@ -350,6 +363,87 @@ class ReferenceRuntime:
                 "laboratory recorded."
             )
         return replaced
+
+    def attest_task(
+        self,
+        task_id: str,
+        *,
+        finding: AttestationFinding,
+        operator_id: str,
+        basis: str,
+        artifact_ids: Sequence[str] = (),
+        notes: str | None = None,
+    ) -> Attestation:
+        """Record what a person established about a task the laboratory could not settle itself.
+
+        This is the only exit from `intervention_required`, and it is deliberately not an override.
+        The run becomes resumable because someone went and looked, and the record carries who, when,
+        and on what basis. A caller with nothing to state cannot produce one: `basis` is required.
+
+        It grants no authority. Attesting says what already happened; it does not permit anything,
+        and every task a resumed run goes on to dispatch is evaluated against policy exactly as it
+        would have been. The one state this writes is the state of the task being attested.
+        """
+        task = self.repositories.get_task(task_id)
+        if task is None:
+            raise LookupError(f"unknown task: {task_id}")
+        if task.state is not TaskState.INTERVENTION_REQUIRED:
+            raise LifecycleError(
+                f"task {task_id} is {task.state.value}, and only a task requiring intervention "
+                "is attested to; nothing about a settled task is established by inspection"
+            )
+        run = self.repositories.get_run(task.run_id)
+        if run is None:  # pragma: no cover - a task cannot outlive its run
+            raise LookupError(f"unknown run: {task.run_id}")
+
+        attestation = Attestation(
+            run_id=task.run_id,
+            task_id=task_id,
+            finding=finding,
+            operator_id=operator_id,
+            basis=basis,
+            artifact_ids=tuple(artifact_ids),
+            notes=notes,
+        )
+        task.state = _ATTESTED_TASK_STATE[finding]
+        # A completed operation produced whatever it produced, and none of it was recorded. The
+        # error says so rather than leaving an empty task looking like a clean success.
+        task.error = (
+            None
+            if finding is AttestationFinding.DID_NOT_OCCUR
+            else f"established by {operator_id} on inspection: {finding.value}"
+        )
+        task.updated_at = utc_now()
+        self.repositories.upsert_task(task)
+        self._emit(
+            "TaskAttested",
+            run=run,
+            task=task,
+            payload={"attestation": attestation.model_dump(mode="json")},
+        )
+        self._settle_run_after_attestation(run)
+        return attestation
+
+    def _settle_run_after_attestation(self, run: RunRecord) -> None:
+        """Leave `intervention_required` once no task is still waiting on a person.
+
+        A run is as unresolved as its least resolved task, which is how it entered this state. It
+        leaves for `failed`, because a run that stopped did stop: resuming it is a separate, policy
+        evaluated act, and `failed` is the state a resume already starts from.
+        """
+        if run.state is not RunState.INTERVENTION_REQUIRED:
+            return
+        if any(
+            task.state is TaskState.INTERVENTION_REQUIRED
+            for task in self.repositories.list_tasks(run.id)
+        ):
+            return
+        settled = self.repositories.update_run(
+            run.id,
+            state=RunState.FAILED,
+            error="every task requiring intervention has been attested to; the run can be resumed",
+        )
+        self._emit("RunInterventionResolved", run=settled)
 
     async def _hold_resources(
         self,
@@ -831,7 +925,8 @@ class ReferenceRuntime:
         A restart poses the question `may_repeat_without_outcome` answers, and the same one the
         timeout path answers: the runtime dispatched the task and never learned what became of it.
         This path used to answer it for itself, driving every active task to
-        `INTERVENTION_REQUIRED` — which is unresumable by design, and which no operation clears —
+        `INTERVENTION_REQUIRED` — which nothing resumes on its own, and which only an attestation
+        settles —
         so a restart permanently ended a run even for a capability that had declared repeating it
         harmless. Both paths now read the same declaration.
         """
@@ -855,7 +950,7 @@ class ReferenceRuntime:
                         f"'{RetrySafety.REPEATABLE.value}', so repeating it under that "
                         "uncertainty cannot harm anything: the attempt is recorded as a failure, "
                         "which a resume dispatches again, rather than as requiring intervention, "
-                        "which nothing clears."
+                        "which only a person's attestation settles."
                     )
                     event_type = "TaskFailed"
                 else:

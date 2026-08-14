@@ -94,3 +94,19 @@ class ArtifactKind(StrEnum):
     MODEL = "model"
     REPORT = "report"
     OTHER = "other"
+
+
+class AttestationFinding(StrEnum):
+    """What a person established about a task whose outcome the laboratory never learned.
+
+    Deliberately three answers and no fourth. A person standing at the bench can see whether an
+    operation happened; they cannot see what an instrument measured, and there is no finding here
+    that would let them say so. Recovering a reading means running the measurement again.
+    """
+
+    #: The operation happened. The task is settled and must not be dispatched again.
+    COMPLETED = "completed"
+    #: The operation did not happen, so repeating it carries the risk it always did and no more.
+    DID_NOT_OCCUR = "did_not_occur"
+    #: Neither is established, or the work should stop regardless. Nothing further is attempted.
+    ABANDONED = "abandoned"

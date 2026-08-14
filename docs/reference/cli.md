@@ -59,7 +59,7 @@ a laboratory that has never run reports that rather than creating an empty one.
 controller, releases the leases its interrupted tasks held, and reports what it moved. What each
 task becomes depends on what its capability declared: `retry_safety: repeatable` records the task
 `failed`, which a resume dispatches again, while every other declaration — including a capability
-the registry no longer exposes — records `intervention_required`, which no operation clears. The run
+the registry no longer exposes — records `intervention_required`, which only an attestation settles. The run
 follows its tasks, except that a run already `aborting` stays `intervention_required` regardless.
 
 That is recovery after a controller stopped, not a health check. Running it while work is in flight

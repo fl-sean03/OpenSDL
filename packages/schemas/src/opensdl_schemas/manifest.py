@@ -36,6 +36,11 @@ class RuntimeConfig(OpenSDLModel):
     max_concurrency: int = Field(default=4, gt=0)
     default_timeout_seconds: float = Field(default=60.0, gt=0)
     lease_ttl_seconds: float = Field(default=300.0, gt=0)
+    #: How long a task waits for an instrument another task is holding before it gives up. A
+    #: laboratory queues for equipment; it does not abandon an experiment because a colleague
+    #: reached the balance first. Zero restores the older behaviour of failing on first contention,
+    #: which is what a caller wanting to know immediately that the bench is busy should set.
+    lease_wait_seconds: float = Field(default=120.0, ge=0)
 
 
 class AdapterConfig(OpenSDLModel):

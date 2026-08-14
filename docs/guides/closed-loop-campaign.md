@@ -76,8 +76,22 @@ costs a dependency on the declarations and protocols, not on storage, policy and
 recovering a recipe from its color alone. That example also carries the scripts that turn a
 recorded round into a rendered plate and a composed frame.
 
-## What is still open
+## Running more than one candidate at a time
 
-The runner does not schedule around resource leases, so two candidates needing the same exclusive
-instrument are dispatched together and one fails as busy. That is why parallelism defaults to one,
-and why raising it means knowing the laboratory can carry it.
+`max_parallel_runs` is how many candidates execute together. Raising it above one used to throw
+work away: two candidates needing the same exclusive instrument were dispatched together and the
+loser failed on the lease, having already become a run.
+
+A task now queues for equipment somebody else holds, and runs when it is released. `run` bounds the
+queue with `lease_wait_seconds` from the manifest's `runtime` block, which defaults to two minutes;
+when it runs out the task fails as busy exactly as it did before. Set it to zero for a laboratory
+that should refuse rather than wait.
+
+Waiting is safe because a task holds its resources only for its own duration and releases them in a
+`finally`. Nothing holds one instrument while queuing for another, so the queue cannot deadlock.
+`acquire_leases` remains the authority on who holds what: it claims a set all-or-nothing, in sorted
+order, with each claim decided by the database rather than by the process asking.
+
+The wait is on the record. A task that queues emits `TaskWaitingForResources` and, when it gets the
+bench, `TaskResourcesAcquired`, so contention reads as contention instead of as an unexplained gap
+between timestamps.

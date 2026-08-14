@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import random
+import time
 from copy import deepcopy
 from typing import Any
 
@@ -30,6 +32,12 @@ from opensdl_core import (
 from opensdl_policy import PolicyEvaluator
 from opensdl_storage import ArtifactStore, RepositoryStore
 from opensdl_workflows import resolve_mapping, topological_layers, validate_workflow_graph
+
+#: How long a task waits before asking again for equipment somebody else holds, and the ceiling
+#: that backoff climbs to. Short enough that a freed instrument is picked up promptly, long enough
+#: that a queue of tasks is not a busy loop against the store.
+_LEASE_POLL_SECONDS = 0.05
+_LEASE_POLL_CEILING = 2.0
 
 #: Task states a resumed run must never dispatch again. Either the task is active or was active
 #: (`RUNNING`, `RETRYING`), or the record already says the physical outcome is unknown
@@ -99,6 +107,7 @@ class ReferenceRuntime:
         max_concurrency: int = 4,
         default_timeout_seconds: float = 60.0,
         lease_ttl_seconds: float = 300.0,
+        lease_wait_seconds: float = 120.0,
         default_run_context: dict[str, Any] | None = None,
     ) -> None:
         self.registry = registry
@@ -108,6 +117,7 @@ class ReferenceRuntime:
         self.max_concurrency = max_concurrency
         self.default_timeout_seconds = default_timeout_seconds
         self.lease_ttl_seconds = lease_ttl_seconds
+        self.lease_wait_seconds = lease_wait_seconds
         self.default_run_context = deepcopy(default_run_context or {})
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -341,6 +351,62 @@ class ReferenceRuntime:
             )
         return replaced
 
+    async def _hold_resources(
+        self,
+        resources: list[str],
+        *,
+        task: TaskRecord,
+        run: RunRecord,
+        seconds: float,
+        campaign_id: str | None,
+    ) -> bool:
+        """Take every resource this task needs, waiting for whoever holds them.
+
+        A laboratory queues for equipment. Failing the moment another task holds the balance is
+        what made `max_parallel_runs` above one produce one success and a row of busy failures:
+        the candidates were dispatched together, and the ones that lost the race were already runs
+        by the time they lost it.
+
+        Waiting is safe here for a reason worth stating, because it would not be safe in general.
+        A task holds its resources only for its own duration and releases them in a `finally`, so
+        no task ever holds one resource while waiting for another. Without that, this loop would
+        be a deadlock. `acquire_leases` is also all-or-nothing and claims in sorted order, so two
+        tasks wanting overlapping sets contend over the same resource first and neither walks away
+        holding half of what the other needs.
+
+        The wait is bounded. When it runs out the caller fails exactly as it did before, because a
+        task that queues forever is worse than one that says the bench is busy.
+        """
+        first = self.repositories.acquire_leases(resources, task.id, seconds)
+        if first or self.lease_wait_seconds <= 0:
+            return first
+
+        # Say that the task is waiting rather than let a gap in the timestamps imply it.
+        self._emit(
+            "TaskWaitingForResources",
+            run=run,
+            task=task,
+            payload={"resources": sorted(resources), "waitSeconds": self.lease_wait_seconds},
+            campaign_id=campaign_id,
+        )
+        deadline = time.monotonic() + self.lease_wait_seconds
+        delay = _LEASE_POLL_SECONDS
+        while time.monotonic() < deadline:
+            # Jittered so that several tasks released together do not retry in lockstep and hand
+            # the resource to the same one every round.
+            await asyncio.sleep(min(delay, max(0.0, deadline - time.monotonic())))
+            if self.repositories.acquire_leases(resources, task.id, seconds):
+                self._emit(
+                    "TaskResourcesAcquired",
+                    run=run,
+                    task=task,
+                    payload={"resources": sorted(resources)},
+                    campaign_id=campaign_id,
+                )
+                return True
+            delay = min(delay * 2, _LEASE_POLL_CEILING) * (0.5 + random.random())
+        return False
+
     def _lease_seconds_for(self, timeout: float, max_retries: int) -> float:
         """How long this task's resource lease has to last.
 
@@ -545,8 +611,12 @@ class ReferenceRuntime:
             timeout = (
                 step.timeout_seconds or definition.timeout_seconds or self.default_timeout_seconds
             )
-            if not self.repositories.acquire_leases(
-                resources, task.id, self._lease_seconds_for(timeout, max_retries)
+            if not await self._hold_resources(
+                resources,
+                task=task,
+                run=run,
+                seconds=self._lease_seconds_for(timeout, max_retries),
+                campaign_id=campaign_id,
             ):
                 task.state = TaskState.FAILED
                 task.error = f"resources busy: {resources}"

@@ -393,6 +393,12 @@
           "exclusiveMinimum": 0,
           "title": "Lease Ttl Seconds",
           "type": "number"
+        },
+        "lease_wait_seconds": {
+          "default": 120.0,
+          "minimum": 0,
+          "title": "Lease Wait Seconds",
+          "type": "number"
         }
       },
       "title": "RuntimeConfig",

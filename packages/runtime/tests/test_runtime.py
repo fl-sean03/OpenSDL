@@ -142,9 +142,14 @@ class BlockingAdapter(CapabilityAdapter):
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
         self.calls += 1
         self.entered.set()
-        deadline = time.monotonic() + self.seconds
-        while time.monotonic() < deadline:  # pure synchronous computation, no await point
-            pass
+        # Blocks the way a vendor SDK blocks: waiting on something, holding no processor. This was
+        # a `while time.monotonic() < deadline: pass` busy-wait, which occupies a whole core for
+        # the duration. That is fine on a workstation with twenty-four of them and not fine on a
+        # two-vCPU runner already running pytest and SQLAlchemy, where the concurrent run cannot
+        # get the processor it needs: it finished at 1.95s of a 2.03s block, which is
+        # indistinguishable from the stall this test exists to catch. A wait consumes nothing, so
+        # the measurement is of the runtime rather than of how busy the machine is.
+        time.sleep(self.seconds)
         self.finished.set()
         return ExecutionResult(request_id=request.request_id, output={"ok": True})
 
@@ -1306,6 +1311,11 @@ async def test_a_blocking_adapter_does_not_stall_a_concurrent_run(tmp_path) -> N
     That made `max_concurrency` a fiction and stalled every other run's timeout and lease handling
     behind whichever adapter blocked first. The blocking capability here declares a timeout it
     never reaches, so this measures the stall rather than the timeout.
+
+    What is measured is isolation from an adapter that *waits* — a network read, a serial
+    exchange, a vendor SDK call — which is what adapters overwhelmingly do. An adapter that
+    saturates a processor is a different situation with a different answer, and one this test
+    cannot distinguish from a stall on a machine that has no processor to spare.
     """
 
     blocking = BlockingAdapter(seconds=2.0, timeout_seconds=30.0)

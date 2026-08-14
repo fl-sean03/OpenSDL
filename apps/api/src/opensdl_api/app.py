@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any, AsyncIterator, Iterator
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as RequestValidationError
 
@@ -381,8 +381,16 @@ def create_app(
             raise HTTPException(status_code=422, detail="twin run projection failed") from exc
 
     @app.get("/viewer", responses=NOT_FOUND_RESPONSE)
-    def viewer() -> FileResponse:
-        return viewer_asset("index.html")
+    def viewer() -> RedirectResponse:
+        """Redirect to the directory form, because the page's own links are relative.
+
+        The viewer is built with a relative base so that one build serves from the API, from a
+        documentation site under a project path, and from a directory on disk. Relative links
+        resolve against the containing directory, and at `/viewer` that directory is the root, so
+        the page would ask for `/assets/...` and get nothing. At `/viewer/` it asks for
+        `/viewer/assets/...`, which is what is there.
+        """
+        return RedirectResponse(url="/viewer/", status_code=308)
 
     @app.get("/viewer/{asset_path:path}", responses=NOT_FOUND_RESPONSE)
     def viewer_path(asset_path: str) -> FileResponse:

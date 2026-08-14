@@ -1,6 +1,11 @@
 import type { TwinCue, TwinDefinition, TwinProjection } from "./types";
 
-export const DEMO_SCENE_URL = "/__opensdl_demo__/scene.glb";
+// Relative, so it resolves against whatever page is asking. The viewer is served from at least
+// three places — the API at `/viewer/`, a documentation site under a project path, and the dev
+// server — and an absolute path is only correct in one of them. Deliberately a plain string
+// rather than a `new URL(..., document.baseURI)`: this module is imported by tests that run
+// without a DOM, and a `document` reference at import time fails them.
+export const DEMO_SCENE_URL = "scene.glb";
 
 export const DEMO_DEFINITION: TwinDefinition = {
   apiVersion: "opensdl.dev/v0alpha1",

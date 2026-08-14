@@ -16,6 +16,7 @@ nav:
       - Quick start: getting-started/quickstart.md
       - Create a laboratory: guides/create-lab.md
       - Onboard a laboratory: architecture/lab-onboarding.md
+  - Watch a run: https://seanflorez.com/OpenSDL/viewer/
   - Concepts:
       - Capabilities: concepts/capabilities.md
       - Laboratory manifests: concepts/manifests.md
@@ -52,6 +53,9 @@ nav:
       - API: reference/api.md
       - Compatibility and versioning: reference/compatibility.md
   - Ecosystem: research/ecosystem.md
+hooks:
+  - scripts/mkdocs_viewer.py
+
 plugins:
   - search
   - mkdocstrings:

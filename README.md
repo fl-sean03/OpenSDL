@@ -17,7 +17,8 @@
   <sub>The repository's one reference scene, rendered from the procedural Blender source committed
   beside it; the optional viewer draws this same scene when replaying a recorded run. OpenSDL ships
   no equipment-model catalog — a laboratory authors its own scene in its own repository.
-  <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">The 49-second
+  <a href="https://seanflorez.com/OpenSDL/viewer/">Watch a recorded run</a> ·
+  <a href="examples/digital-twin-surrogate/scene/renders/opensdl-surrogate-cell.mp4">the 49-second
   render</a> · <a href="examples/digital-twin-surrogate/README.md">the example behind it</a> ·
   <a href="docs/guides/build-a-twin-scene.md">building a scene</a>.</sub>
 </p>
@@ -132,7 +133,9 @@ kinematics, or collision model, so what it shows is evidence about the run that 
 about reachability, clearance, transfer accuracy, calibration, or safe placement.
 [Lab-specific digital twins](docs/architecture/digital-twin.md) sets out the ownership model and what
 a projection can and cannot show. The cell at the top of this page is the reference scene the viewer
-draws; [building a scene](docs/guides/build-a-twin-scene.md) is how a laboratory authors its own.
+draws, and [the viewer is published](https://seanflorez.com/OpenSDL/viewer/) replaying a recorded
+run, so seeing one does not require cloning anything.
+[Building a scene](docs/guides/build-a-twin-scene.md) is how a laboratory authors its own.
 
 ## Build a laboratory of your own
 

@@ -7,6 +7,10 @@ import { defineConfig, type Plugin } from "vite";
 const viewerRoot = dirname(fileURLToPath(import.meta.url));
 const demoScene = resolve(viewerRoot, "../scene/assets/surrogate-cell.glb");
 
+// Where the built page looks for the scene when no OpenSDL API answers: beside itself. The dev
+// and preview servers put it there so the fallback path is the same one a static host serves.
+const DEMO_SCENE_ROUTE = "/scene.glb";
+
 function demoScenePlugin(): Plugin {
   const install = (middlewares: {
     use: (
@@ -21,7 +25,7 @@ function demoScenePlugin(): Plugin {
       ) => void,
     ) => void;
   }) => {
-    middlewares.use("/__opensdl_demo__/scene.glb", (request, response) => {
+    middlewares.use(DEMO_SCENE_ROUTE, (request, response) => {
       try {
         const size = statSync(demoScene).size;
         response.setHeader("Content-Type", "model/gltf-binary");
@@ -51,7 +55,10 @@ function demoScenePlugin(): Plugin {
 }
 
 export default defineConfig({
-  base: "/viewer/",
+  // Relative, so one build works behind the API at `/viewer/` and on a documentation site
+  // published under a project path. An absolute base hard-codes where the page lives, and this
+  // page is deliberately servable from more than one place.
+  base: "./",
   build: {
     chunkSizeWarningLimit: 700,
     emptyOutDir: true,

@@ -83,6 +83,10 @@ ALLOWED: dict[str, set[str]] = {
         "opensdl_schemas",
         "opensdl_api",
         "opensdl_twin",
+        # Composed rather than borrowed from, like everything else here. The benchmark scores an
+        # agent it is handed and cannot start one; supplying the agent is an application's job,
+        # and a benchmark nothing can run from a terminal would be a library with a test suite.
+        "opensdl_benchmark",
     },
     "opensdl_adapter_simulated_lab": {"opensdl_core", "opensdl_capabilities", "opensdl_simulation"},
     "opensdl_adapter_local_compute": {"opensdl_core", "opensdl_capabilities"},

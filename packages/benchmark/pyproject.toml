@@ -7,7 +7,8 @@ requires-python = ">=3.12"
 license = "Apache-2.0"
 dependencies = [
   "opensdl-core",
-  "opensdl-storage"
+  "opensdl-storage",
+  "pyyaml>=6.0,<7"
 ]
 
 [build-system]

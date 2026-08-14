@@ -15,6 +15,8 @@ opensdl export
 opensdl propagate
 opensdl serve-api
 opensdl serve-mcp
+opensdl benchmark show
+opensdl benchmark run
 opensdl campaign start
 opensdl campaign list
 opensdl campaign inspect
@@ -50,8 +52,8 @@ so a supervising script can tell a refusal from a crash without parsing prose. `
 
 ## Commands that read and commands that write
 
-`validate`, `doctor`, `inspect`, `events`, `export`, `capability list`, `campaign list`,
-`campaign inspect`, `migrate --check`, and `twin project` compose the
+`validate`, `doctor`, `inspect`, `events`, `export`, `benchmark show`, `capability list`,
+`campaign list`, `campaign inspect`, `migrate --check`, and `twin project` compose the
 laboratory read-only. They will not create a store, seed capabilities, or reconcile runs, and reading
 a laboratory that has never run reports that rather than creating an empty one.
 

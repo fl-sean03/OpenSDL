@@ -13,6 +13,7 @@ be slower, dearer, and less repeatable.
 from __future__ import annotations
 
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from opensdl_core import OpenSDLModel, utc_now
@@ -70,7 +71,12 @@ class BenchmarkTask(OpenSDLModel):
     #: Grouped for the weighted index, in the way an evaluation suite groups its components.
     category: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
-    #: The laboratory this task runs against, by manifest path relative to the task file.
+    #: The directory holding the laboratory this task runs against, relative to the suite file.
+    #: Only consulted when a suite resolves its tasks; a caller driving `attempt_task` directly
+    #: hands over the directory itself, and this stays at its default unread.
+    laboratory: str = Field(default=".", min_length=1)
+    #: The manifest inside that directory, relative to its root. The agent is handed the copied
+    #: laboratory, so this is the path it would open, not a path on this machine.
     manifest: str = Field(min_length=1)
     #: Where that laboratory keeps its records, relative to the same directory. Stated rather than
     #: read out of the manifest: this package may not import the manifest schema, and a grader that
@@ -80,6 +86,35 @@ class BenchmarkTask(OpenSDLModel):
     #: What a competent operator would need. Reported beside the result rather than enforced, so a
     #: model that takes ten times as long is visible as such instead of being failed.
     reference_seconds: float | None = Field(default=None, gt=0)
+
+
+class BenchmarkSuite(OpenSDLModel):
+    """Every task a model is asked, and how the headline number is weighted.
+
+    A suite is data rather than code so that the thing being compared across models is a file
+    anyone can read and diff. A result quoted against "the OpenSDL benchmark" means nothing unless
+    the suite it came from is pinned, which is what `version` is for: changing a task changes what
+    the number means, and a number that changed because the questions changed is not a measurement.
+    """
+
+    name: str = Field(min_length=1)
+    #: Bumped whenever a task is added, removed, or reworded. Scores are comparable within a
+    #: version and are not comparable across one.
+    version: str = Field(min_length=1)
+    description: str = ""
+    #: Category weights for the headline index. Categories absent here weigh nothing, so a suite
+    #: that states weights states all of them; stating none weighs every category equally.
+    weights: dict[str, float] = Field(default_factory=dict)
+    tasks: list[BenchmarkTask] = Field(min_length=1)
+    #: The directory task paths resolve against, set by the loader from where the file was found
+    #: rather than read out of it. A suite that could name its own root could point at anything on
+    #: the machine that ran it, and the file is written by whoever supplies the tasks.
+    root: Path = Field(default=Path())
+
+    def source_for(self, task: BenchmarkTask) -> Path:
+        """The laboratory directory this task runs against."""
+
+        return (self.root / task.laboratory).resolve()
 
 
 class CheckOutcome(OpenSDLModel):
@@ -175,6 +210,14 @@ class BenchmarkReport(OpenSDLModel):
 
     model: str
     scores: list[TaskScore]
+    #: What was asked, so a quoted number carries its own questions. A score without the suite and
+    #: version behind it cannot be compared with anything, including a later run of "the same"
+    #: benchmark.
+    suite: str = ""
+    suite_version: str = ""
+    #: Carried from the suite so that re-weighting a published result is a deliberate argument
+    #: rather than something that happens by leaving an argument off.
+    weights: dict[str, float] = Field(default_factory=dict)
     generated_at: Any = Field(default_factory=utc_now)
 
     @property
@@ -190,12 +233,15 @@ class BenchmarkReport(OpenSDLModel):
         """One number, weighted by category.
 
         Unweighted, this is the mean over categories rather than over tasks, so adding three easy
-        tasks to one category cannot lift the headline figure.
+        tasks to one category cannot lift the headline figure. Passing `weights` re-weights a
+        recorded result, which is a thing worth doing and worth doing on purpose: a laboratory that
+        cares more about restraint than throughput is entitled to say so and say it out loud.
         """
         categories = self.categories
         if not categories:
             return 0.0
-        if weights is None:
+        weights = self.weights if weights is None else weights
+        if not weights:
             return sum(categories.values()) / len(categories)
         total = sum(weights.get(name, 0.0) for name in categories)
         if total <= 0:

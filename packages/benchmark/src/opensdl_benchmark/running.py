@@ -23,7 +23,7 @@ from opensdl_storage import Database, Repositories
 from pydantic import Field
 
 from .grading import grade
-from .models import BenchmarkReport, BenchmarkTask, TaskAttempt, TaskScore
+from .models import BenchmarkReport, BenchmarkSuite, BenchmarkTask, TaskAttempt, TaskScore
 
 #: Directories that are the previous occupant's evidence rather than the laboratory's definition.
 _NOT_COPIED = shutil.ignore_patterns(".opensdl", "__pycache__", ".git", "renders")
@@ -113,14 +113,25 @@ async def run_task(
 
 
 async def run_suite(
-    tasks: list[BenchmarkTask],
-    source_for: Callable[[BenchmarkTask], Path],
+    suite: BenchmarkSuite,
     agent: Agent,
     *,
     model: str,
     repeats: int = 1,
 ) -> BenchmarkReport:
-    """Every task, the same agent, the same conditions."""
+    """Every task in the suite, the same agent, the same conditions.
 
-    scores = [await run_task(task, source_for(task), agent, repeats=repeats) for task in tasks]
-    return BenchmarkReport(model=model, scores=scores)
+    The suite's name, version and weights are copied onto the report rather than left for the
+    caller to attach. A result that has to be labelled by hand gets labelled wrongly eventually,
+    and a benchmark number whose questions cannot be recovered is an anecdote.
+    """
+    scores = [
+        await run_task(task, suite.source_for(task), agent, repeats=repeats) for task in suite.tasks
+    ]
+    return BenchmarkReport(
+        model=model,
+        scores=scores,
+        suite=suite.name,
+        suite_version=suite.version,
+        weights=dict(suite.weights),
+    )

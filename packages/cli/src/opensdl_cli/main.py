@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib.metadata import version as distribution_version
@@ -14,6 +15,14 @@ from rich.console import Console
 from rich.table import Table
 from typer.core import TyperGroup
 
+from opensdl_benchmark import (
+    BenchmarkReport,
+    BenchmarkSuite,
+    SuiteError,
+    command_agent,
+    load_suite,
+    run_suite,
+)
 from opensdl_controller import AttestationFinding, OpenSDLSystem
 from opensdl_controller import migrate as migrate_laboratory
 from opensdl_operators import CampaignLauncher
@@ -178,12 +187,16 @@ app = typer.Typer(
     help="Build, validate, run, and extend OpenSDL laboratories.",
 )
 adapter_app = typer.Typer(no_args_is_help=True, help="Create and inspect adapters.")
+benchmark_app = typer.Typer(
+    no_args_is_help=True, help="Score an agent against a suite of laboratory tasks."
+)
 campaign_app = typer.Typer(no_args_is_help=True, help="Run and inspect closed-loop campaigns.")
 capability_app = typer.Typer(no_args_is_help=True, help="Create and inspect capabilities.")
 schema_app = typer.Typer(no_args_is_help=True, help="Generate public schemas.")
 domain_app = typer.Typer(no_args_is_help=True, help="Create scientific domain packs.")
 twin_app = typer.Typer(no_args_is_help=True, help="Validate and project digital twins.")
 app.add_typer(adapter_app, name="adapter")
+app.add_typer(benchmark_app, name="benchmark")
 app.add_typer(campaign_app, name="campaign")
 app.add_typer(capability_app, name="capability")
 app.add_typer(domain_app, name="domain-pack")
@@ -781,6 +794,142 @@ def inspect_campaign(
         except KeyError:
             typer.echo(f"Campaign not found: {campaign_id}", err=True)
             raise typer.Exit(EXIT_NOT_FOUND) from None
+
+
+def _loaded_suite(path: Path, only: list[str] | None) -> BenchmarkSuite:
+    """Read a suite and narrow it to the named tasks, refusing a name that is not in it."""
+
+    try:
+        suite = load_suite(path)
+    except SuiteError as exc:
+        typer.echo(f"Invalid: {exc}", err=True)
+        raise typer.Exit(EXIT_INVALID) from None
+    if not only:
+        return suite
+    wanted = set(only)
+    if unknown := sorted(wanted - {task.id for task in suite.tasks}):
+        # Refused rather than ignored. A mistyped `--only` that quietly selected nothing would
+        # report a perfect score over zero tasks, which reads like a pass.
+        typer.echo(f"Not found: {suite.name} has no task named {', '.join(unknown)}", err=True)
+        raise typer.Exit(EXIT_NOT_FOUND)
+    return suite.model_copy(update={"tasks": [t for t in suite.tasks if t.id in wanted]})
+
+
+def _report_table(report: BenchmarkReport, *, partial: bool) -> Table:
+    headline = "partial" if partial else f"{report.index():.3f}"
+    table = Table(
+        "Task",
+        "Category",
+        "pass@1",
+        "Score",
+        "Seconds",
+        "Cost",
+        title=f"{report.suite} v{report.suite_version} · {report.model} · index {headline}",
+    )
+    for score in report.scores:
+        table.add_row(
+            score.task_id,
+            score.category,
+            f"{score.pass_at_1:.2f}",
+            f"{score.mean_score:.2f}",
+            f"{score.mean_seconds:.1f}",
+            f"${score.cost_usd:.4f}",
+        )
+    return table
+
+
+def _print_report(report: BenchmarkReport, *, partial: bool) -> None:
+    console.print(_report_table(report, partial=partial))
+    if partial:
+        # The index is a mean over categories in the suite. Over a subset it is a mean over
+        # whichever categories happened to be selected, which is not the suite's number and must
+        # not be quoted as one.
+        console.print("[yellow]Ran a subset, so no suite index is reported.[/yellow]")
+    for score in report.scores:
+        for attempt in score.attempts:
+            if attempt.error:
+                console.print(
+                    f"[red]{score.task_id} #{attempt.repeat}[/red] did not run: {attempt.error}"
+                )
+            for outcome in attempt.outcomes:
+                if not outcome.passed:
+                    console.print(
+                        f"[red]{score.task_id} #{attempt.repeat}[/red] {outcome.description}"
+                        f" — {outcome.detail}"
+                    )
+
+
+@benchmark_app.command("show")
+def show_benchmark(
+    suite: Annotated[Path, typer.Argument(metavar="SUITE", help="Path to a suite file.")],
+    only: Annotated[list[str] | None, typer.Option("--only", help="Task id. Repeatable.")] = None,
+) -> None:
+    """List what a suite asks, without running anything.
+
+    Loading validates it, so this is also how to find out that a suite is unrunnable without
+    paying an agent to discover it.
+    """
+    loaded = _loaded_suite(suite, only)
+    table = Table(
+        "Task",
+        "Category",
+        "Laboratory",
+        "Checks",
+        title=f"{loaded.name} v{loaded.version}",
+    )
+    for task in loaded.tasks:
+        table.add_row(task.id, task.category, task.laboratory, str(len(task.checks)))
+    console.print(table)
+
+
+@benchmark_app.command("run")
+def run_benchmark(
+    suite: Annotated[Path, typer.Argument(metavar="SUITE", help="Path to a suite file.")],
+    agent: Annotated[
+        str,
+        typer.Option(
+            "--agent",
+            help="Command to run as the agent. '{prompt}' and '{laboratory}' are substituted, "
+            "and a command naming neither is given the prompt on stdin. It runs with a "
+            "throwaway copy of the laboratory as its working directory.",
+        ),
+    ],
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            help="What to record this result against. Required rather than guessed from the "
+            "command: a report labelled with the wrong model is worse than no report.",
+        ),
+    ],
+    repeats: Annotated[int, typer.Option("--repeats", min=1)] = 1,
+    timeout_seconds: Annotated[float, typer.Option("--timeout", min=1)] = 900.0,
+    only: Annotated[list[str] | None, typer.Option("--only", help="Task id. Repeatable.")] = None,
+    output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+) -> None:
+    """Run every task in a suite against an agent and score it from the records.
+
+    Each attempt gets its own copy of the laboratory, and the copy is what the agent is handed —
+    the suite's own directory is never given to the command and is never written to.
+    """
+    command = shlex.split(agent)
+    if not command:
+        typer.echo("Usage: --agent needs a command to run", err=True)
+        raise typer.Exit(EXIT_USAGE)
+
+    loaded = _loaded_suite(suite, only)
+    report = asyncio.run(
+        run_suite(
+            loaded,
+            command_agent(command, timeout_seconds=timeout_seconds),
+            model=model,
+            repeats=repeats,
+        )
+    )
+    _print_report(report, partial=bool(only))
+    if output:
+        output.write_text(report.model_dump_json(indent=2, by_alias=True) + "\n", encoding="utf-8")
+        console.print(f"Wrote {output}")
 
 
 @capability_app.command("list")

@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from typer.core import TyperGroup
 
-from opensdl_controller import OpenSDLSystem
+from opensdl_controller import AttestationFinding, OpenSDLSystem
 from opensdl_controller import migrate as migrate_laboratory
 from opensdl_operators import CampaignLauncher
 from opensdl_provenance import PropagationGraph
@@ -465,6 +465,44 @@ def inspect(
         except KeyError:
             typer.echo(f"Run not found: {run_id}", err=True)
             raise typer.Exit(EXIT_NOT_FOUND) from None
+
+
+@app.command()
+def attest(
+    task_id: Annotated[str, typer.Argument(help="The task requiring intervention")],
+    finding: Annotated[
+        AttestationFinding,
+        typer.Option("--finding", "-f", help="What you established by inspecting the equipment"),
+    ],
+    basis: Annotated[
+        str,
+        typer.Option("--basis", "-b", help="What you inspected to establish it"),
+    ],
+    operator_id: Annotated[str, typer.Option("--operator", "-o")] = "operator/local",
+    artifact_id: Annotated[
+        list[str] | None,
+        typer.Option("--artifact", help="Supporting evidence, repeatable"),
+    ] = None,
+    notes: Annotated[str | None, typer.Option("--notes")] = None,
+    manifest: Annotated[Path, typer.Option("--manifest", "-m")] = Path("opensdl.yaml"),
+) -> None:
+    """Record what you established about a task whose outcome the laboratory never learned.
+
+    This is the way past `intervention_required`, and it is a record rather than an override: the
+    run becomes resumable because you went and looked, and `--basis` is what you looked at. It
+    takes no measurements. You can establish that a plate was mixed; you cannot establish what the
+    reader would have said, so a step that needed that value fails rather than using one you typed.
+    """
+    with _composed(manifest) as system:
+        attestation = system.runtime.attest_task(
+            task_id,
+            finding=finding,
+            operator_id=operator_id,
+            basis=basis,
+            artifact_ids=tuple(artifact_id or ()),
+            notes=notes,
+        )
+        console.print_json(data=attestation.model_dump(mode="json"))
 
 
 @app.command()

@@ -1,3 +1,4 @@
+from opensdl_core import AttestationFinding
 from opensdl_twin import (
     TwinCue,
     TwinDefinition,
@@ -10,6 +11,7 @@ from . import migrate
 from .system import OpenSDLSystem
 
 __all__ = [
+    "AttestationFinding",
     "OpenSDLSystem",
     "migrate",
     "TwinCue",

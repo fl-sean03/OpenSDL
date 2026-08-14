@@ -40,9 +40,14 @@ into it instead. Running the same identifier twice without `--resume` is refused
 A resume stops rather than continuing when any iteration names a run whose physical outcome the
 record does not establish — an `intervention_required` run above all. The run layer refuses to
 re-dispatch such a run, and a campaign that carried on past it would be granting itself an
-acknowledgement OpenSDL does not offer. There is deliberately no override. A person establishes what
-the equipment did, and until an operation exists for recording that, the remaining search is
-submitted as a new campaign.
+acknowledgement OpenSDL does not offer.
+
+A person establishes what the equipment did, and `attest_task` is where they record it: the finding,
+who established it, and the basis they established it on. There is still no override, and that
+distinction is the point — the run becomes resumable because somebody went and looked, not because a
+flag was set. An attestation carries no measurements. Somebody at the bench can see that a plate was
+mixed; they cannot see what the colorimeter would have read, so a step that needed the reading fails
+for want of it rather than consuming a number nobody measured.
 
 ## What a plugin exchanges is a published document
 

@@ -59,12 +59,31 @@ a laboratory that has never run reports that rather than creating an empty one.
 controller, releases the leases its interrupted tasks held, and reports what it moved. What each
 task becomes depends on what its capability declared: `retry_safety: repeatable` records the task
 `failed`, which a resume dispatches again, while every other declaration — including a capability
-the registry no longer exposes — records `intervention_required`, which no operation clears. The run
+the registry no longer exposes — records `intervention_required`, which only an attestation settles. The run
 follows its tasks, except that a run already `aborting` stays `intervention_required` regardless.
 
 That is recovery after a controller stopped, not a health check. Running it while work is in flight
-still destroys the record of the run in flight, and for a capability that cannot declare repeating
-safe there is no way back.
+still destroys the record of the run in flight.
+
+`attest` is the way back for the tasks it leaves in `intervention_required`. Somebody walks over,
+looks at the equipment, and records what they established:
+
+```bash
+opensdl attest task_9f21 \
+  --finding completed \
+  --basis "plate seated in the mixer with the lid closed; deck otherwise clear" \
+  --operator operator/alice
+```
+
+`--basis` is required. An attestation without one is an assertion, and the record would not survive
+anyone asking how it was known. `--finding completed` settles the task as succeeded, `did_not_occur`
+returns it to `failed` where a resume dispatches it again, and `abandoned` cancels it. Once no task
+of a run is still waiting on a person, the run becomes `failed`, which is the state a resume starts
+from.
+
+It records no measurements, and there is no option that would. You can establish that a plate was
+mixed; you cannot establish what the reader would have said. A later step that needed that value
+fails for want of it rather than using one somebody typed.
 
 Inputs accepted by `opensdl run` may be provided as an inline JSON object or as `@path/to/inputs.json`.
 

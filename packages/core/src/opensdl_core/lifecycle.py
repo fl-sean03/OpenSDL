@@ -25,8 +25,11 @@ RUN_TRANSITIONS: dict[RunState, set[RunState]] = {
     RunState.COMPLETED: set(),
 }
 
-#: Declared task state machine. `SUCCEEDED`, `CANCELLED`, and `INTERVENTION_REQUIRED` never lead
-#: back to a dispatching state: an action whose outcome is settled or unknown is not replayed.
+#: Declared task state machine. `SUCCEEDED` and `CANCELLED` never lead back to a dispatching
+#: state: an action whose outcome is settled is not replayed. `INTERVENTION_REQUIRED` does not
+#: either, on its own — it leaves only where a person has established what the equipment did, and
+#: `SUCCEEDED` is among the destinations because "it happened" is one of the things they can
+#: establish. See `Attestation`, which is the only operation that performs these transitions.
 TASK_TRANSITIONS: dict[TaskState, set[TaskState]] = {
     TaskState.PENDING: {
         TaskState.WAITING_FOR_RESOURCES,
@@ -57,7 +60,12 @@ TASK_TRANSITIONS: dict[TaskState, set[TaskState]] = {
     # Resuming a failed run re-acquires the step's resource leases before dispatching it again.
     TaskState.FAILED: {TaskState.WAITING_FOR_RESOURCES, TaskState.RETRYING, TaskState.RUNNING},
     TaskState.CANCELLED: set(),
-    TaskState.INTERVENTION_REQUIRED: {TaskState.RUNNING, TaskState.FAILED, TaskState.CANCELLED},
+    TaskState.INTERVENTION_REQUIRED: {
+        TaskState.RUNNING,
+        TaskState.SUCCEEDED,
+        TaskState.FAILED,
+        TaskState.CANCELLED,
+    },
 }
 
 

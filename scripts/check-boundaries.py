@@ -49,6 +49,9 @@ ALLOWED: dict[str, set[str]] = {
         "opensdl_workflows",
     },
     "opensdl_provenance": {"opensdl_core", "opensdl_storage"},
+    # Grades from the evidence store and composes nothing, which is the whole claim: a
+    # benchmark that had to start a laboratory to score one would be scoring itself.
+    "opensdl_benchmark": {"opensdl_core", "opensdl_storage"},
     "opensdl_operators": {
         "opensdl_core",
         "opensdl_capabilities",

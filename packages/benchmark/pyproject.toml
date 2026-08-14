@@ -1,0 +1,18 @@
+[project]
+name = "opensdl-benchmark"
+version = "0.1.0a0"
+description = "Deterministic scoring for whether an agent can operate a laboratory."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "opensdl-core",
+  "opensdl-storage"
+]
+
+[build-system]
+requires = ["setuptools>=83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

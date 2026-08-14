@@ -40,15 +40,26 @@ def _run(store: Repositories, state: RunState) -> RunRecord:
 
 
 def _succeeded(store: Repositories, run: RunRecord, capability: str) -> None:
+    """A succeeded task, recorded the way the runtime records one.
+
+    Deliberately no `capabilityId` in the event payload, because the runtime writes none. This
+    helper used to invent one, which made the grader's bug invisible: it read a field that has
+    never existed, counted nothing, and the test agreed because the fixture had been written to
+    match the code rather than the system.
+    """
     task = store.upsert_task(
         TaskRecord(run_id=run.id, step_id="s", capability_id=capability, state=TaskState.PENDING)
     )
+    task.state = TaskState.RUNNING
+    store.upsert_task(task)
+    task.state = TaskState.SUCCEEDED
+    store.upsert_task(task)
     store.append_event(
         EventRecord(
             type="TaskSucceeded",
             run_id=run.id,
             task_id=task.id,
-            payload={"capabilityId": capability},
+            payload={"attempt": 1, "output": {}, "adapter": "simulated-lab"},
         )
     )
 

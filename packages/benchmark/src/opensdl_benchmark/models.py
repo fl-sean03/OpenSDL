@@ -72,6 +72,10 @@ class BenchmarkTask(OpenSDLModel):
     prompt: str = Field(min_length=1)
     #: The laboratory this task runs against, by manifest path relative to the task file.
     manifest: str = Field(min_length=1)
+    #: Where that laboratory keeps its records, relative to the same directory. Stated rather than
+    #: read out of the manifest: this package may not import the manifest schema, and a grader that
+    #: guessed the path would open an empty database and report a confident nothing.
+    store: str = Field(default=".opensdl/opensdl.db", min_length=1)
     checks: list[Check] = Field(min_length=1)
     #: What a competent operator would need. Reported beside the result rather than enforced, so a
     #: model that takes ten times as long is visible as such instead of being failed.

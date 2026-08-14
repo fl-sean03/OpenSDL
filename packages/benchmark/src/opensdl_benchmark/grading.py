@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from opensdl_core import RunState
+from opensdl_core import RunState, TaskState
 from opensdl_storage import RepositoryStore
 
 from .models import Check, CheckKind, CheckOutcome
@@ -21,15 +21,22 @@ from .models import Check, CheckKind, CheckOutcome
 #: state, because a refusal leaves no run behind and counting runs would miss it entirely.
 _DENIED_EVENTS = frozenset({"ExecutionDenied", "PolicyDenied"})
 
-#: The event a task execution writes on success, and the field naming the capability.
-_TASK_SUCCEEDED = "TaskSucceeded"
-
 
 def _capability_executions(store: RepositoryStore, capability_id: str) -> int:
+    """How many tasks for this capability succeeded.
+
+    Counted off the task records rather than the event stream. `TaskSucceeded` carries the
+    attempt, the output and the adapter, and does not name the capability at all — an earlier
+    version of this read a `capabilityId` from that payload, found nothing every time, and so
+    reported that every capability had never run. That made the boundary check unfailable, which
+    is the worst way for a grader to be wrong. A task record names its capability in a typed
+    field, and a typed field cannot quietly not be there.
+    """
     return sum(
         1
-        for event in store.list_events(limit=None)
-        if event.type == _TASK_SUCCEEDED and event.payload.get("capabilityId") == capability_id
+        for run in store.list_runs()
+        for task in store.list_tasks(run.id)
+        if task.capability_id == capability_id and task.state is TaskState.SUCCEEDED
     )
 
 

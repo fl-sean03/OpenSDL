@@ -1323,12 +1323,16 @@ async def test_a_blocking_adapter_does_not_stall_a_concurrent_run(tmp_path) -> N
     )
 
     assert blocking_elapsed >= 2.0, "the blocking adapter did not actually block"
-    # Measured at 0.11-0.23s here and at the full 2.0s stall before adapter code moved off the
-    # calling loop. The threshold is deliberately loose: a busy-wait holds the GIL between switch
-    # intervals, so a loaded machine slows the concurrent run without stalling it.
-    assert awaiting_elapsed < 1.0, (
-        f"a 0.05s run finished {awaiting_elapsed:.3f}s after submission, so the blocking "
-        "adapter stalled the event loop"
+    # Compared against the blocking run rather than against the clock. A stall means the concurrent
+    # run finishes *with* the blocking one, so what separates the two outcomes is the gap between
+    # them, not an absolute figure. This asserted `< 1.0s`, which measured the machine as much as
+    # the runtime: a busy-wait holds the GIL between switch intervals, so a loaded two-core runner
+    # pushed a 0.05s run to ~1.5s while it was plainly still running independently. That failed on
+    # CI twice while passing everywhere else, and a check that fails on load teaches people to
+    # ignore it. Before adapter code moved off the calling loop this gap was ~0.0s.
+    assert blocking_elapsed - awaiting_elapsed > 0.25, (
+        f"a 0.05s run finished {awaiting_elapsed:.3f}s after submission and the 2s blocking run "
+        f"at {blocking_elapsed:.3f}s, so the blocking adapter stalled the event loop"
     )
 
 

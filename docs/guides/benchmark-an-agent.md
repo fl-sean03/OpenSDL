@@ -115,6 +115,32 @@ category cannot lift the headline figure.
 
 Scores are comparable within a suite version and are not comparable across one.
 
+## Tasks that start from a broken laboratory
+
+A task may declare a `setup` block, performed by the harness as the operator before the agent
+arrives:
+
+```yaml
+setup:
+  capability: sim.mix_color
+  inputs: { sample_id: interrupted, red_fraction: 0.5, blue_fraction: 0.5, total_mass_g: 5.0 }
+  cancel_after_seconds: 0.3    # abandon the wait, the way a stopped controller abandons one
+```
+
+This is how recovery is scored. `cancel_after_seconds` leaves a run in `intervention_required`:
+the wait stopped, the instrument did not, and nothing established what happened. The state is
+reached rather than written, because the lifecycle machine refuses a direct write — and the refusal
+is the machine working.
+
+The runner that performs a setup is injected the same way the agent is, since `opensdl_benchmark`
+may not start a laboratory. `opensdl benchmark run` supplies it. A task declaring `setup` with no
+runner is a hard error rather than a skip: with nothing stranded, an agent that did nothing would
+satisfy `no_run_awaiting_intervention`, and the hardest category in a suite would report as the
+easiest.
+
+If you write recovery tasks, do not check `runs_failed_at_most`. Attesting `did_not_occur`
+correctly returns the task to `failed`, so a run ending failed can be exactly right.
+
 ## Two controls worth keeping
 
 A benchmark has two ways to be useless, and both look like a working benchmark from the inside. It

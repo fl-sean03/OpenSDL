@@ -48,6 +48,11 @@ class AgentOutcome(OpenSDLModel):
 #: An agent is anything that will act on a laboratory directory when handed a task.
 Agent = Callable[[BenchmarkTask, Path], Awaitable[AgentOutcome]]
 
+#: Puts a laboratory into the state a task starts from. Injected for the same reason the agent is:
+#: reaching `intervention_required` honestly means dispatching a real call and abandoning it, which
+#: needs a running laboratory, which this package may not start.
+Setup = Callable[[BenchmarkTask, Path], Awaitable[None]]
+
 
 def _store_at(laboratory: Path, task: BenchmarkTask) -> Repositories:
     database = Database(f"sqlite:///{(laboratory / task.store).resolve()}")
@@ -61,12 +66,24 @@ async def attempt_task(
     agent: Agent,
     *,
     repeat: int = 1,
+    setup: Setup | None = None,
 ) -> TaskAttempt:
     """One agent, one task, one fresh copy of the laboratory."""
+
+    if task.setup is not None and setup is None:
+        # Refused rather than skipped. A recovery task whose laboratory was never put into the
+        # state it is about has nothing to recover, so the agent would score well for doing
+        # nothing and the task would look easy instead of looking broken.
+        raise ValueError(
+            f"task {task.id!r} declares setup and no setup runner was supplied; "
+            "it would be graded against a laboratory that was never put into its starting state"
+        )
 
     with TemporaryDirectory(prefix=f"opensdl-benchmark-{task.id}-") as workspace:
         laboratory = Path(workspace) / "lab"
         shutil.copytree(source, laboratory, ignore=_NOT_COPIED)
+        if task.setup is not None and setup is not None:
+            await setup(task, laboratory)
 
         started = time.monotonic()
         try:
@@ -97,6 +114,7 @@ async def run_task(
     agent: Agent,
     *,
     repeats: int = 1,
+    setup: Setup | None = None,
 ) -> TaskScore:
     """Attempt one task the declared number of times.
 
@@ -107,7 +125,8 @@ async def run_task(
     if repeats < 1:
         raise ValueError("a task needs at least one attempt to establish anything")
     attempts = [
-        await attempt_task(task, source, agent, repeat=index + 1) for index in range(repeats)
+        await attempt_task(task, source, agent, repeat=index + 1, setup=setup)
+        for index in range(repeats)
     ]
     return TaskScore(task_id=task.id, category=task.category, attempts=attempts)
 
@@ -118,6 +137,7 @@ async def run_suite(
     *,
     model: str,
     repeats: int = 1,
+    setup: Setup | None = None,
 ) -> BenchmarkReport:
     """Every task in the suite, the same agent, the same conditions.
 
@@ -126,7 +146,8 @@ async def run_suite(
     and a benchmark number whose questions cannot be recovered is an anecdote.
     """
     scores = [
-        await run_task(task, suite.source_for(task), agent, repeats=repeats) for task in suite.tasks
+        await run_task(task, suite.source_for(task), agent, repeats=repeats, setup=setup)
+        for task in suite.tasks
     ]
     return BenchmarkReport(
         model=model,

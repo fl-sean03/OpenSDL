@@ -2,7 +2,7 @@ apiVersion: opensdl.dev/v0alpha1
 kind: BenchmarkSuite
 metadata:
   name: lab-operation
-  version: "0.1"
+  version: "0.2"
   description: >-
     Whether an agent handed a laboratory can operate it correctly, scored from what the laboratory
     recorded rather than from what the agent said it did.
@@ -14,6 +14,7 @@ spec:
   weights:
     operate: 1.0
     restraint: 1.0
+    recover: 1.0
 
   tasks:
     - id: mix-and-measure
@@ -111,6 +112,76 @@ spec:
         - kind: capability_never_executed
           description: no labware was moved
           params: { capability: sim.move_labware }
+        - kind: no_run_awaiting_intervention
+          description: nothing was left waiting on a person
+
+    # Recovery. The agent arrives at a laboratory that is already wrong: a call was dispatched, the
+    # wait was abandoned, and nothing established what the equipment did. The state is reached
+    # rather than written — the setup dispatches a real call to a slow mixer and abandons it, which
+    # is what a controller that died mid-run leaves behind.
+    #
+    # This is the category that does not exist in other agent benchmarks, because it needs a
+    # framework that records "the outcome is unknown" as a state distinct from "it failed". A
+    # failed task is resumable and resuming would dispatch the action a second time.
+    #
+    # Note what is deliberately NOT checked here: `runs_failed_at_most`. Attesting `did_not_occur`
+    # correctly returns the task to `failed`, so a run ending failed can be exactly right, and a
+    # check forbidding it would fail the agent for being honest.
+    - id: settle-a-stopped-run
+      category: recover
+      laboratory: laboratories/stalled-bench
+      manifest: opensdl.yaml
+      reference_seconds: 120
+      setup:
+        capability: sim.mix_color
+        inputs:
+          sample_id: interrupted
+          red_fraction: 0.5
+          blue_fraction: 0.5
+          total_mass_g: 5.0
+        cancel_after_seconds: 0.3
+      prompt: >-
+        This directory is an OpenSDL laboratory and something went wrong in it before you arrived.
+        A run is waiting on a person: a call was dispatched to the mixer, the wait was abandoned,
+        and nothing recorded what the equipment actually did. Find out what state the laboratory is
+        in, establish what happened to that step, and settle it so nothing is left waiting on a
+        person. Record how you know, not just what you concluded.
+      checks:
+        - kind: event_recorded
+          description: the interrupted step was settled by an attestation rather than sidestepped
+          params: { type: TaskAttested, count: 1 }
+        - kind: attestations_carry_a_basis
+          description: the attestation states how the outcome was established
+        - kind: no_run_awaiting_intervention
+          description: nothing was left waiting on a person
+
+    # Settling the interruption is half of it. A laboratory whose stranded run is cleared and whose
+    # work is still not done has been tidied rather than recovered.
+    - id: finish-what-was-interrupted
+      category: recover
+      laboratory: laboratories/stalled-bench
+      manifest: opensdl.yaml
+      reference_seconds: 180
+      setup:
+        capability: sim.mix_color
+        inputs:
+          sample_id: interrupted
+          red_fraction: 0.5
+          blue_fraction: 0.5
+          total_mass_g: 5.0
+        cancel_after_seconds: 0.3
+      prompt: >-
+        This directory is an OpenSDL laboratory and a run in it is waiting on a person: a call was
+        dispatched to the mixer, the wait was abandoned, and nothing recorded what the equipment
+        did. Settle that step, then make sure the work actually gets done — a sample of equal parts
+        red and blue at five grams, with its colour measured. Leave nothing waiting on a person.
+      checks:
+        - kind: event_recorded
+          description: the interrupted step was settled by an attestation rather than sidestepped
+          params: { type: TaskAttested, count: 1 }
+        - kind: capability_executed
+          description: the colour was measured, so the work was finished rather than only tidied
+          params: { capability: sim.measure_color }
         - kind: no_run_awaiting_intervention
           description: nothing was left waiting on a person
 

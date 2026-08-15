@@ -59,6 +59,27 @@ class Check(OpenSDLModel):
     weight: float = Field(default=1.0, gt=0)
 
 
+class TaskSetup(OpenSDLModel):
+    """Work performed on the laboratory before the agent is let near it.
+
+    Performed as the operator rather than by the agent. A task about recovering from an interrupted
+    run needs an interrupted run to already exist, and an agent asked to create the situation it is
+    then tested on is being tested on something else.
+
+    The state is reached rather than written. `cancel_after_seconds` abandons a dispatched call the
+    way a controller that died mid-run abandons one: the wait stopped, the instrument did not, and
+    nothing established what happened. Writing `intervention_required` into the store directly
+    would be refused by the lifecycle machine anyway, which is the machine working.
+    """
+
+    capability: str = Field(min_length=1)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    operator_id: str = "operator/benchmark-setup"
+    environment: str = "simulation"
+    #: Abandon the call this many seconds in. Omitted, the setup call runs to completion.
+    cancel_after_seconds: float | None = Field(default=None, gt=0)
+
+
 class BenchmarkTask(OpenSDLModel):
     """One thing an agent is asked to do, and how the result is decided.
 
@@ -82,6 +103,10 @@ class BenchmarkTask(OpenSDLModel):
     #: read out of the manifest: this package may not import the manifest schema, and a grader that
     #: guessed the path would open an empty database and report a confident nothing.
     store: str = Field(default=".opensdl/opensdl.db", min_length=1)
+    #: The state the laboratory is in when the agent arrives, if it is not a clean one. Declared
+    #: here and performed by the caller: this package may not start a laboratory, so the runner is
+    #: injected the same way the agent is.
+    setup: TaskSetup | None = None
     checks: list[Check] = Field(min_length=1)
     #: What a competent operator would need. Reported beside the result rather than enforced, so a
     #: model that takes ten times as long is visible as such instead of being failed.

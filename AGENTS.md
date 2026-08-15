@@ -25,14 +25,17 @@ OpenSDL is a modular framework for computational and autonomous laboratories.
 - format: `make format` — applies Ruff formatting and safe fixes; `make lint` enforces it
 - schemas: `uv run --locked python scripts/generate-schemas.py`
 
-`make test`, `make lint`, `make viewer`, `make docs`, and `make example` together cover every check
-the pull-request CI job enforces. `make scene` covers the one that runs separately: the headless
+`make test`, `make lint`, `make viewer`, `make docs`, `make example`, and `make showcase` together
+cover every check the pull-request CI job enforces. `make showcase` re-derives the campaign the
+README frame is rendered from, which takes about a minute and is why CI runs it as its own job.
+`make scene` covers the one that runs separately: the headless
 Blender rebuild proving the committed scene is reproducible from source. It needs the exact Blender
 version recorded in the scene's node inventory and takes several minutes. A bare
 `uv run --locked pytest` is not the full suite: `testpaths` excludes `examples/`, so the surrogate
-tests are reachable only through `make test` or `make surrogate`. Narrower targets
-(`unit`, `integration`, `e2e`, `conformance`, `typecheck`, `boundaries`, `validate`, `surrogate`,
-`propagation`, `scene`) and the raw command behind each target are in the `Makefile`.
+tests are reachable only through `make test` or `make surrogate`, and the showcase campaign only
+through `make showcase`. Narrower targets (`unit`, `integration`, `e2e`, `conformance`,
+`typecheck`, `boundaries`, `validate`, `showcase`, `surrogate`, `propagation`, `scene`) and the raw
+command behind each target are in the `Makefile`.
 
 ## Architecture rules
 

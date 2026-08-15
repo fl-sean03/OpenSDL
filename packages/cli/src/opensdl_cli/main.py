@@ -30,6 +30,7 @@ from opensdl_provenance import PropagationGraph
 from opensdl_schemas import validate_manifest_file, validate_workflow_file
 from opensdl_twin import TwinProjectionError, load_twin_definition
 
+from .benchmark import capability_setup
 from .scaffold import create_adapter, create_capability, create_domain_pack, create_laboratory
 from .schemas import generate_all_json_schemas
 
@@ -924,6 +925,7 @@ def run_benchmark(
             command_agent(command, timeout_seconds=timeout_seconds),
             model=model,
             repeats=repeats,
+            setup=capability_setup(),
         )
     )
     _print_report(report, partial=bool(only))

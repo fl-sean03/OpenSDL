@@ -1,4 +1,4 @@
-.PHONY: sync test unit integration e2e conformance lint format typecheck boundaries propagation schemas validate example surrogate scene viewer docs api clean
+.PHONY: sync test unit integration e2e conformance lint format typecheck boundaries propagation schemas validate example showcase surrogate scene viewer docs api clean
 
 sync:
 	uv sync --locked --all-packages --group dev
@@ -53,6 +53,9 @@ validate:
 
 example:
 	uv run --locked python examples/simulated-color-mixing/run_campaign.py
+
+showcase:
+	uv run --locked pytest examples/discovering-colors/tests
 
 surrogate:
 	uv run --locked --with-editable ./examples/digital-twin-surrogate/adapter pytest examples/digital-twin-surrogate/tests

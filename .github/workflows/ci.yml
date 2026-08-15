@@ -33,6 +33,27 @@ jobs:
       - run: uv run --locked python scripts/check-boundaries.py
       - run: uv run --locked python scripts/generate-schemas.py --check
 
+  # The campaign behind the README frame, re-derived. `plates.json` is what the picture is rendered
+  # from, so it is a published claim about what this code does, and nothing re-ran it until now: a
+  # change to the optimizer, the dye model, or the instrument noise would have left the frame
+  # describing a campaign the code no longer runs, with every other check still green.
+  #
+  # Its own job rather than a step in `test`, because it costs a minute and would otherwise add
+  # that minute to all three Python versions. Run in parallel it costs nothing on the wall clock.
+  showcase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.32"
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked --all-packages --group dev
+      - run: uv run --locked pytest examples/discovering-colors/tests
+
   lint:
     runs-on: ubuntu-latest
     steps:

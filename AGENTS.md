@@ -46,6 +46,10 @@ command behind each target are in the `Makefile`.
 - Public models are typed and exported as versioned schemas.
 - Database access goes through repository interfaces.
 - A change is complete when code, tests, schemas, examples, and documentation agree.
+- A laboratory with one instrument stays expressible in about fifteen manifest lines, runnable in
+  one process against SQLite, with no scheduler, broker, or optional service. Facility features are
+  opt-in by configuration, never by requirement, and a change that lengthens the minimum manifest
+  needs justifying. `tests/test_minimal_laboratory.py` enforces this.
 
 Use the nearest nested `AGENTS.md` when working inside a specialized subsystem.
 
@@ -62,3 +66,6 @@ Use the nearest nested `AGENTS.md` when working inside a specialized subsystem.
   OpenSDL manifests, policy, and runtime contracts control laboratory actions.
 - Repository skills live in `.agents/skills/`. Use them for recurring procedures and keep durable
   rules in `AGENTS.md`.
+- `docs/development/buildout.md` is the canonical plan for facility-scale work: the decisions taken,
+  why, how each is enforced, and what remains open. Read it before facility work and update it when
+  a decision changes.

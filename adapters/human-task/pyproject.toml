@@ -14,7 +14,7 @@ dependencies = [
 human-task = "opensdl_adapter_human_task.adapter:HumanTaskAdapter"
 
 [build-system]
-requires = ["setuptools>=83.0.0"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

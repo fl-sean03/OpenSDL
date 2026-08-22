@@ -24,9 +24,9 @@ by intention is marked as such, because that is the honest description of its du
 Each entry carries a status and the thing that would catch its violation. `Enforced by: intent`
 means nothing would catch it, which is a standing invitation to find a better mechanism.
 
-### D1 — Facility scale, not another cell
+### D1 — Facility scale
 
-**Decided.** The next showcase is a laboratory facility, not a larger single cell.
+**Decided.** The next showcase is a laboratory facility. A single cell has already been shown.
 
 A single cell has already been demonstrated and a second one proves nothing new. The interesting
 claim is not more throughput; it is that a facility is a *different machine* — see D2.
@@ -37,26 +37,26 @@ claim is not more throughput; it is that a facility is a *different machine* —
 
 **Decided.** Facility scale is a qualitative change, and the design must reflect all of it:
 
-- heterogeneous stations rather than replicated cells
+- heterogeneous stations, each doing a different thing
 - physical samples moving between stations, with custody and genealogy
 - contention for shared characterization instruments
-- **multiple timescales in one loop** — minutes to weeks — so work pipelines rather than batches
+- **multiple timescales in one loop** — minutes to weeks — so work has to pipeline
 - graceful degradation when one station fails with dozens of experiments in flight
 - multi-fidelity triage: screen many, validate some, qualify few
 - human technicians as first-class stations for steps that cannot be automated
 
 Every one of these maps onto a primitive the framework already has and has never stressed: capability
 contracts, resource leases, lifecycle states and attestation, provenance, and the human-task
-adapter. That is the reason to build this rather than a bigger demo.
+adapter. That is the reason to build it.
 
 *Enforced by:* intent, and by D9's framework work failing without it.
 
-### D3 — The 10x claim is decisions, not samples
+### D3 — The 10x claim is decisions per unit time
 
 **Decided.** The capability claim is **experiments that reach a decision** — throughput × yield ×
-the fraction producing an attributable, trustworthy measurement — not samples per day.
+the fraction producing an attributable, trustworthy measurement. Samples per day is the wrong unit.
 
-Samples per day is a weak claim because anyone can buy more liquid handlers. Real facilities lose
+Anyone can buy more liquid handlers, so samples per day measures a purchase. Real facilities lose
 most of their nominal throughput to samples that are made and never characterized, or characterized
 and never correctly attributed. That loss is what provenance actually fixes.
 
@@ -67,10 +67,10 @@ denominator does not ship.
 
 **Decided, and load-bearing.** Facility work must not tax the one-bench case.
 
-The test for any new feature: **does it make the one-bench case better, or merely not worse?** A
-feature that only helps at scale is probably not a real concept — it is an accident of deployment
-promoted into the domain model. All four planned additions in D9 pass this test; anything that
-fails it should be redesigned rather than gated behind a flag.
+The test for any new feature: **does it make the one-bench case better, or merely leave it unharmed?** A
+feature that only helps at scale is usually an accident of deployment promoted into the domain
+model. All four planned additions in D9 pass this test; anything that
+fails it should be redesigned. Gating it behind a flag hides the problem.
 
 The hard constraint: **tier 1 must never require anything from tier 4.**
 
@@ -85,7 +85,7 @@ The hard constraint: **tier 1 must never require anything from tier 4.**
 manifest and fails when the minimum grows. Growth in the minimum is the observable form of this
 decision being violated, and a new required field is a diff anyone can see.
 
-### D5 — The showcase proves the chain, not the loop
+### D5 — The showcase proves the chain
 
 **Decided.** The previous showcase proved a loop closes. That is no longer interesting. This one
 proves the chain from discovery to a sellable asset, in three visible beats:
@@ -93,7 +93,7 @@ proves the chain from discovery to a sellable asset, in three visible beats:
 1. the loop finds something a grid search or a human would not have, with the search trace visible
 2. the evidence store becomes a qualification package automatically — **including the failed runs**,
    because "what else did you try" is exactly the question provenance answers
-3. that package, not the material, is what a customer receives
+3. the customer receives that package, and the material comes with it
 
 Beats 2 and 3 are the differentiation. Nobody is showing them.
 

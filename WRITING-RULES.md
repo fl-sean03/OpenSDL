@@ -48,9 +48,26 @@ subject*, rather than everywhere.
 
 ## Size an image for where it is read
 
-**Rule:** Deliver a rendered artifact at the width it is displayed at, not at the largest width it
+**Rule:** Deliver a rendered artifact at the width it is displayed at. The largest width it
 can be produced at. An oversized file is resampled by whatever displays it, and that resampling is
 what makes type look soft. Supersample during generation, then resample down to the delivery size.
 **Scope:** Any rendered image committed to the repository or published from it.
 **Origin:** 2026-08-11 — a 3840px frame read as blurry everywhere it was viewed; the same frame
 resampled to 1920px read sharp.
+
+## Never manufacture emphasis with a contrast
+
+**Rule:** Do not use the formulaic contrast: `X, not Y` · `not X but Y` · `X rather than Y` ·
+`X instead of Y` · `less X, more Y`. State the claim and stop. Where the contrast carries real
+information, give it its own sentence and say what is actually true of the rejected option.
+
+**Why:** The construction invents a strawman to knock down, which reads as emphasis without adding
+information. It is one of the most reliable signals of generated prose, and it accumulates: the
+first buildout draft carried it in eight decision headings.
+
+**How to fix:** Delete the negated half. `Facility scale, not another cell` becomes `Facility
+scale`, and the body explains what was rejected. Where the rejected option genuinely needs stating,
+write a second sentence about it.
+
+**Scope:** All prose. Headings especially, where the construction is most tempting and least
+informative.

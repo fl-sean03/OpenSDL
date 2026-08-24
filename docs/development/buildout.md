@@ -585,12 +585,15 @@ longer built this way. That is the correct trade while the small case is the ado
 
 Phase boundaries carry the sequence. Each phase ends with something an outsider can check.
 
-**Phase 0 — settle the domain.** Close D6 and D7. Ends with a domain, a named customer, a
-loop with real cost and wall-clock numbers, and a written answer to the fast-screen-predicts-slow-
-truth question.
+**Phase 0 — settle the domain.** Close D6. D7 is closed. Ends with a proposal in
+`docs/development/domains/` that passes the D12 screen, a named buyer, a loop with real cost and
+wall-clock numbers, and the D13 answer: what the bridge is, what it costs, and what the sign of the
+fast-screen correlation is.
 
-**Phase 1 — framework work.** D9 items 1 and 2, each with a one-bench example. Ends with a campaign
-that keeps proposing while a three-week measurement is outstanding, demonstrated in simulation.
+**Phase 1 — framework work.** D9 item 5 first, then items 1 and 2, each with a one-bench example.
+Item 5 leads because truncating a slow measurement is worth more than scheduling around one. Ends
+with a campaign that acts on a predicted result, accepts the correction when the measurement lands,
+and keeps proposing throughout — demonstrated in simulation.
 
 **Phase 2 — the facility in simulation.** Stations, sample custody, contention, triage — as a
 manifest and a simulated laboratory, before any hardware. Ends with a facility that runs end to end
@@ -602,15 +605,21 @@ simultaneously. The multi-timescale story is legible at a glance in a way one pl
 **Phase 4 — the chain.** D5 beats 2 and 3: the evidence store emitting a qualification package,
 failed runs included.
 
-**Phase 5 — real hardware.** Per the hardware access research: the first physical instrument, in
-whatever domain, closing one real loop.
+**Phase 5 — real hardware, and the bridge first.** Per the hardware access research: the first
+physical instrument, in whatever domain, closing one real loop. Per D13, the first campaign that loop
+runs is the predictive bridge. Discovery campaigns come after there is evidence the fast screen
+predicts the slow truth, and with which sign.
 
 ## Open questions
 
 | # | Question | Blocks | Owner |
 |---|---|---|---|
 | D6 | Which technology domain | Everything | research, then owner |
-| D7 | Business model | The plan's shape | owner |
+| — | **Is the constraint set what keeps failing?** Seven candidates died to the same mechanism. The screen may be correctly reporting that no materials venture of any shape is fundable against a mature industrial cost line, in which case the search space changes and D6's shape does not | D6 | owner |
+| — | Whether excluding biology removed the answer before the search began. In force for all seven, and a large share of genuine "cannot be made at all" opportunities sit at the materials and biology interface | D6 | owner |
 | D8 | Scheduler architecture | Phase 2 | design |
-| — | Does the fast screen predict the slow truth | D6 | research |
 | — | Facility capital and staffing | Phase 2 sizing | research |
+
+D7 closed after three ventures were modelled far enough to answer its structural question. D13
+answers the fast-screen question generically — the answer was *no* in both domains examined in depth,
+which is why the bridge became the first deliverable. It had been an assumption.

@@ -41,11 +41,20 @@ COST_SHARE_FIGURE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 
 
 def proposals() -> list[Path]:
-    """Every domain proposal committed to the repository."""
+    """Every domain proposal committed to the repository.
+
+    Files beginning with an underscore are scaffolding — the index and the blank template — and are
+    not proposals. The linkage check below refuses to accept one as a domain choice, so naming a
+    real proposal `_something.md` does not dodge the screen.
+    """
 
     if not DOMAINS.is_dir():
         return []
-    return sorted(path for path in DOMAINS.glob("*.md") if path.name != "index.md")
+    return sorted(
+        path
+        for path in DOMAINS.glob("*.md")
+        if path.name != "index.md" and not path.name.startswith("_")
+    )
 
 
 @pytest.mark.parametrize("proposal", proposals(), ids=lambda path: path.stem)
@@ -127,4 +136,11 @@ def test_a_chosen_domain_names_a_proposal_that_passed_the_screen() -> None:
     assert not missing, (
         f"decision D6 links to {', '.join(missing)} in docs/development/domains/, which does not "
         "exist. The screen in tests above never ran on it."
+    )
+    screened = set(proposals())
+    unscreened = [path.name for path in linked if path not in screened]
+    assert not unscreened, (
+        f"decision D6 links to {', '.join(unscreened)}, which the screen does not collect. "
+        "Underscore-prefixed files are scaffolding and are skipped by the checks above, so one "
+        "cannot stand as a domain choice. Rename it."
     )

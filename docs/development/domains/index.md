@@ -10,6 +10,9 @@ end: what fraction of the paying customer's cost does the discoverable property 
 The answers were 1.3%, 2.4-4.1%, and a figure that fell fourfold under recomputation. Each was
 estimable in an afternoon from public cost structure.
 
+Start from [the template](_template.md), which carries every required heading and the reason each
+one is there.
+
 ## What a proposal must contain
 
 `tests/test_domain_proposal.py` fails the build if any of these headings is absent, and fails it

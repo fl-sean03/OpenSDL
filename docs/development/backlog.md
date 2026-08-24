@@ -115,6 +115,11 @@ above scheduling.
 - [ ] Add late-arriving observations, foldable into a campaign whose run finished long ago.
 - [ ] Extend resource leases across long durations, covering TTL, reconciliation, and controller
   restart mid-hold.
+- [ ] Add a facility laboratory to `benchmarks/lab-operation`, alongside the three single-bench
+  laboratories. [Decision D10](buildout.md#d10-dogfooding-does-not-become-facility-only) is written
+  as though this exists; it does not, and it cannot until the station work above lands. Without it
+  there is no way to see a change that makes small laboratories harder to operate while making
+  facilities easier.
 
 ## 5. User-specific digital twins and visualization
 

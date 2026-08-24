@@ -207,7 +207,7 @@ jobs:
       # and `release.yml` all restore from the same key. Making the least-trusted job in the tree a
       # writer to a cache the release build reads is a channel it gains nothing from having. The
       # cost of leaving it off is about a minute on an advisory job.
-      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: "0.11.32"
           python-version: "3.12"
@@ -238,7 +238,7 @@ jobs:
 
       - name: Answer the issue
         id: answer
-        uses: anthropics/claude-code-action@e63208cb983318a44e3f945e959ef894b707dcfa # v1.0.192
+        uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1.0.198
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Required for the responder to see issues from people without write access. Must stay

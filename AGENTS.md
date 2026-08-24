@@ -68,4 +68,6 @@ Use the nearest nested `AGENTS.md` when working inside a specialized subsystem.
   rules in `AGENTS.md`.
 - `docs/development/buildout.md` is the canonical plan for facility-scale work: the decisions taken,
   why, how each is enforced, and what remains open. Read it before facility work and update it when
-  a decision changes.
+  a decision changes. A candidate technology domain is proposed as one file in
+  `docs/development/domains/`, from the template there; `tests/test_domain_proposal.py` enforces the
+  screen, and decision D6 cannot record a choice without a proposal that passes it.

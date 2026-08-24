@@ -85,3 +85,46 @@ def test_the_controlled_cost_share_is_a_number(proposal: Path) -> None:
         "in decision D12. A property governing under a sixth of the payer's cost cannot carry a "
         "venture outcome, however good the science is."
     )
+
+
+#: The decision log's own entry for the domain choice. Parsed so that recording a chosen domain
+#: requires a proposal that passed the screen above.
+BUILDOUT = Path(__file__).parents[1] / "docs" / "development" / "buildout.md"
+D6_HEADING = "### D6 — Target technology domain"
+PROPOSAL_LINK = re.compile(r"domains/([A-Za-z0-9._-]+)\.md")
+
+
+def d6_section() -> str:
+    """The text of decision D6, up to the next decision heading."""
+
+    text = BUILDOUT.read_text(encoding="utf-8")
+    start = text.index(D6_HEADING) + len(D6_HEADING)
+    rest = text[start:]
+    end = rest.find("\n### ")
+    return rest if end < 0 else rest[:end]
+
+
+def test_a_chosen_domain_names_a_proposal_that_passed_the_screen() -> None:
+    """The hole this closes: a proposal written outside `domains/` escapes the screen entirely.
+
+    The convention cannot be enforced everywhere, so it is enforced at the one place that matters.
+    A domain becomes real when the decision log says so, and the decision log cannot say so without
+    pointing at a file the tests above have already checked.
+    """
+
+    section = d6_section()
+    if section.lstrip().startswith("**Open"):
+        return
+
+    linked = [DOMAINS / f"{name}.md" for name in PROPOSAL_LINK.findall(section)]
+    assert linked, (
+        "decision D6 no longer reads as open, so it has chosen a domain, but it links to no "
+        "proposal in docs/development/domains/. A domain choice recorded without a proposal has "
+        "skipped the D12 screen — which is how the three falsified candidates each consumed a full "
+        "research programme before anyone computed their controlled cost share."
+    )
+    missing = [path.name for path in linked if not path.is_file()]
+    assert not missing, (
+        f"decision D6 links to {', '.join(missing)} in docs/development/domains/, which does not "
+        "exist. The screen in tests above never ran on it."
+    )

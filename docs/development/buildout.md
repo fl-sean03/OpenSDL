@@ -277,9 +277,13 @@ record as a prize.
 
 *Enforced by:* `tests/test_domain_proposal.py`. A domain proposal is one Markdown file in
 [`docs/development/domains/`](domains/index.md), and the suite fails if it omits any screen section,
-states the controlled cost share without a percentage, or reports a share below 15%. Nothing fires
-until the first proposal is written, which is the right moment for this to start. The para-xylene
+states the controlled cost share without a percentage, or reports a share below 15%. The para-xylene
 candidate at 4.1% would have been rejected by the second check.
+
+A convention-based check has an obvious hole: write the proposal somewhere else and the screen never
+runs. That hole is closed at the one place it matters. A third check reads D6 itself, and if this
+entry stops reading as open it must link to a proposal file that exists — so a domain choice cannot
+be recorded in the decision log without a document the screen has already been applied to.
 
 ### D7 — Business model
 

@@ -26,6 +26,13 @@ again if the controlled cost share is stated without a percentage or falls below
 | Fast screen predicts slow truth | Does the cheap measurement genuinely predict the expensive one? | D6 |
 | Capital intensity | Discovery value per unit of output against capital charge per unit of output. | D11 |
 
+## The check that closes the convention's hole
+
+A rule of the form "put it in this directory" is escapable by writing it in a different directory.
+So a third check reads [decision D6](../buildout.md#d6-target-technology-domain) directly: once that
+entry stops reading as open, it must link to a proposal file that exists here. A domain choice cannot
+enter the decision log without a document the screen has already been applied to.
+
 ## Why the floor is 15%
 
 A property governing under roughly a sixth of the payer's cost cannot carry a venture outcome,

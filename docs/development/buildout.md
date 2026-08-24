@@ -240,8 +240,9 @@ Chemical (Basic) at **8.57x** (Damodaran, January 2026). Forward integration the
 enterprise value per dollar of EBITDA and 6.20 points of economic profit**, before any operating
 result. That is the cost of the relabelling alone.
 
-*Enforced by:* any future domain proposal carries a returns model with a stated capital intensity
-before it is adopted, and states the two numbers above. Three exist now as comparables.
+*Enforced by:* `tests/test_domain_proposal.py`, which requires a domain proposal to carry a capital
+intensity section stating the two numbers above. Whether the numbers are honest is still intent;
+whether they were computed at all is now checked. Three modelled ventures exist as comparables.
 
 ### D12 — Screen the cost share before spending research on a domain
 
@@ -274,25 +275,61 @@ throughput spread that tracks macropore volume, and the most selective sample is
 Confirm that the reported measurement is the one that governs cost before treating a literature
 record as a prize.
 
-*Enforced by:* a domain proposal states the controlled cost share, with arithmetic, on its first page,
-and states which measurement sets cost and whether the cited record is that measurement.
+*Enforced by:* `tests/test_domain_proposal.py`. A domain proposal is one Markdown file in
+[`docs/development/domains/`](domains/index.md), and the suite fails if it omits any screen section,
+states the controlled cost share without a percentage, or reports a share below 15%. Nothing fires
+until the first proposal is written, which is the right moment for this to start. The para-xylene
+candidate at 4.1% would have been rejected by the second check.
 
 ### D7 — Business model
 
-**Open. Owner decision.** The candidates, with the known trade:
+**Shape decided. The specifics wait on D6, and only the specifics.** The three falsified candidates
+were modelled far enough to answer the structural question, and the answer held across all of them,
+so it is recorded now.
 
-- **joint development with an incumbent** — they hold the plant, customers and qualification muscle;
-  we hold search speed. Avoids the scale-up wall, caps the upside, makes us a supplier.
-- **discover and manufacture** — highest ceiling, and the wall Zymergen hit: a ~$3B valuation and
-  world-class automation, killed by a product with no qualified customer that could not scale.
-- **discover and license** — low capital, weak position; formulation IP is trade secret more than
-  patent.
-- **platform** — already what OpenSDL is, and it is open source.
+The four paths, costed side by side on the third candidate:
 
-The hypothesis worth testing separately: tamper-evident provenance produces a **qualification
+| Path | Company capital | Expected MOIC | Base-case IRR | Downside |
+|---|---|---|---|---|
+| Sell the consumable | $80-155M | 2.03x | 5.6% | 0.26x |
+| Consumable under instrumented performance contracts | $200-250M | 2.64x | 7.6% | 0.05x |
+| Build and own plants | $500-620M | 2.12x | 10.2% | **zero, at 50% probability** |
+| **Staged hybrid** | **~$126M** | **4.32x** | **15.1%** | **1.08x** |
+
+Owning plants and selling the consumable have the same expected multiple, and owning demands four
+times the capital, six more points of dilution, two more years to revenue, and a downside of zero.
+The hybrid wins by roughly 2x on expected value, and it wins in the **bear**
+case. Its bull case is only 1.5x the plant-owner's bull case; its failure costs $15M at month 18
+where the plant-owner's costs $620M at year 10, and the $15M comes back and is redeployable.
+
+Four rules follow, and none of them depends on which domain D6 lands on:
+
+1. **Keep the consumable.** Licence-only is a weak position and the evidence is specific: GTC
+   Technology — a genuine aromatics licensor, its process in more than sixty units, thirty years of
+   development, around two hundred staff, roughly $50M of revenue — sold to Sulzer in May 2019 at a
+   **$39M enterprise value**. The recurring physical product is where the margin lives.
+2. **Buy the reference plant with intellectual property.** A first commercial reference is
+   the artefact that cannot be bought and without which nothing else is financeable. Contribute
+   licence and materials for carried equity in exactly one unit built on someone else's balance
+   sheet. Model the **dilution** the entry percentage will suffer: LanzaTech contributed IP for 30% of the
+   Shougang joint venture in 2011 and was diluted to 8.38% as others funded the build.
+3. **Prove inside a host's existing facility first.** A capacity revamp borrows the host's feedstock,
+   utilities, operators, tankage and offtake, and so has no minimum-scale problem — which is the trap
+   that otherwise binds, because the scale at which a first plant is financeable sits below the scale
+   at which it works standalone.
+4. **Write the hard stop into the financing documents before the work starts.** Pre-commit the
+   numeric gates and the decision to stop if they fail. Sunk-cost pressure at the point of committing
+   engineering capital is what actually kills these companies, and a gate agreed afterwards is not a
+   gate.
+
+Retained from the earlier draft, still untested: tamper-evident provenance produces a **qualification
 dossier as a byproduct**, which in a regulatory-replacement market is itself a priced deliverable.
-That reframes the offer from "we found a molecule" to "we found it and can prove how, in a form a
-regulator accepts" — the second half being the defensible half.
+That reframes the offer from "we found a material" to "we found it and can prove how, in a form a
+qualifying authority accepts." The second half is the defensible half.
+
+*Enforced by:* intent for the four rules, and by `tests/test_domain_proposal.py` for the inputs they
+consume. D11's ownership test decides any proposal to own capital; D12's cost-share screen runs
+before it.
 
 ### D8 — Scheduler architecture
 
@@ -323,9 +360,32 @@ is exactly how the small case dies.
    check before an expensive one.*
 4. **Leases across long durations.** A chamber slot held for weeks stresses lease TTL,
    reconciliation, and controller restart mid-hold.
+5. **Partial observations that arrive before the measurement finishes.** A capability must be able
+   to emit a predicted result with a stated uncertainty from incomplete data, and then revise it
+   when the measurement completes. The optimizer must know it received a prediction, act on it, and
+   accept the correction without invalidating the campaign. *At one bench this is reading a trend
+   after one night of a three-night run.*
 
-*Enforced by:* each ships with simulation and conformance coverage, per the architecture rules, and
-each must demonstrate its one-bench benefit in an example.
+**Correction, and it reorders the list.** Items 1, 2 and 4 all treat a slow measurement as a fixed
+duration to schedule around. That is the smaller win. Attia et al. (*Nature* 578, 397-402, 2020)
+closed a loop on fast-charging protocols by *shortening the measurement itself*: a model predicting
+cycle life from the first 100 cycles replaced cycling to failure, and the combined early-prediction
+and closed-loop system evaluated 224 protocols in 16 days against roughly 500 days for the exhaustive
+alternative. Pipelining around a three-week measurement recovers throughput. Truncating a three-week
+measurement to three days recovers an order of magnitude more, and it compounds with the pipelining.
+
+So item 5 outranks items 1, 2 and 4, and it changes what the facility is for. The triage policy in
+item 3 and the truncation model in item 5 are the same asset viewed twice: both decide how much
+measurement a sample deserves, and both are the part a competitor cannot buy. The framework
+obligation is that a capability can report progressively, and that provenance records which
+observations were predictions and which were truth, because a campaign built on predictions that were
+never corrected is a campaign that cannot be audited.
+
+*Enforced by:* intent, until the work is scheduled. When it is, each addition ships with simulation
+and conformance coverage per the architecture rules and demonstrates its one-bench benefit in an
+example. The requirement item 5 places on the design: progressive results carry an explicit
+`predicted` flag through the evidence store, and attestation reports every prediction as either
+resolved to a measurement or unresolved.
 
 ### D10 — Dogfooding does not become facility-only
 

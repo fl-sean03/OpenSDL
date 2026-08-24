@@ -563,10 +563,27 @@ resolved to a measurement or unresolved.
 **Decided.** Building the facility creates pressure for every default, example and document to
 assume one. The countermeasure is that the small examples stay alive and exercised.
 
-*Enforced by:* `make showcase` re-derives the `discovering-colors` campaign in CI, so the small
-reference cannot silently rot while attention is on the facility. The benchmark suite keeps both a
-small laboratory and a facility laboratory, so a change that makes small labs harder to operate
-appears as a score drop.
+*Enforced by:* `make showcase`, which re-derives the `discovering-colors` campaign in CI so the small
+reference cannot silently rot while attention is on the facility, and
+`tests/test_minimal_laboratory.py`, which pins the minimum manifest at 20 lines and runs real work
+through it.
+
+**Correction, 2026-08-24.** This entry claimed the benchmark suite keeps both a small laboratory and
+a facility laboratory, so that a change hurting small labs would show as a score drop. **The facility
+half does not exist.** The suite has three laboratories — `color-bench`, `restricted-bench` and
+`stalled-bench` — and all three are a single bench.
+
+What is true is the rest of it. `tests/end_to_end/test_benchmark_suite.py` runs the shipped suite in
+CI against two scripted control agents, one competent and one that oversteps, so the suite cannot
+quietly become unpassable or unfailable, and small-laboratory operability is exercised on every
+change with no key and no spend.
+
+The missing half was premature by construction: a facility laboratory cannot be expressed until D9's
+station work lands, so it is blocked behind Phase 1 and Phase 2. Until then the comparison this
+decision wants — small against facility, on the same suite — is unavailable, and the small case is
+held by the showcase, the minimal-laboratory test, and the benchmark's own controls. When the
+facility becomes expressible, a facility laboratory joins the three benches and this entry gets the
+mechanism it was written as though it already had.
 
 ## Standing rules
 

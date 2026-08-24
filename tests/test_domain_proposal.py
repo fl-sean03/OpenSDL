@@ -34,7 +34,14 @@ REQUIRED_SECTIONS = {
     "measurement identity": "D12 — the reported number must be the number that sets cost",
     "fast screen predicts slow truth": "D6 — otherwise the facility generates confident error fast",
     "capital intensity": "D11 — discovery value per unit against capital charge per unit",
+    "value function": "D12 test 0 — loss reduction saturates, so the form decides the answer",
+    "architecture ratio": "D12 test 3 — the check that caught seven of seven",
+    "physics-limit sufficiency": "D12 test 2 — the property at its ceiling against what parity needs",
 }
+
+#: The two value-function forms that survive. Anything the customer can already buy in some form is
+#: loss reduction, whose value is bounded below by zero loss and therefore saturates.
+PASSING_VALUE_FORMS = ("threshold", "multiplicative")
 
 #: The cost share must be stated as a number, because "high" is what got skipped three times.
 COST_SHARE_FIGURE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
@@ -93,6 +100,29 @@ def test_the_controlled_cost_share_is_a_number(proposal: Path) -> None:
         f"{proposal.name} reports a controlled cost share of {max(figures)}%, below the 15% floor "
         "in decision D12. A property governing under a sixth of the payer's cost cannot carry a "
         "venture outcome, however good the science is."
+    )
+
+
+@pytest.mark.parametrize("proposal", proposals(), ids=lambda path: path.stem)
+def test_the_value_function_is_not_loss_reduction(proposal: Path) -> None:
+    """The check that seven falsified candidates would each have failed for free.
+
+    Every one of them reduced a loss on a cost line the incumbent already owned. Value of that shape
+    is bounded below by zero loss, so it saturates, and the incumbent can move process architecture
+    far more cheaply than materials. The property has to decide whether the article exists.
+    """
+
+    text = proposal.read_text(encoding="utf-8")
+    lowered = text.lower()
+    start = lowered.find("value function")
+    if start < 0:
+        pytest.skip("no value function section; the missing-section test reports this")
+    section = lowered[start : start + 2000]
+
+    assert any(form in section for form in PASSING_VALUE_FORMS), (
+        f"{proposal.name} does not state its value function as a threshold or as multiplicative into "
+        "a quantity nobody currently sells. Every falsified candidate reduced a loss instead, and "
+        "loss reduction is bounded below by zero loss. See decision D12, test 0."
     )
 
 

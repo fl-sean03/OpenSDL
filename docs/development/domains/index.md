@@ -5,10 +5,12 @@ directory. The proposal exists so the screen in
 [decision D12](../buildout.md#d12-screen-the-cost-share-before-spending-research-on-a-domain) runs
 before research money does.
 
-Three candidates were each researched to completion and each died on the same question, asked at the
-end: what fraction of the paying customer's cost does the discoverable property actually control?
-The answers were 1.3%, 2.4-4.1%, and a figure that fell fourfold under recomputation. Each was
-estimable in an afternoon from public cost structure.
+Seven candidates were each researched to completion and each died of the same thing: **a process
+architecture change on the same cost line beat the materials discovery**, including in the two cases
+where the process genuinely did not yet exist. Value that reduces a loss is bounded below by zero
+loss, so it saturates, and the incumbent has owned that cost line for decades.
+
+Every one of the seven was killable in under a day, and five of them in under an hour.
 
 Start from [the template](_template.md), which carries every required heading and the reason each
 one is there.
@@ -20,6 +22,9 @@ again if the controlled cost share is stated without a percentage or falls below
 
 | Section | The question it answers | Decision |
 |---|---|---|
+| Value function | Can the customer buy an article today that does the same job? If so the value saturates. State the form: threshold, or multiplicative into an unsold quantity. | D12, test 0 |
+| Physics-limit sufficiency | The property at its ceiling, divided by what parity with the incumbent's best available architecture requires. R ≥ 3. | D12, test 2 |
+| Architecture ratio | The best zero-discovery flowsheet change, divided by the materials axis at its ceiling. A < 0.3. This check has caught seven of seven. | D12, test 3 |
 | Controlled cost share | What percentage of the payer's cost does the discoverable property govern? Show the arithmetic. | D12 |
 | Process maturity | Does a mature incumbent process already exist that this would merely improve? | D6 |
 | Annual tonnage | World annual tonnage of the addressable output, with a source. | D6 |

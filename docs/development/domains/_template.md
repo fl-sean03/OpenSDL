@@ -7,6 +7,34 @@
 One paragraph: what the laboratory searches for, and what exists at the end of the search that does
 not exist today.
 
+## Value function
+
+**Test 0, and it is free.** Can the customer buy an article today that performs the same function, in
+any form, at any price? If so the value is loss reduction, which is bounded below by zero loss and
+therefore saturates — and the incumbent, who owns that cost line, can move process architecture far
+more cheaply than materials. Seven candidates died here.
+
+Write the value function down. `V = C − K/x`, or a reciprocal sum `1/V = Σ 1/v_i`, is a rejection.
+State the form as a **threshold** — the article exists above the line and does not exist below it —
+or as **multiplicative** into a quantity nobody currently sells.
+
+## Physics-limit sufficiency
+
+**Test 2. R ≥ 3.** Take the discoverable property to its physical ceiling. Divide the improvement it
+delivers by the improvement required for parity with the best architecture available to the
+incumbent. Current practice is the wrong benchmark, because the incumbent will upgrade.
+
+The threshold is 3 so the margin can absorb the pioneer-plant penalty: 51% of pioneer process plants
+never reach 85% of design capacity, and class-2 estimates come in 1.28× over.
+
+## Architecture ratio
+
+**Test 3. A < 0.3, and this check has caught seven of seven.** Divide the value of the best
+zero-discovery flowsheet change by the value of the materials axis at its ceiling. Ask what the
+incumbent's process engineers could do to the same cost line with no discovery at all, and price it.
+
+Search the flowsheet literature and the licensor patent record, and name what you found.
+
 ## Controlled cost share
 
 **The screen. Answer it first, and answer it with arithmetic.** What percentage of the paying

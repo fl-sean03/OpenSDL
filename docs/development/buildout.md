@@ -101,7 +101,35 @@ Beats 2 and 3 are the differentiation. Nobody is showing them.
 
 ### D6 — Target technology domain
 
-**Open.** Blocked on the domain research. The filter is fixed even though the answer is not:
+**Open, and now with two candidates falsified rather than merely unchosen.** Both were modelled to
+completion against adversarial review, and both failed on arithmetic rather than on judgement. The
+negative results are recorded because rediscovering them would cost months.
+
+**Falsified: a heavy-rare-earth-free permanent magnet venture.** The thesis was that grain-boundary
+engineering could reach high-temperature coercivity without dysprosium or terbium, removing the
+largest cost in a Western magnet. The physics is sound — Nd2Fe14B allows about 7.6 T and commercial
+magnets deliver 1-2 T, so 70-85% of the bound is unrealised and the deficit is microstructural. The
+economics are not. Eliminating heavy rare earth is worth **$9.50/kg on a thin part and $31.92/kg on
+a thick one**, not the $40-75/kg the first pass assumed, because grain-boundary diffusion already
+uses a fraction of the terbium that bulk alloying does. Nobody has ever published the cost of *being*
+heavy-rare-earth-free, and at a $10/kg process premium the thin-part case goes negative. Probability
+weighted, a Series A returns **2.24x at 10.6% IRR**; even the upside case returns 10.1x, which clears
+a growth fund's bar and fails a seed fund's.
+
+**Falsified: a recycling-fed rare-earth separation venture built on a superior extractant.** The
+thesis was that separation factor sets stage count, stage count sets plant capital, and so a better
+extractant buys a cheaper plant. The first link holds and was validated against a patent running
+identical duty on two extractants, agreeing within 10%. The second link does not. Solvent extraction
+is 18-30% of plant capital and only part of that scales with stage count; **86% of per-stage volume
+is settler, sized by coalescence rather than by selectivity.** The whole capital value of raising the
+separation factor from 1.5 to 5 is about **$3/kg of oxide, 1.3% of revenue** — against feedstock
+payable moving the same model by $52.6M and the export-control premium by $43.0M. Three further
+errors compounded it: the stage-count curve is concave and the target sat on its flat part; the
+binding split for magnet feedstock is non-adjacent and already runs at high selectivity; and cheaper
+levers exist on the same cost line with no chemistry risk, one patent cutting a cascade 37% using the
+same extractant by moving the reflux point. Returns **1.16-1.50x at 2.1-6.0% IRR**.
+
+The filter is fixed even though the answer is not:
 
 1. combinatorial **and** not already solved by simulation or ML on existing data
 2. loop-closable — real cost and wall-clock numbers per experiment
@@ -118,6 +146,25 @@ The disqualifying risk to check before committing: **does the fast screen actual
 truth?** A fast proxy that does not predict the real property makes an autonomous lab a machine for
 generating confident error at speed. If the answer is no, the domain is rejected however good the
 science.
+
+### D11 — Capital intensity caps venture returns
+
+**Decided, and it constrains D6 and D7 rather than following from them.**
+
+Two independently modelled full-stack materials ventures returned 2.24x and 1.16-1.50x. The pattern
+is structural, not specific: owning the plant means owning the capex, and capex compresses the
+multiple. A materials manufacturer can be right about the science, execute well, and still hand the
+investor who took the technical risk an outcome that suits a growth fund and misses a seed fund's
+bar entirely.
+
+The consequence for this programme is uncomfortable and should not be smoothed: **the instinct toward
+vertical integration and the requirement for venture-scale returns pull in opposite directions.**
+Integration is the right answer for value *capture* and the wrong answer for *multiple*. Anything
+proposed under D6 must be tested against this before the science is evaluated, because a domain that
+fails here fails regardless of how good the chemistry is.
+
+*Enforced by:* any future domain proposal carries a returns model with a stated capital intensity
+before it is adopted. Two exist now as comparables.
 
 ### D7 — Business model
 

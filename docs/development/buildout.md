@@ -101,9 +101,9 @@ Beats 2 and 3 are the differentiation. Nobody is showing them.
 
 ### D6 — Target technology domain
 
-**Open. Three candidates have been modelled to completion against adversarial review and
-falsified.** Each failed on arithmetic. The negative results are recorded because rediscovering them
-would cost months, and because the third one finally explains the first two.
+**Open. Seven candidates across two shapes have been modelled and falsified.** Each failed on
+arithmetic. The negative results are recorded because rediscovering them would cost months, and
+because a single mechanism accounts for all seven.
 
 **Falsified: a heavy-rare-earth-free permanent magnet venture.** The thesis was that grain-boundary
 engineering could reach high-temperature coercivity without dysprosium or terbium, removing the
@@ -175,18 +175,76 @@ Returns, probability-weighted over ten years: **2.03x selling adsorbent, 2.12x o
 for a staged hybrid**. Base-case IRRs are 5.6%, 10.2% and 15.1%. Owning plants carries the same
 expected multiple as selling beds, at four times the capital and a 50% probability of total loss.
 
-**What the three failures have in common, which is the useful result.** Every candidate was *a better
-material for a mature industrial process*. In a mature process the material axis is the cheapest axis
-to optimise, so incumbents harvested it first, over decades. What remains on that axis is the
-saturated tail — and the arithmetic keeps finding exactly that, because it is what is there. This is
-a structural property of the search. A fourth candidate of the same shape would produce a fourth
-version of the same answer.
+**Generation 1's diagnosis.** All three were *a better material for a mature industrial process*. In
+a mature process the material axis is the cheapest axis to optimise, so incumbents harvested it
+first, over decades, and what remains there is the saturated tail. The shape was changed to require
+that **the process does not yet exist**, so that material and process are designed together.
 
-The consequence for D6: the domain must be one where **the process does not yet exist**, so the
-material and the process are designed together and the material carries the whole value. That is also
-where an autonomous laboratory is differentiated. A facility is poor at extracting the last few
-percent from a fifty-year optimisation and strong at searching a space nobody has searched, because
-the measurement was too expensive to run at scale.
+**Generation 2 followed that instruction and produced four more falsifications.**
+
+| Candidate | Materials axis at its physical ceiling | The architecture that beat it, with no discovery |
+|---|---|---|
+| Elastocaloric cooling | +25-45% device COP; closes 4-13% of the gap to vapour compression | R-290 propane at $2/kg, +3% COP, full regulatory compliance |
+| CO2 or CO to ethylene | thermodynamic floor of 13,183 kWh/t | the BASF/SABIC/Linde electric cracker, running since April 2024 at 1,875-4,286 kWh/t |
+| On-site hydrogen peroxide | $40-99/t | Solvay deleting one distillation column, worth $500-1,000/t |
+| Direct propylene epoxidation | 11.6% cost share on the proponents' own arithmetic | Sumitomo's process, already cheaper on those same prices |
+
+The elastocaloric case is the sharpest. Take the material to *both* of its physical ceilings — zero
+hysteresis and transformation stress at the superelastic floor — and device coefficient of
+performance improves 25-45%. Parity with vapour compression requires **355-614%**. Between 58 and
+73% of the loss is pumps, friction, regenerator and heat leak. It is a mechanical engineering
+programme with a materials input.
+
+**The unified diagnosis, which is the actual result of five months of this.**
+
+> In all seven candidates, a process-architecture change on the same cost line beat the materials
+> discovery — including in the two where the process genuinely did not yet exist.
+
+The mechanism is structural. **Value that takes the form of reducing a loss is bounded below by zero
+loss, so it always saturates.** The incumbent has owned that cost line for decades and can move
+architecture far more cheaply than materials, so the cheap part is already gone. Four of the seven
+show the value function explicitly as `1 - x_ref/x`; a fifth shows it as the algebraically identical
+reciprocal sum `1/V = Σ 1/v_i`.
+
+Generation 2's instruction was necessary and insufficient, because it named the wrong noun. **A new
+process delivering an old product inherits the old product's saturated cost line intact.** Every one
+of the four obeyed the instruction and every one still chose a domain where the *product* already
+exists at industrial scale: cooling at 135 million units a year, ethylene at 200 Mt/y, hydrogen
+peroxide at 6.11 Mt/y, propylene oxide at 10 Mt/y.
+
+**The shape for generation 3:**
+
+> The discoverable property must gate whether a product or capability **exists at all**, and not how
+> efficiently an existing one is delivered.
+
+Two admissible criteria remain. **(a)** The product cannot currently be made at all, meaning there is
+no incumbent article to price against — a product that is merely expensive or dirty does not qualify.
+**(d)** A named buyer with a named budget and a named deadline needs something for which no supply
+route exists; if the buyer cannot be named, it is not criterion (d). Two criteria are retired: "the
+incumbent route is indirect" admits loss-reduction plays by construction and produced three of
+generation 2's four failures, and "a capability recently became cheap" describes the search rather
+than the value.
+
+One tension has to be resolved explicitly, because leaving it open is what produced the elastocaloric
+scissors — 92,148 t/y of demand in a market closed by propane, against 9-230 t/y in the market that
+is open. **If the product does not exist there is no world tonnage**, so the tonnage gate applies to a
+named substitution or new-demand pool with a named buyer, never to current sales.
+
+**The honest case against this whole approach, which is on the record because it may be right.** A
+screen that rejects everything is indistinguishable from a broken screen. These gates are calibrated
+on chemicals and energy, where incumbents have had fifty to a hundred years on every cost line that
+exists; applied to any mature industrial cost line they will reject everything, because that is what
+mature industrial cost lines look like. The screen may be correctly reporting that **no materials
+venture of any shape is fundable against a mature industrial cost line** — in which case the search
+space has to change, and a fourth shape would not help. Three further objections stand unanswered: seven of seven
+were killed by a prosecution with no symmetric defence, and asymmetric adversarial processes converge
+on rejection regardless of merit; every kill is a median-case kill, and a screen computing expected
+value on medians rejects every venture ever funded; and the exclusion of biology, in force for all
+seven, may have removed the answer from the search space before the search began, since a large share
+of genuine "cannot be made at all" opportunities now sit at the materials and biology interface.
+
+Generation 3 therefore adds a defence agent arguing each candidate as forcefully as the prosecution
+attacks it, with an adjudication between them.
 
 The filter is fixed even though the answer is not:
 
@@ -266,6 +324,40 @@ that governs under a sixth of the payer's cost cannot carry a venture outcome, h
 science is and however large the market. Market size does not rescue it, because the share is
 multiplicative with the market and the arithmetic is the same at every scale.
 
+**Four more tests, added after generation 2, in ascending order of cost.** Run them in this order and
+stop at the first failure. All seven falsified candidates would have died in under a day, and five of
+them in under an hour.
+
+**Test 0 — the value function. Free.** Can the customer buy an article today that performs the same
+function, in any form, at any price? If so the value is loss reduction, it saturates, and the
+candidate is rejected. Write the value function down. The form `V = C - K/x`, or a reciprocal sum
+`1/V = Σ 1/v_i`, is a rejection. The property must enter as a **threshold** — the article exists above
+the line and does not exist below it — or **multiplicatively into a quantity nobody currently sells**.
+
+**Test 1 — floor-limited cost. One hour.** When the dominant cost line is a purchased commodity whose
+coefficient has a thermodynamic floor, compute floor × price against product price before anything
+else. This alone kills a route that is underwater at its own physics limit, and it would have ended
+the ethylene candidate before any literature review.
+
+**Test 2 — physics-limit sufficiency. R ≥ 3.** Take the property to its physical ceiling and divide
+the improvement it delivers by the improvement required for parity with the **best architecture
+available to the incumbent**. Current practice is the wrong benchmark, because the incumbent will
+upgrade. The threshold is 3, because every prior candidate near or below 1 lost to an architecture
+change, and the margin has to absorb the pioneer-plant penalty: 51% of pioneer process plants never reach 85% of
+design capacity, and class-2 estimates come in 1.28× over.
+
+**Test 3 — architecture ratio. A < 0.3.** Divide the value of the best zero-discovery flowsheet change
+by the value of the materials axis at its ceiling. **This test has caught seven of seven**, which makes
+it the highest-yield screen in the set for the time it takes. Search the flowsheet literature:
+debottlenecking, modular plants, electrified heat, an eliminated unit operation, and the licensor
+patent record.
+
+**Test 4 — capital benchmarked from outside the field. Half a day.** Never price capital from a
+field's own techno-economic analyses, because every field's analyses carry its own aspirations. Price
+against the nearest mature technology's demonstrated installed cost. One candidate's literature
+assumed $68/kW against a roughly $2,000/kW demonstrated baseline for a strictly harder device — a
+factor of thirty, hiding inside peer review.
+
 The related trap, which the para-xylene work names precisely: **the number the literature reports is
 often not the number that sets cost.** The field reports gravimetric equilibrium selectivity on powder
 against a binary feed. Plant cost is set by volumetric working capacity and mass-transfer rate on a
@@ -273,7 +365,10 @@ formed bead in four-component feed with a desorbent present. One material bought
 paid 39% of its capacity; a nine-formulation dataset spans 55.3 to 88.5 wt% selectivity with a 2.45x
 throughput spread that tracks macropore volume, and the most selective sample is not the fastest.
 Confirm that the reported measurement is the one that governs cost before treating a literature
-record as a prize.
+record as a prize. Check the **sign** of the correlation between the cheap assay and the expensive
+truth in the variable that must change at scale. A correlation that merely exists is insufficient.
+One generation-2 candidate had a screen that was worse than useless: selectivity fell with the pressure
+the commercial plant would require, so the bench result pointed the wrong way.
 
 *Enforced by:* `tests/test_domain_proposal.py`. A domain proposal is one Markdown file in
 [`docs/development/domains/`](domains/index.md), and the suite fails if it omits any screen section,

@@ -295,6 +295,77 @@ of genuine "cannot be made at all" opportunities now sit at the materials and bi
 Generation 3 therefore adds a defence agent arguing each candidate as forcefully as the prosecution
 attacks it, with an adjudication between them.
 
+**Generation 3 ran, and it is the most informative of the three.** Fifty-eight candidates, and the
+value-function distribution is the headline: **49 were loss reduction**, under an instruction that
+said in bold that the product must not exist. Seven were thresholds, one multiplicative, one unclear.
+The shape instruction was followed and the generators still produced loss reduction six times out of
+seven, which says the shape is what materials opportunities mostly *are*.
+
+Zero passed the screen. Three were carried forward anyway so the failure would be legible: a
+²²⁹Th-doped nuclear-clock host, diamond with deterministically placed group-IV colour centres, and
+integrated electronics running above 400 °C.
+
+**The symmetric defence changed the answer, and that is a finding about the method.** Adjudicating
+each prosecution against a defence reading the same dossier found **eleven load-bearing prosecution
+claims wrong, every one of them in the direction of a kill.** A thermal ceiling built on a strawman
+spec; an opacity ceiling that the field had already moved 13×; a screen-sign argument contradicted by
+its own stated optimum; a "NOT FOUND" for a spinless host that is the title of a 2025 preprint; and a
+missed $360M acquisition of the named buyer. Asymmetric adversarial processes converge on rejection,
+which is why the defence was added. It worked, and it means the seven earlier kills carry a bias of
+unknown size in the same direction.
+
+**One candidate survived to a decision programme, and then died for free.** Diamond group-IV centres
+cleared TEST 0 under adversarial reading, cleared the sign check, passed the value-function form test,
+and had a cleared market price for the capability. It was costed as a staged programme: **$480,000 to
+$700,000 over 12 to 15 months**, four pre-stated kill gates, no new capital. Stage 0 of that
+programme cost **$0** and was one week of reading, with the gate written in advance: *if six centres
+lie within 72 MHz, or any N ≥ 6 simultaneous is documented, stop.*
+
+Abe et al., *Advanced Functional Materials* (arXiv:2505.00576), section 2.3:
+
+> Figure 5(a) shows a CFM image of Sample 2300 obtained with resonant scanning at a specific
+> frequency, where several bright spots are simultaneously observed... **Six PbV centers** marked in
+> circle show PLE spectra with similar center photon frequencies and narrow linewidths of **38-43
+> MHz**. Notably, two spectra have a very small energy difference of **only 1 MHz**.
+
+Six group-IV centres, simultaneously resonant at one laser frequency, transform-limited, with an
+inhomogeneous distribution standard deviation of 4.9-5.4 GHz after annealing at 2200-2300 °C. **The
+gate fires on both clauses.** Elapsed cost to fire it: twenty minutes and one paper.
+
+*One caveat kept with it:* the candidate also required *deterministic placement*, and Abe et al. used
+ion implantation with annealing, which is not deterministic. A reading in which the full article
+still does not exist is defensible. The gate was pre-stated and unconditional, so it governs, and the
+lesson concerns the gate and not diamond: **the cheapest question in a decision programme should be
+asked before the programme is funded, and it almost never is.**
+
+**What generation 3 changed about the diagnosis.** In generations 1 and 2 the kill was always
+*architecture beat materials on the same cost line*. That held for only one of three here. The other
+two died on the demand line: no buyer for the article at the specification where the article would be
+new, or a buyer who acquired the capability outright fifteen months ago while the merchant slot is
+held by the incumbent producer.
+
+> **The binding constraint is the merchant channel.** In every field where a threshold article is
+> genuinely new, the buyer is either absent or vertically integrated.
+
+And a selection artefact worth naming: **all ten candidates to date were components inside someone
+else's system.** That is a property of how they were generated, and not a property of materials
+science. Consumables where the material *is* the article — reagents, catalysts by the tonne,
+membranes, sorbents, isotopes, calibration standards — were never generated at all.
+
+**The retarget the adjudication recommends, with its own caveat attached.** Regulatory substitution:
+PFAS restriction, the fluorinated-gas phase-down, lead-free extensions. The value function is a
+genuine threshold in a genuinely discrete variable, because the article is legal above the compliance
+line and does not exist below it. The demand pool is a named substitution pool with a legislated
+deadline, the tonnage is the incumbent's current tonnage and is therefore already measured, and the
+buyer is a *user*, so vertical integration by a chemicals company is structurally harder.
+Qualification cost builds a merchant moat where elsewhere it closes one.
+
+The caveat, from the adjudication and worth quoting because it is the thing to stress-test:
+regulatory deadlines slip, exemptions are granted, the incumbent usually wins the replacement because
+it owns the qualification relationship — and *"architecture cannot cross a molecular ban" is weaker
+than it sounds, because architecture crosses it by eliminating the function*, which is the
+seven-of-seven pattern wearing a new costume.
+
 The filter is fixed even though the answer is not:
 
 1. combinatorial **and** not already solved by simulation or ML on existing data
@@ -410,6 +481,38 @@ field's own techno-economic analyses, because every field's analyses carry its o
 against the nearest mature technology's demonstrated installed cost. One candidate's literature
 assumed $68/kW against a roughly $2,000/kW demonstrated baseline for a strictly harder device — a
 factor of thirty, hiding inside peer review.
+
+**Two defects in these tests, found by running them. Both are correctable, and neither retires the
+test.**
+
+*A is only defined on candidates test 0 has already rejected.* The architecture ratio divides the
+best zero-discovery change by the materials axis at its ceiling. If no incumbent article exists, the
+architecture route has not delivered one either, the denominator diverges, and the answer depends
+entirely on the currency chosen — on one generation-3 candidate A ranged over a factor of nine
+between two defensible currencies. **A and test 0 are not independent gates and must not be scored as
+though they were.** Every A computed across three screens was assumed. Use A where an incumbent
+article exists, which is exactly where test 0 has already returned a rejection, so treat it as a
+sharpener on the loss-reduction verdict.
+
+*R degenerates on threshold candidates.* R measures headroom to a physics limit, and it is computable
+only where a thermodynamic floor bounds performance — which is the chemicals-and-energy setting it
+was calibrated on. Where the impairment is extrinsic, the limit is zero and R is infinite trivially.
+Where the binding axes have no physical ceiling at all, R is undefined. On two of three generation-3
+candidates R had to be re-specified as **headroom on demonstrated levers** to be computable, and that
+re-specification is the fix: divide the improvement available from levers somebody has actually
+demonstrated by the improvement the article requires.
+
+**A third rule, added because it changed an answer.** Attack and defence must be symmetric. Running a
+prosecution against each candidate with no counterpart produced eleven wrong load-bearing claims in a
+single adjudication, **every one in the direction of a kill**. An asymmetric adversarial process
+converges on rejection regardless of merit, so a candidate that survives one is carrying no
+information. Argue both sides from the same dossier and adjudicate between them.
+
+**And the cheapest rule of all.** When a decision programme is costed, look for the gate that costs
+nothing and run it before funding anything. Generation 3's surviving candidate came with a
+$480,000-to-$700,000 staged programme whose stage 0 was one week of reading, and that stage killed it
+in twenty minutes. **The free gate is almost never run first**, because reading a paper feels like
+preparation and a funded programme feels like progress.
 
 The related trap, which the para-xylene work names precisely: **the number the literature reports is
 often not the number that sets cost.** The field reports gravimetric equilibrium selectivity on powder

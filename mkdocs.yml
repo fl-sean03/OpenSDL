@@ -39,6 +39,7 @@ nav:
       - development/index.md
       - Roadmap: development/roadmap.md
       - Facility buildout: development/buildout.md
+      - Domain proposals: development/domains/index.md
       - Development backlog: development/backlog.md
       - Repository audit 2026-08-05: development/audit-2026-08-05.md
       - Agent instructions and skills: development/agent-skills.md

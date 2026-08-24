@@ -97,6 +97,25 @@ Check an item only when its stated evidence exists in the repository or a linked
 - [ ] Add typed intervention acknowledgement, resume, reconcile, hold, cancel, and abort behavior.
 - [ ] Add campaign checkpoints, validity domains, uncertainty, and multi-fidelity strategy contracts.
 
+### Facility capability, from decision D9
+
+[Decision D9](buildout.md#d9-framework-work-the-facility-requires) records five additions the
+facility needs, each of which must also earn its place at one bench. They are listed here so this
+page stays the single list of remaining framework work. The order is D9's, which puts truncation
+above scheduling.
+
+- [ ] Add progressive results: a capability reports a prediction with stated uncertainty from
+  incomplete data, then revises it when the measurement completes. Provenance records which
+  observations were predictions, and attestation reports each as resolved or unresolved. *Ranked
+  first because shortening a measurement beats scheduling around it.*
+- [ ] Add multi-fidelity as a first-class concept, so the optimizer knows whether it received the
+  fast screen or the slow truth, and the triage policy is expressible.
+- [ ] Add long-latency capabilities, so a three-week answer is a declared normal state rather than
+  a timeout landing in `intervention_required`.
+- [ ] Add late-arriving observations, foldable into a campaign whose run finished long ago.
+- [ ] Extend resource leases across long durations, covering TTL, reconciliation, and controller
+  restart mid-hold.
+
 ## 5. User-specific digital twins and visualization
 
 - [x] Define the `twin.yaml` v0alpha1 contract for coordinates, scene revision and digest, stable

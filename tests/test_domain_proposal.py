@@ -126,6 +126,28 @@ def test_the_value_function_is_not_loss_reduction(proposal: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("proposal", proposals(), ids=lambda path: path.stem)
+def test_the_fast_screen_answer_states_the_sign(proposal: Path) -> None:
+    """A correlation that exists is not enough; it has to point the right way.
+
+    One falsified candidate had a screen that was worse than useless. Selectivity fell with the
+    pressure the commercial plant would require, so a better bench number predicted a worse plant.
+    Both facility architectures examined in depth had a fast screen that failed to predict the slow
+    truth, which is why decision D13 makes the bridge the first deliverable.
+    """
+
+    text = proposal.read_text(encoding="utf-8").lower()
+    start = text.find("fast screen predicts slow truth")
+    if start < 0:
+        pytest.skip("no fast screen section; the missing-section test reports this")
+    section = text[start : start + 2500]
+
+    assert "sign" in section, (
+        f"{proposal.name} does not state the sign of the correlation between the cheap assay and the "
+        "expensive truth, in the variable that must change at scale. See decision D13."
+    )
+
+
 #: The decision log's own entry for the domain choice. Parsed so that recording a chosen domain
 #: requires a proposal that passed the screen above.
 BUILDOUT = Path(__file__).parents[1] / "docs" / "development" / "buildout.md"

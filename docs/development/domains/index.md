@@ -31,7 +31,7 @@ again if the controlled cost share is stated without a percentage or falls below
 | Attribution distance | How many transformation layers sit between the advance and the payer? | D6 |
 | Computational regime | SOLVED, PARTIAL or BLIND. Only PARTIAL qualifies. | D6 |
 | Measurement identity | Is the number the literature reports the number that sets cost? | D12 |
-| Fast screen predicts slow truth | Does the cheap measurement genuinely predict the expensive one? | D6 |
+| Fast screen predicts slow truth | Does the cheap measurement genuinely predict the expensive one, and **with which sign** in the variable that must change at scale? | D6, D13 |
 | Capital intensity | Discovery value per unit of output against capital charge per unit of output. | D11 |
 
 ## The check that closes the convention's hole

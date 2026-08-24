@@ -49,7 +49,25 @@ Every one of these maps onto a primitive the framework already has and has never
 contracts, resource leases, lifecycle states and attestation, provenance, and the human-task
 adapter. That is the reason to build it.
 
-*Enforced by:* intent, and by D9's framework work failing without it.
+**Two worked reference designs.** The domain search produced two facility architectures that are
+worth keeping even though both ventures were falsified. They are the concrete form of the list above,
+researched to real instruments, real costs and real wall-clock.
+
+*Elastocaloric alloys.* Nine steps from melt to regenerator assembly. Differential scanning
+calorimetry answers in **15 minutes at $10 a sample**; functional fatigue to 10⁸ cycles takes
+**58 days at $15,000-30,000**. That is a **fast/slow ratio of about 5,500**. The contended instruments
+are servo-hydraulic and resonant frames, which every fatigue campaign queues on, plus electron
+backscatter diffraction, transmission electron microscopy, and a single regenerator rig. Custody runs
+melt → work → heat treat → machine → coupon test → tube form → assembly, with a specific ingot heat
+traceable through six operations.
+
+*CO2 electrolysis.* **Five decades of timescale in one workflow**: cyclic voltammetry in 10-60
+minutes under $5; Faradaic efficiency on a small electrode in 2-6 hours; a 25 cm² membrane assembly
+for 100 hours over 4-7 days; 1,000-hour durability at 100 cm² holding a stand for six weeks; then an
+8,760-hour qualification occupying one stand for a year. The throughput bottleneck is the gas
+chromatography and mass spectrometry product line, which every cell needs continuously.
+
+Both are kept as reference designs for facility shape. Neither is a domain recommendation.
 
 ### D3 — The 10x claim is decisions per unit time
 
@@ -379,6 +397,58 @@ A convention-based check has an obvious hole: write the proposal somewhere else 
 runs. That hole is closed at the one place it matters. A third check reads D6 itself, and if this
 entry stops reading as open it must link to a proposal file that exists — so a domain choice cannot
 be recorded in the decision log without a document the screen has already been applied to.
+
+### D13 — The facility's first deliverable is the predictive bridge
+
+**Decided. It came from the two facility architectures; neither venture survived to contribute it.**
+
+Both domains examined in enough depth to answer the question gave the same answer, and it was the
+answer that disqualifies a naive facility:
+
+> **The fast screen does not predict the slow truth, and no validated accelerated protocol exists.**
+
+For elastocaloric alloys, differential scanning calorimetry genuinely predicts adiabatic temperature
+change, and an infrared self-heating method genuinely predicts *structural* fatigue to 10⁷ cycles.
+Neither predicts *functional* fatigue, which is what actually kills a regenerator, and single-cycle
+adiabatic temperature change **overstates the stabilised value by 1.5 to 6 times** (23-38.5 K
+measured against 6.6-15.9 K after fatigue). The field's fastest screen also measures the wrong
+object: the celebrated 10⁷-cycle result is a sputtered 20 µm film, and **eleven years later no bulk
+material reproduces that fatigue life at that temperature change.**
+
+For CO2 electrolysis, a one-hour flow-cell efficiency of 75.9% does not predict a 1,020-hour
+membrane-assembly efficiency of 68% at one sixth the current density. Every degradation mode — salt
+precipitation, flooding, copper reconstruction, ionomer and membrane decay — is slow and invisible in
+an hour. The published literature on accelerated testing for this device is one position paper from
+2020 and nothing standardised since.
+
+**A facility that scales the fast screen without the bridge is a machine for generating confident
+error at speed.** D6 already lists this as a disqualifying risk for a domain. D13 states the
+consequence for the build: **the bridge is the facility's first deliverable, before any discovery
+campaign runs.**
+
+Three things follow.
+
+1. **The bridge is measurement science.** It is bounded, schedulable and estimable in a way discovery
+   is not. The elastocaloric version is a bulk-coupon assay under 10⁴ cycles calibrated against
+   10⁷-cycle behaviour on a formed article; at 20 Hz a 10⁷-cycle point takes 5.8 days, so a 40-point
+   calibration set is about eight months on four frames or two months on twenty.
+2. **The bridge is a saleable asset on its own.** It is transferable, it serves every participant in
+   the field including competitors, and it needs no plant, no offtake and no first-of-a-kind
+   financing. D7's qualification-dossier hypothesis is the same idea seen from the commercial side.
+3. **It changes what the facility is claimed to do.** The claim "we search faster" is weaker and
+   easier to attack than the claim "we built the measurement that makes searching mean anything,"
+   and only the second is defensible when the field's own fast screen points the wrong way.
+
+**One uncomfortable finding to keep with it.** Model contribution is largest where it is least needed.
+On cheap axes — transformation temperature, latent heat, hysteresis — models do well. On the
+expensive axis that decides the outcome, fatigue life scatters by an order of magnitude at fixed
+nominal condition, which sits at the bad end of the 2.3-3.5x noise penalty, and each point costs 6 to
+58 days. So the realistic acceleration is near the bottom of the published 1.25-6x band **on the axis
+that matters**. State that to an investor plainly, because it is the first thing a good one will find.
+
+*Enforced by:* intent, and by D6's existing requirement that a domain answer the
+fast-screen-predicts-slow-truth question before adoption. `tests/test_domain_proposal.py` requires
+the answer to be present and to state the sign of the correlation.
 
 ### D7 — Business model
 

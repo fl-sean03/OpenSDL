@@ -85,7 +85,12 @@ What is the cheap measurement, what is the expensive one, and what evidence says
 the second? Without that, the facility is a machine for generating confident error at speed, and the
 domain is rejected however good the science is.
 
-Note whether the expensive measurement can be truncated rather than merely scheduled around.
+**State the sign of the correlation** in the variable that must change at scale. A correlation that
+merely exists is insufficient: one falsified candidate had selectivity falling with the pressure its
+plant required, so a better bench number predicted a worse plant.
+
+Note whether the expensive measurement can be truncated as well as scheduled around, and say what the
+bridge costs to build — decision D13 makes it the facility's first deliverable.
 
 ## Capital intensity
 

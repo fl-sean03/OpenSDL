@@ -10,6 +10,8 @@ changes. It holds **decisions and their reasoning**, which nothing else in the r
 
 - [The roadmap](roadmap.md) tracks releases. It says what ships.
 - [The backlog](backlog.md) tracks framework work items. It says what remains.
+- [Domain proposals](domains/index.md) hold candidate technology domains, one file each, against the
+  screen in D12. D6 cannot record a choice without one.
 - This page tracks the program. It says **what was decided and why**, so a decision survives the
   conversation that produced it.
 
@@ -29,7 +31,7 @@ means nothing would catch it, which is a standing invitation to find a better me
 **Decided.** The next showcase is a laboratory facility. A single cell has already been shown.
 
 A single cell has already been demonstrated and a second one proves nothing new. The interesting
-claim is not more throughput; it is that a facility is a *different machine* — see D2.
+claim is that a facility is a *different machine* — see D2. Throughput alone would prove little.
 
 *Enforced by:* the showcase itself.
 

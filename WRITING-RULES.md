@@ -44,7 +44,7 @@ of an actual campaign existed.
 **Superseded:** 2026-08-11 — the original rule read "show the run, not the machine" and moved the
 campaign frame to the header. Sean reversed it: the cell is the header, and the campaign frame comes
 later as an example. The narrower rule above is what survives — prefer the run *where the run is the
-subject*, rather than everywhere.
+subject*. Everywhere was too broad.
 
 ## Size an image for where it is read
 
@@ -58,8 +58,13 @@ resampled to 1920px read sharp.
 ## Never manufacture emphasis with a contrast
 
 **Rule:** Do not use the formulaic contrast: `X, not Y` · `not X but Y` · `X rather than Y` ·
-`X instead of Y` · `less X, more Y`. State the claim and stop. Where the contrast carries real
-information, give it its own sentence and say what is actually true of the rejected option.
+`X instead of Y` · `less X, more Y` · `it is not X; it is Y`. State the claim and stop. Where the
+contrast carries real information, give it its own sentence and say what is actually true of the
+rejected option.
+
+The last variant hides from a search for the others, and it survived two passes over the buildout
+page. A comparison of two real quantities is fine — moving process architecture genuinely does cost
+less than moving materials. The rule is about inventing a foil in order to sound emphatic.
 
 **Why:** The construction invents a strawman to knock down, which reads as emphasis without adding
 information. It is one of the most reliable signals of generated prose, and it accumulates: the

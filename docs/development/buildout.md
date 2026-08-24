@@ -26,6 +26,30 @@ by intention is marked as such, because that is the honest description of its du
 Each entry carries a status and the thing that would catch its violation. `Enforced by: intent`
 means nothing would catch it, which is a standing invitation to find a better mechanism.
 
+| # | Decision | Status | Enforced by |
+|---|---|---|---|
+| D1 | [Facility scale](#d1-facility-scale) | closed | intent |
+| D2 | [A facility is not N cells](#d2-a-facility-is-not-n-cells) | closed | intent |
+| D3 | [The 10x claim is decisions per unit time](#d3-the-10x-claim-is-decisions-per-unit-time) | closed | intent |
+| D4 | [Scale invariance: the small case stays first-class](#d4-scale-invariance-the-small-case-stays-first-class) | closed | `tests/test_minimal_laboratory.py` |
+| D5 | [The showcase proves the chain](#d5-the-showcase-proves-the-chain) | closed | intent |
+| D6 | [Target technology domain](#d6-target-technology-domain) | open | `tests/test_domain_proposal.py` |
+| D11 | [Capital intensity caps venture returns](#d11-capital-intensity-caps-venture-returns) | closed | `tests/test_domain_proposal.py` |
+| D12 | [Screen the cost share before spending research on a domain](#d12-screen-the-cost-share-before-spending-research-on-a-domain) | closed | `tests/test_domain_proposal.py` |
+| D13 | [The facility's first deliverable is the predictive bridge](#d13-the-facilitys-first-deliverable-is-the-predictive-bridge) | closed | intent |
+| D7 | [Business model](#d7-business-model) | closed | intent |
+| D8 | [Scheduler architecture](#d8-scheduler-architecture) | open | `tests/test_minimal_laboratory.py` |
+| D9 | [Framework work the facility requires](#d9-framework-work-the-facility-requires) | closed | intent |
+| D10 | [Dogfooding does not become facility-only](#d10-dogfooding-does-not-become-facility-only) | closed | `make showcase` |
+
+**Seven of thirteen rest on intent**, and that count is printed here so it stays uncomfortable. Three
+of them — D1, D3 and D9 — become self-enforcing the moment the work they describe exists, and are
+honest placeholders until then. The other four are process rules that no test can express.
+
+*Audited 2026-08-24.* Two entries claimed mechanisms that did not exist: D10 described a facility
+laboratory in the benchmark suite, which has never been there, and D1 and D3 both named the facility
+showcase, which has not shipped. Every row above was re-checked against the repository.
+
 ### D1 — Facility scale
 
 **Decided.** The next showcase is a laboratory facility. A single cell has already been shown.
@@ -33,7 +57,9 @@ means nothing would catch it, which is a standing invitation to find a better me
 A single cell has already been demonstrated and a second one proves nothing new. The interesting
 claim is that a facility is a *different machine* — see D2. Throughput alone would prove little.
 
-*Enforced by:* the showcase itself.
+*Enforced by:* intent, until the facility showcase exists. The current showcase is
+`discovering-colors`, which is a single cell, so nothing today would catch this decision being
+quietly abandoned. It becomes self-enforcing the moment a facility showcase ships, and not before.
 
 ### D2 — A facility is not N cells
 
@@ -71,6 +97,8 @@ chromatography and mass spectrometry product line, which every cell needs contin
 
 Both are kept as reference designs for facility shape. Neither is a domain recommendation.
 
+*Enforced by:* intent, and by D9's framework work failing without it.
+
 ### D3 — The 10x claim is decisions per unit time
 
 **Decided.** The capability claim is **experiments that reach a decision** — throughput × yield ×
@@ -80,8 +108,9 @@ Anyone can buy more liquid handlers, so samples per day measures a purchase. Rea
 most of their nominal throughput to samples that are made and never characterized, or characterized
 and never correctly attributed. That loss is what provenance actually fixes.
 
-*Enforced by:* the metric must appear in the showcase with a stated baseline. A claim without a
-denominator does not ship.
+*Enforced by:* intent, for the same reason as D1 — the showcase that would carry the metric is the
+facility showcase, and it does not exist yet. The obligation this decision creates: when it ships,
+the metric appears with a stated baseline, and a claim without a denominator does not ship at all.
 
 ### D4 — Scale invariance: the small case stays first-class
 
@@ -278,6 +307,10 @@ The filter is fixed even though the answer is not:
 Added by D2: the domain must have **genuine multi-step heterogeneity and a fast/slow split**. A
 domain where one instrument does everything is now a worse fit, because it would not exercise
 facility-scale capability.
+
+*Enforced by:* `tests/test_domain_proposal.py`, whose third check reads this entry directly: once D6
+stops reading as open it must link to a proposal file that exists and that the screen collects. That
+covers how a choice is recorded. Which choice is right is enforced by intent, and by D12.
 
 The disqualifying risk to check before committing: **does the fast screen actually predict the slow
 truth?** A fast proxy that does not predict the real property makes an autonomous lab a machine for
@@ -512,6 +545,11 @@ Intended resolution: scheduling becomes a strategy behind an interface with an i
 immediate-dispatch default, in the same shape as the storage layer, where repository interfaces
 make PostgreSQL a swap. Named here because "we will just add a small daemon"
 is exactly how the small case dies.
+
+*Enforced by:* `tests/test_minimal_laboratory.py`, which refuses a manifest containing `scheduler:`
+or `broker:` and fails if the minimum grows past 20 lines. That catches a daemon becoming required.
+It would not catch a daemon becoming the default while staying omissible, which is the subtler
+version of the same failure and is currently enforced by intent.
 
 ### D9 — Framework work the facility requires
 

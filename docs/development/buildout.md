@@ -24,9 +24,9 @@ by intention is marked as such, because that is the honest description of its du
 Each entry carries a status and the thing that would catch its violation. `Enforced by: intent`
 means nothing would catch it, which is a standing invitation to find a better mechanism.
 
-### D1 — Facility scale, not another cell
+### D1 — Facility scale
 
-**Decided.** The next showcase is a laboratory facility, not a larger single cell.
+**Decided.** The next showcase is a laboratory facility. A single cell has already been shown.
 
 A single cell has already been demonstrated and a second one proves nothing new. The interesting
 claim is not more throughput; it is that a facility is a *different machine* — see D2.
@@ -37,26 +37,26 @@ claim is not more throughput; it is that a facility is a *different machine* —
 
 **Decided.** Facility scale is a qualitative change, and the design must reflect all of it:
 
-- heterogeneous stations rather than replicated cells
+- heterogeneous stations, each doing a different thing
 - physical samples moving between stations, with custody and genealogy
 - contention for shared characterization instruments
-- **multiple timescales in one loop** — minutes to weeks — so work pipelines rather than batches
+- **multiple timescales in one loop** — minutes to weeks — so work has to pipeline
 - graceful degradation when one station fails with dozens of experiments in flight
 - multi-fidelity triage: screen many, validate some, qualify few
 - human technicians as first-class stations for steps that cannot be automated
 
 Every one of these maps onto a primitive the framework already has and has never stressed: capability
 contracts, resource leases, lifecycle states and attestation, provenance, and the human-task
-adapter. That is the reason to build this rather than a bigger demo.
+adapter. That is the reason to build it.
 
 *Enforced by:* intent, and by D9's framework work failing without it.
 
-### D3 — The 10x claim is decisions, not samples
+### D3 — The 10x claim is decisions per unit time
 
 **Decided.** The capability claim is **experiments that reach a decision** — throughput × yield ×
-the fraction producing an attributable, trustworthy measurement — not samples per day.
+the fraction producing an attributable, trustworthy measurement. Samples per day is the wrong unit.
 
-Samples per day is a weak claim because anyone can buy more liquid handlers. Real facilities lose
+Anyone can buy more liquid handlers, so samples per day measures a purchase. Real facilities lose
 most of their nominal throughput to samples that are made and never characterized, or characterized
 and never correctly attributed. That loss is what provenance actually fixes.
 
@@ -67,10 +67,10 @@ denominator does not ship.
 
 **Decided, and load-bearing.** Facility work must not tax the one-bench case.
 
-The test for any new feature: **does it make the one-bench case better, or merely not worse?** A
-feature that only helps at scale is probably not a real concept — it is an accident of deployment
-promoted into the domain model. All four planned additions in D9 pass this test; anything that
-fails it should be redesigned rather than gated behind a flag.
+The test for any new feature: **does it make the one-bench case better, or merely leave it unharmed?** A
+feature that only helps at scale is usually an accident of deployment promoted into the domain
+model. All four planned additions in D9 pass this test; anything that
+fails it should be redesigned. Gating it behind a flag hides the problem.
 
 The hard constraint: **tier 1 must never require anything from tier 4.**
 
@@ -85,7 +85,7 @@ The hard constraint: **tier 1 must never require anything from tier 4.**
 manifest and fails when the minimum grows. Growth in the minimum is the observable form of this
 decision being violated, and a new required field is a diff anyone can see.
 
-### D5 — The showcase proves the chain, not the loop
+### D5 — The showcase proves the chain
 
 **Decided.** The previous showcase proved a loop closes. That is no longer interesting. This one
 proves the chain from discovery to a sellable asset, in three visible beats:
@@ -93,7 +93,7 @@ proves the chain from discovery to a sellable asset, in three visible beats:
 1. the loop finds something a grid search or a human would not have, with the search trace visible
 2. the evidence store becomes a qualification package automatically — **including the failed runs**,
    because "what else did you try" is exactly the question provenance answers
-3. that package, not the material, is what a customer receives
+3. the customer receives that package, and the material comes with it
 
 Beats 2 and 3 are the differentiation. Nobody is showing them.
 
@@ -101,17 +101,17 @@ Beats 2 and 3 are the differentiation. Nobody is showing them.
 
 ### D6 — Target technology domain
 
-**Open, and now with two candidates falsified rather than merely unchosen.** Both were modelled to
-completion against adversarial review, and both failed on arithmetic rather than on judgement. The
-negative results are recorded because rediscovering them would cost months.
+**Open. Three candidates have been modelled to completion against adversarial review and
+falsified.** Each failed on arithmetic. The negative results are recorded because rediscovering them
+would cost months, and because the third one finally explains the first two.
 
 **Falsified: a heavy-rare-earth-free permanent magnet venture.** The thesis was that grain-boundary
 engineering could reach high-temperature coercivity without dysprosium or terbium, removing the
 largest cost in a Western magnet. The physics is sound — Nd2Fe14B allows about 7.6 T and commercial
 magnets deliver 1-2 T, so 70-85% of the bound is unrealised and the deficit is microstructural. The
 economics are not. Eliminating heavy rare earth is worth **$9.50/kg on a thin part and $31.92/kg on
-a thick one**, not the $40-75/kg the first pass assumed, because grain-boundary diffusion already
-uses a fraction of the terbium that bulk alloying does. Nobody has ever published the cost of *being*
+a thick one**. The first pass assumed $40-75/kg because it priced bulk alloying; grain-boundary
+diffusion already uses a fraction of the terbium. Nobody has ever published the cost of *being*
 heavy-rare-earth-free, and at a $10/kg process premium the thin-part case goes negative. Probability
 weighted, a Series A returns **2.24x at 10.6% IRR**; even the upside case returns 10.1x, which clears
 a growth fund's bar and fails a seed fund's.
@@ -121,7 +121,7 @@ thesis was that separation factor sets stage count, stage count sets plant capit
 extractant buys a cheaper plant. The first link holds and was validated against a patent running
 identical duty on two extractants, agreeing within 10%. The second link does not. Solvent extraction
 is 18-30% of plant capital and only part of that scales with stage count; **86% of per-stage volume
-is settler, sized by coalescence rather than by selectivity.** The whole capital value of raising the
+is settler, and coalescence sizes it.** The whole capital value of raising the
 separation factor from 1.5 to 5 is about **$3/kg of oxide, 1.3% of revenue** — against feedstock
 payable moving the same model by $52.6M and the export-control premium by $43.0M. Three further
 errors compounded it: the stage-count curve is concave and the target sat on its flat part; the
@@ -129,12 +129,71 @@ binding split for magnet feedstock is non-adjacent and already runs at high sele
 levers exist on the same cost line with no chemistry risk, one patent cutting a cascade 37% using the
 same extractant by moving the reflux point. Returns **1.16-1.50x at 2.1-6.0% IRR**.
 
+**Falsified: a step-change adsorbent for para-xylene separation.** The thesis was that an adsorbent
+with selectivity near 70, against an incumbent barium-exchanged faujasite at 2-3, would simplify or
+replace simulated-moving-bed separation across the ~54 Mt/a of world capacity that runs it. Twelve
+agents across two independent passes attacked it from the cost side and the physics side. It fails
+four separate ways, and any one of them is sufficient.
+
+*The value saturates, and the saturation is algebraic.* The separation unit is 11.4% of an aromatics
+complex, and chambers plus adsorbent charge — everything selectivity can touch — are 42% of that
+unit. The remainder is desorbent-recovery distillation, whose size is floored by the back-off from
+the equilibrium-theory vertex and is independent of selectivity. The fraction of the total available
+prize captured at any selectivity reduces to **1 − α_ref/α**, in which every calibration constant
+cancels. At selectivity 10 that is 75%; at 70 it is 96.4%. The whole 2.5 → 70 step is worth **2.4-4.1%
+of project capital and $21-26 per tonne of product**. The elasticity of capital cost with respect to
+selectivity at 70 is **−0.009**.
+
+*The binding pair is physically inaccessible to the mechanism.* Ethylbenzene, at 14-17% of feed, is
+the hard rejection, and para-xylene and ethylbenzene have minimum cross-sections of **6.51 and
+6.53 Å**. Every steric or kinetic sieving mechanism capable of producing high selectivity is blind to
+that difference. The 2025 record material measures **EB/PX = 2.79 on a real four-component feed — it
+prefers ethylbenzene.** Ethylbenzene boils at 136.2 °C against para-xylene at 138.35 °C, so
+distillation cannot remove it downstream.
+
+*The headline number has no provenance.* Three independent search passes found **no peer-reviewed
+liquid-phase para/meta selectivity near 70**. The best documented values are 4.99, ~17, 27.5 by
+vapour-phase IAST, and ~30. Everything above that is para/*ortho* — the easy pair — or a binary
+measurement. A selectivity of 70 measured at 298 K and driven by adsorption enthalpy decays to **~17
+at the 180 °C operating temperature**. And the incumbent's own equilibrium selectivity was **3.35 in
+1972 and 3.26 in 2021**: fifty years in which every gain came from capacity, mass transfer, particle
+size, binder elimination and architecture.
+
+*The flowsheet the thesis implies was already built, at the incumbent selectivity.* UOP
+commercialised HySorb XP in 1998 — single chamber, light desorbent, single-stage crystallisation —
+and published that it "does not provide any cost or performance advantages relative to the Parex
+process." Sinopec took **~20% off investment cost** in 2022 with a 16-bed single column, and
+commercialised temperature-swing SMB in 2019, both at conventional selectivity. The two largest
+capital reductions ever booked in this unit were won by people who own the architecture.
+
+*And a thermodynamic ceiling sits above all of it.* A perfect adsorbent — infinite selectivity, 100%
+recovery — shrinks circulation to the separator from 4.368 to 4.237 tonnes per tonne of product, a
+**3.0% reduction**, because equilibrated C8 aromatics are ~23% para and that is a property of the
+molecule. The isomerisation recycle loop is mandatory at every selectivity.
+
+Returns, probability-weighted over ten years: **2.03x selling adsorbent, 2.12x owning plants, 4.32x
+for a staged hybrid**. Base-case IRRs are 5.6%, 10.2% and 15.1%. Owning plants carries the same
+expected multiple as selling beds, at four times the capital and a 50% probability of total loss.
+
+**What the three failures have in common, which is the useful result.** Every candidate was *a better
+material for a mature industrial process*. In a mature process the material axis is the cheapest axis
+to optimise, so incumbents harvested it first, over decades. What remains on that axis is the
+saturated tail — and the arithmetic keeps finding exactly that, because it is what is there. This is
+a structural property of the search. A fourth candidate of the same shape would produce a fourth
+version of the same answer.
+
+The consequence for D6: the domain must be one where **the process does not yet exist**, so the
+material and the process are designed together and the material carries the whole value. That is also
+where an autonomous laboratory is differentiated. A facility is poor at extracting the last few
+percent from a fifty-year optimisation and strong at searching a space nobody has searched, because
+the measurement was too expensive to run at scale.
+
 The filter is fixed even though the answer is not:
 
 1. combinatorial **and** not already solved by simulation or ML on existing data
 2. loop-closable — real cost and wall-clock numbers per experiment
 3. characterization automatable, by a named instrument
-4. a named customer with a deadline, not a preference
+4. a named customer with a deadline
 5. a survivable qualification timeline
 6. legible — a non-expert can see success
 
@@ -149,10 +208,10 @@ science.
 
 ### D11 — Capital intensity caps venture returns
 
-**Decided, and it constrains D6 and D7 rather than following from them.**
+**Decided. It constrains D6 and D7; it does not follow from them.**
 
 Two independently modelled full-stack materials ventures returned 2.24x and 1.16-1.50x. The pattern
-is structural, not specific: owning the plant means owning the capex, and capex compresses the
+is structural: owning the plant means owning the capex, and capex compresses the
 multiple. A materials manufacturer can be right about the science, execute well, and still hand the
 investor who took the technical risk an outcome that suits a growth fund and misses a seed fund's
 bar entirely.
@@ -163,8 +222,60 @@ Integration is the right answer for value *capture* and the wrong answer for *mu
 proposed under D6 must be tested against this before the science is evaluated, because a domain that
 fails here fails regardless of how good the chemistry is.
 
+**Amended after the para-xylene work, which supplied the missing test.** The earlier form of this
+decision said only that capital intensity compresses the multiple. That is too blunt, because owning
+capital the discovery makes uniquely cheap is the entire point of a discovery. The test is a
+comparison of two numbers on the same denominator:
+
+> **Own the plant when the discovery's value per unit of output exceeds the capital charge per unit
+> of output.**
+
+For para-xylene the discovery is worth $21-26 per tonne at its theoretical maximum, and the capital
+charge on the tonne that captures it is $82 per tonne. It fails by a factor of three to four, and the
+industry it would be bought into runs a four-year mean margin of $304.81/t against a $332/t full-cost
+breakeven, with sector ROIC of 3.72% against a 6.22% cost of capital.
+
+The compression is also priced, and the price is public. Chemical (Specialty) trades at **13.36x** and
+Chemical (Basic) at **8.57x** (Damodaran, January 2026). Forward integration therefore costs **36% of
+enterprise value per dollar of EBITDA and 6.20 points of economic profit**, before any operating
+result. That is the cost of the relabelling alone.
+
 *Enforced by:* any future domain proposal carries a returns model with a stated capital intensity
-before it is adopted. Two exist now as comparables.
+before it is adopted, and states the two numbers above. Three exist now as comparables.
+
+### D12 — Screen the cost share before spending research on a domain
+
+**Decided, and it is the cheapest thing in this document.**
+
+Three deep-research programmes each ran to completion and each died on the same question, asked at
+the end when it could have been asked at the start: **what fraction of the paying customer's cost
+does the discoverable property actually control?**
+
+| Candidate | The discoverable property | What it controls |
+|---|---|---|
+| Permanent magnets | heavy-rare-earth-free coercivity | $9.50-31.92/kg of a magnet |
+| Rare-earth separation | extractant separation factor | $3/kg of oxide, 1.3% of revenue |
+| Para-xylene adsorbents | adsorbent selectivity | 2.4-4.1% of project capital, $21-26/t |
+
+Each number is estimable to an order of magnitude in a few hours from public cost structure, well
+before any physics is evaluated. Each would have stopped the programme.
+
+The screen: **compute the controlled cost share first, and reject below roughly 15%.** A property
+that governs under a sixth of the payer's cost cannot carry a venture outcome, however good the
+science is and however large the market. Market size does not rescue it, because the share is
+multiplicative with the market and the arithmetic is the same at every scale.
+
+The related trap, which the para-xylene work names precisely: **the number the literature reports is
+often not the number that sets cost.** The field reports gravimetric equilibrium selectivity on powder
+against a binary feed. Plant cost is set by volumetric working capacity and mass-transfer rate on a
+formed bead in four-component feed with a desorbent present. One material bought 5x selectivity and
+paid 39% of its capacity; a nine-formulation dataset spans 55.3 to 88.5 wt% selectivity with a 2.45x
+throughput spread that tracks macropore volume, and the most selective sample is not the fastest.
+Confirm that the reported measurement is the one that governs cost before treating a literature
+record as a prize.
+
+*Enforced by:* a domain proposal states the controlled cost share, with arithmetic, on its first page,
+and states which measurement sets cost and whether the cited record is that measurement.
 
 ### D7 — Business model
 
@@ -191,7 +302,7 @@ nothing running in the background.
 
 Intended resolution: scheduling becomes a strategy behind an interface with an in-process
 immediate-dispatch default, in the same shape as the storage layer, where repository interfaces
-make PostgreSQL a swap rather than a rewrite. Named here because "we will just add a small daemon"
+make PostgreSQL a swap. Named here because "we will just add a small daemon"
 is exactly how the small case dies.
 
 ### D9 — Framework work the facility requires
@@ -224,7 +335,7 @@ assume one. The countermeasure is that the small examples stay alive and exercis
 *Enforced by:* `make showcase` re-derives the `discovering-colors` campaign in CI, so the small
 reference cannot silently rot while attention is on the facility. The benchmark suite keeps both a
 small laboratory and a facility laboratory, so a change that makes small labs harder to operate
-appears as a score drop rather than a feeling.
+appears as a score drop.
 
 ## Standing rules
 
@@ -243,7 +354,7 @@ longer built this way. That is the correct trade while the small case is the ado
 
 ## Sequence
 
-Phase boundaries, not dates. Each phase ends with something an outsider can check.
+Phase boundaries carry the sequence. Each phase ends with something an outsider can check.
 
 **Phase 0 — settle the domain.** Close D6 and D7. Ends with a domain, a named customer, a
 loop with real cost and wall-clock numbers, and a written answer to the fast-screen-predicts-slow-

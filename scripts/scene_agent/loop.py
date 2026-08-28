@@ -50,7 +50,10 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     new_scene()                                  empty scene WITH a world, returns the scene
     ambient(strength=0.1, color=(r,g,b))         world light; keep strength 0.05-0.2
     material(name, color, roughness, metallic)   Principled material
-    palette()                                    dict of measured preset materials
+    palette()                                    dict of measured preset materials, keyed:
+                                                 bench 0.090  polymer 0.055  steel 0.420 metallic
+                                                 aluminium 0.560 metallic   floor 0.300
+                                                 labware 0.620   glass 0.800
     lab_lighting(target, cam)                    three-point rig placed off the CAMERA axis
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
@@ -87,6 +90,12 @@ handles this and computes the height so you never write `surface_z + height/2` b
 A swatch ramp was rendered to calibrate these. The finding worth knowing: the FLOOR dominates. At
 0.55 albedo it bounces so much light that even a 0.03 surface reads mid-grey and nothing can look
 dark. `p['floor']` is 0.30 for that reason. Do not brighten it.
+
+**Take the material from `p`, do not write your own for a surface it already covers.** The albedos
+above are what those words mean in this rig. A bench top written as 0.15 because it sounds like
+dark grey renders as mid grey and gets marked down for it — that has happened, twice. If you need
+something the palette lacks, keep it in the same range: matte dark polymer lives near 0.05, painted
+metal near 0.35, anything meant to read white near 0.65.
 
 **Lighting numbers, if you override the rig.** The harness renders with the Standard
 view transform, so there is no filmic roll-off to hide an overexposed scene. A measured failure: an

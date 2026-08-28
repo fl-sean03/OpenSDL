@@ -116,7 +116,8 @@ def build(
                 engine=engine,
                 samples=samples,
             )
-            if outcome.ok:
+            blocking = [d for d in outcome.defects if not d.startswith("engine ")]
+            if outcome.ok and not blocking:
                 script = candidate
                 stage.ok = True
                 stage.image = str(outcome.image)
@@ -124,8 +125,15 @@ def build(
                 meshes = outcome.report.get("meshes")
                 stage.meshes = int(meshes) if isinstance(meshes, int) else 0
                 break
-            last_error = outcome.stderr or "; ".join(outcome.defects)
+            # A render that ran is not a render that shows anything. Blocking defects carry the
+            # structural failures an image cannot report and, since the framing check landed, the
+            # one an image reports loudest: a camera pointed at nothing.
+            if outcome.ok and blocking:
+                last_error = "The script ran and rendered, but: " + "; ".join(blocking)
+            else:
+                last_error = outcome.stderr or "; ".join(outcome.defects)
             stage.stderr = last_error
+            stage.probe_defects = outcome.defects
 
         stage.cost_usd = spent
         record.append(stage)

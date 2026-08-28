@@ -30,6 +30,7 @@ PROBE = f'''
 # ---- appended by scripts/scene_agent/render.py; not part of the candidate ----
 import json as _json, math as _math, sys as _sys
 import bpy as _bpy
+import mathutils as _mathutils
 
 def _finite(values):
     return all(isinstance(v, (int, float)) and _math.isfinite(v) for v in values)
@@ -107,6 +108,41 @@ for _obj in _bpy.data.objects:
         _report["defects"].append(f"object {{{{_obj.name!r}}}} has a non-finite transform")
     if _loc == (0.0, 0.0, 0.0) and _obj.type == "MESH":
         _at_origin += 1
+
+# Does the camera actually frame anything? A scene can have every object it needs, a camera and a
+# light, and still render a picture of the floor because the camera points at nothing. That reads
+# as a clean scene to every scalar check and as a failure to anyone who looks at it.
+try:
+    from bpy_extras.object_utils import world_to_camera_view as _w2c
+
+    _cam = _scene.camera
+    if _cam is not None:
+        _visible = 0
+        _considered = 0
+        for _obj in _bpy.data.objects:
+            if _obj.type != "MESH" or not _obj.data.vertices:
+                continue
+            _considered += 1
+            _corners = [_obj.matrix_world @ _mathutils.Vector(c) for c in _obj.bound_box]
+            for _corner in _corners:
+                _ndc = _w2c(_scene, _cam, _corner)
+                if 0.0 <= _ndc.x <= 1.0 and 0.0 <= _ndc.y <= 1.0 and _ndc.z > 0.0:
+                    _visible += 1
+                    break
+        _report["meshes_in_frame"] = _visible
+        _report["meshes_considered"] = _considered
+        if _considered and _visible == 0:
+            _report["defects"].append(
+                "the camera frames none of the geometry. Every mesh is outside the view or "
+                "behind the camera, so the render shows background only"
+            )
+        elif _considered >= 3 and _visible <= _considered // 4:
+            _report["defects"].append(
+                f"the camera frames only {{{{_visible}}}} of {{{{_considered}}}} meshes; most of "
+                "the scene is out of shot"
+            )
+except Exception as _exc:
+    _report["defects"].append(f"framing check failed: {{{{_exc}}}}")
 
 if _report["cameras"] == 0:
     _report["defects"].append("the scene has no camera, so nothing can be rendered")

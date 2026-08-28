@@ -278,6 +278,15 @@ try:
             _report["defects"].append(
                 f"{{{{_crushed*100:.0f}}}}% of the image is crushed to black; there is not enough fill"
             )
+        if _mean < 0.14:
+            _report["defects"].append(
+                f"the image is underexposed (mean luminance {{{{_mean:.3f}}}}); raise the key light "
+                "or move it closer"
+            )
+        if _mean > 0.72:
+            _report["defects"].append(
+                f"the image is overexposed (mean luminance {{{{_mean:.3f}}}}); lower the key light"
+            )
         if _spread < 0.06:
             _report["defects"].append(
                 f"the image has almost no tonal range (contrast {{{{_spread:.3f}}}}); it reads as a "

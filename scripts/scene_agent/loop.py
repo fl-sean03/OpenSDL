@@ -51,7 +51,7 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     ambient(strength=0.1, color=(r,g,b))         world light; keep strength 0.05-0.2
     material(name, color, roughness, metallic)   Principled material
     palette()                                    dict of measured preset materials
-    lab_lighting(target)                         calibrated three-point rig
+    lab_lighting(target, cam)                    three-point rig placed off the CAMERA axis
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
     plane(name, size, location, material_)       flat square, for floors
@@ -70,7 +70,9 @@ import bpy primitives to do what they do — each exists because hand-rolling it
 Start with `scene = new_scene()`. Build bodies with `box`, `cylinder` and `plane`. Frame with
 `cam = camera(...)` then `frame_all(cam)` as the last thing before lighting: it measures what you
 actually built and pulls back until none of it is cropped. Never write rotation_euler by hand.
-Light with `area_light`.
+Then `lab_lighting(target, cam)` LAST, after framing, passing the camera it returned. The rig
+places itself relative to the view axis so the light always models the form; lighting chosen in
+world space lands frontally as often as not and the render comes out flat.
 
 Where two bodies meet, **sink one a few millimetres into the other**. Surfaces that end at exactly
 the same height and overlap in plan will z-fight into flickering dark squares. A bench leg should

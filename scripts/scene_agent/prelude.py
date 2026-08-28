@@ -64,20 +64,46 @@ def palette():
         for name, (colour, roughness, metallic) in PALETTE.items()
     }
 
-def lab_lighting(target=(0.0, 0.0, 1.0), key=90.0, fill=22.0):
-    """A three-point rig that exposes correctly under the Standard view transform.
+def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=240.0, fill=60.0, rim=36.0):
+    """A three-point rig placed relative to the CAMERA, so the light always models the form.
 
-    Energies are measured against this palette: 90 W key and 22 W fill at roughly 2.5 to 3 m give
-    a mean luminance near 0.27 with nothing blown and nothing crushed. Higher numbers were what
-    produced a frame that was 48% pure white.
+    Lighting positioned in world space only works if the camera happens to be somewhere flattering.
+    A key that lands near the camera-to-subject axis lights everything frontally, kills every
+    shading gradient, and the render comes out looking like a diagram of the scene rather than a
+    photograph of it. That is a real critique this rig earned, twice.
+
+    So the key goes 50 degrees off the view axis and above; the fill goes to the other side at a
+    quarter of the power and slightly cool; a low rim behind picks the subject off the background.
+    Pass the camera returned by `camera()` or `frame_all()`. Call this AFTER framing.
+
+    The energies are set for lights standing off at roughly the camera distance. They are higher
+    than the earlier fixed-position rig because these sit further out, and light falls off with the
+    square of that distance.
     """
+    import math
+
     ambient(0.06)
     centre = mathutils.Vector(target)
-    k = area_light("Key", centre + mathutils.Vector((-1.8, -2.2, 1.9)), target,
-                   energy=key, size=1.4)
-    f = area_light("Fill", centre + mathutils.Vector((2.4, 1.2, 1.1)), target,
-                   energy=fill, size=1.0, color=(0.85, 0.90, 1.0))
-    return k, f
+    if cam is None:
+        cam = bpy.context.scene.camera
+    if cam is None:
+        offset = mathutils.Vector((-2.4, -2.4, 0.0))
+    else:
+        offset = cam.location - centre
+    reach = max(mathutils.Vector((offset.x, offset.y, 0.0)).length, 1.5)
+
+    def _at(degrees, height, distance):
+        angle = math.atan2(offset.y, offset.x) + math.radians(degrees)
+        return centre + mathutils.Vector(
+            (math.cos(angle) * distance, math.sin(angle) * distance, height)
+        )
+
+    k = area_light("Key", _at(50.0, reach * 0.95, reach * 1.05), target, energy=key, size=1.5)
+    f = area_light("Fill", _at(-75.0, reach * 0.45, reach * 1.15), target,
+                   energy=fill, size=1.1, color=(0.84, 0.89, 1.0))
+    r = area_light("Rim", _at(165.0, reach * 0.85, reach * 0.95), target,
+                   energy=rim, size=0.8, color=(0.92, 0.94, 1.0))
+    return k, f, r
 
 def _mesh_object(name, bm, location, material_):
     mesh = bpy.data.meshes.new(name)

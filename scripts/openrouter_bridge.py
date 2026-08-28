@@ -149,7 +149,7 @@ def to_openai(payload: dict[str, Any], model: str) -> dict[str, Any]:
     request: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": payload.get("max_tokens", 8192),
+        "max_tokens": payload.get("max_tokens", 32000),
     }
     if "temperature" in payload:
         request["temperature"] = payload["temperature"]
@@ -183,6 +183,21 @@ def to_anthropic_blocks(message: dict[str, Any]) -> list[dict[str, Any]]:
     text = message.get("content")
     if isinstance(text, str) and text.strip():
         blocks.append({"type": "text", "text": text})
+    elif not message.get("tool_calls"):
+        # A reasoning model that exhausts its budget mid-thought returns content=None with no
+        # tool call. Surfacing the reasoning is more useful to the harness than an empty turn,
+        # which reads as the model having nothing to say.
+        thought = message.get("reasoning")
+        if isinstance(thought, str) and thought.strip():
+            blocks.append(
+                {
+                    "type": "text",
+                    "text": (
+                        "[the model ran out of output budget while reasoning; its trace ended]\n\n"
+                        + thought[-2000:]
+                    ),
+                }
+            )
     for call in message.get("tool_calls") or []:
         function = call.get("function") or {}
         raw = function.get("arguments") or "{}"

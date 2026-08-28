@@ -81,7 +81,7 @@ def ask(
     model: str = DEFAULT_MODEL,
     key: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 16000,
+    max_tokens: int = 32000,
     timeout: float = 240.0,
 ) -> Reply:
     """One completion. Raises on transport failure so the caller decides whether to retry."""
@@ -118,8 +118,21 @@ def ask(
     if not choices:
         raise RuntimeError(f"OpenRouter returned no choices: {json.dumps(payload)[:400]}")
     usage = payload.get("usage") or {}
+    message = choices[0].get("message") or {}
+    text = message.get("content")
+    if not text:
+        # GLM 5.3 Flash reasons before it answers, and reasoning is billed as completion tokens.
+        # An exhausted budget therefore returns content=None with a full reasoning trace, which
+        # looks like a silent empty reply unless it is named.
+        reason = choices[0].get("finish_reason")
+        thought = (message.get("reasoning") or "")[:300]
+        raise RuntimeError(
+            f"the model returned no content (finish_reason={reason!r}). This usually means "
+            f"max_tokens was spent on reasoning before any answer began. Reasoning began: "
+            f"{thought!r}"
+        )
     return Reply(
-        text=choices[0].get("message", {}).get("content", ""),
+        text=text,
         prompt_tokens=int(usage.get("prompt_tokens", 0)),
         completion_tokens=int(usage.get("completion_tokens", 0)),
     )

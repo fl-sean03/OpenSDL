@@ -37,12 +37,13 @@ means nothing would catch it, which is a standing invitation to find a better me
 | D11 | [Capital intensity caps venture returns](#d11-capital-intensity-caps-venture-returns) | closed | `tests/test_domain_proposal.py` |
 | D12 | [Screen the cost share before spending research on a domain](#d12-screen-the-cost-share-before-spending-research-on-a-domain) | closed | `tests/test_domain_proposal.py` |
 | D13 | [The facility's first deliverable is the predictive bridge](#d13-the-facilitys-first-deliverable-is-the-predictive-bridge) | closed | intent |
+| D14 | [The twin renders, the adapter acts](#d14-the-twin-renders-the-adapter-acts) | closed | `tests/test_twin_is_read_only.py` |
 | D7 | [Business model](#d7-business-model) | closed | intent |
 | D8 | [Scheduler architecture](#d8-scheduler-architecture) | open | `tests/test_minimal_laboratory.py` |
 | D9 | [Framework work the facility requires](#d9-framework-work-the-facility-requires) | closed | intent |
 | D10 | [Dogfooding does not become facility-only](#d10-dogfooding-does-not-become-facility-only) | closed | `make showcase` |
 
-**Seven of thirteen rest on intent**, and that count is printed here so it stays uncomfortable. Three
+**Seven of fourteen rest on intent**, and that count is printed here so it stays uncomfortable. Three
 of them — D1, D3 and D9 — become self-enforcing the moment the work they describe exists, and are
 honest placeholders until then. The other four are process rules that no test can express.
 
@@ -587,6 +588,56 @@ that matters**. State that to an investor plainly, because it is the first thing
 *Enforced by:* intent, and by D6's existing requirement that a domain answer the
 fast-screen-predicts-slow-truth question before adoption. `tests/test_domain_proposal.py` requires
 the answer to be present and to state the sign of the correlation.
+
+### D14 — The twin renders, the adapter acts
+
+**Decided, and the boundary is now enforced.**
+
+The digital twin is a projection. Task events reach the evidence store, a deterministic projector
+turns them into visual cues, and the viewer renders those.
+[The architecture page](../architecture/digital-twin.md) already states the consequence: the visual
+source "cannot create a capability, commission an instrument, or report physical state. The viewer
+has no equipment-command endpoint."
+
+That property is the twin's entire value. A twin that can be written to is an assertion about the
+laboratory; a twin that can only be projected into is a record of it.
+
+**The pressure to break this arrives disguised as a demo.** An interactive scene, a control that
+moves the arm from the viewer, a simulated world wired into the rendering layer because that is where
+the geometry already lives. Each is reasonable in isolation and each ends the guarantee.
+
+**Where a simulated world goes instead.** Behind a capability adapter, where policy, leases, retry
+safety, typed errors and provenance all apply to it exactly as they would to steel. The write path
+and the read path stay separate and can share one geometry source:
+
+| | direction | what it is |
+|---|---|---|
+| the world | write | an adapter. an agent acts, physics responds, events record |
+| the twin | read | a projection of what the store recorded |
+
+This matters more now than when the twin was built, because
+`adapters/simulated-lab` acts on a dictionary in process and its own source says so: "Nothing is
+aspirated, moved, or heated." The comment goes on to record that a real adapter would declare
+`NOT_REPEATABLE` for mixing and at most `REPEATABLE_IF_NOT_DISPATCHED` for moving labware, and
+warns the reader not to copy its line. **The framework's hardest property cannot be exercised
+honestly today**, and a physics-simulated world behind an adapter is what fixes that. It belongs in
+the adapter layer regardless of how tempting the twin's geometry is.
+
+**On device-level standards.** Anthropic and HHMI Janelia have published the Model Hardware Standard
+as a limited research preview: read and write primitives, device discovery, and natural-language tags
+carrying weight, safety limits and capabilities, reachable over MCP, a command line, or code. It is
+application-gated and not yet open source, so the specification cannot be read today.
+
+The layering is nevertheless clear, and `adapters/AGENTS.md` already anticipates it with "declare
+semantic capabilities, not raw transport commands." A device standard is the raw transport. An
+OpenSDL capability is the semantics: what the operation means, what it may touch, whether policy
+permits it, and what evidence it leaves. **When a device-level standard is readable, OpenSDL speaks
+it through the adapter layer and does not compete with it.** Nothing about the twin changes.
+
+*Enforced by:* `tests/test_twin_is_read_only.py`. The first check fails if any route under `/twin`
+or `/viewer` accepts a mutating method. The second pins the command surface to three declared routes
+so that adding a fourth is a deliberate act a reviewer has to approve. Both were verified against an
+injected `POST /twin/move`, which they reject by name.
 
 ### D7 — Business model
 

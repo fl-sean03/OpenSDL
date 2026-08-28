@@ -24,7 +24,14 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .client import CRITIC_MODEL, GENERATOR_MODEL, Reply, ask, fenced_python, image_part
+from .client import (
+    CRITIC_MODEL,
+    GENERATOR_MODEL,
+    Reply,
+    ask_retrying,
+    fenced_python,
+    image_part,
+)
 from .render import RenderOutcome, render_script
 
 SYSTEM = """You author Blender 5.2 Python scripts that build a scene from nothing.
@@ -194,7 +201,7 @@ def generate(
 ) -> tuple[str, Reply]:
     """First attempt, from the brief alone."""
 
-    reply = ask(
+    reply = ask_retrying(
         [
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": f"Build this scene.\n\n{brief}"},
@@ -227,7 +234,7 @@ def critique(
             "Score this 0 and make next_actions the fix."
         )
 
-    reply = ask(
+    reply = ask_retrying(
         [
             {"role": "system", "content": CRITIC_SYSTEM},
             {"role": "user", "content": content},
@@ -262,7 +269,7 @@ def refine(
     if outcome.stderr:
         instruction += f"\n\nBLENDER STDERR\n{outcome.stderr[:1500]}"
 
-    reply = ask(
+    reply = ask_retrying(
         [{"role": "system", "content": SYSTEM}, {"role": "user", "content": instruction}],
         model=model,
         key=key,

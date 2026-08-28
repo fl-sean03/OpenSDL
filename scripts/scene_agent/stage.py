@@ -20,7 +20,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .client import CRITIC_MODEL, GENERATOR_MODEL, ask, fenced_python
+from .client import CRITIC_MODEL, GENERATOR_MODEL, ask_retrying, fenced_python
 from .loop import SYSTEM, _strings, critique
 from .render import render_script
 
@@ -101,14 +101,21 @@ def build(
                         f"\n\nYour previous attempt failed to run. Fix it.\n{last_error[:1500]}"
                     )
 
-            reply = ask(
-                [
-                    {"role": "system", "content": STAGE_SYSTEM if script else SYSTEM},
-                    {"role": "user", "content": prompt},
-                ],
-                model=model,
-                key=key,
-            )
+            try:
+                reply = ask_retrying(
+                    [
+                        {"role": "system", "content": STAGE_SYSTEM if script else SYSTEM},
+                        {"role": "user", "content": prompt},
+                    ],
+                    model=model,
+                    key=key,
+                )
+            except RuntimeError as exc:
+                # A stage that cannot reach the model is a failed stage, not a failed build. Two
+                # stages had already passed when this last killed the run.
+                last_error = f"the model could not be reached: {exc}"
+                stage.stderr = last_error
+                continue
             spent += reply.cost_usd
             candidate = fenced_python(reply.text)
 

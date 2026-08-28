@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -90,6 +91,47 @@ def image_part(path: Path) -> dict[str, object]:
     }
 
 
+class NoContent(RuntimeError):
+    """The model spent its budget reasoning and said nothing. Usually worth another attempt."""
+
+
+def ask_retrying(
+    messages: list[dict[str, object]],
+    *,
+    attempts: int = 3,
+    max_tokens: int = 12000,
+    model: str = DEFAULT_MODEL,
+    key: str | None = None,
+    temperature: float = 0.2,
+) -> Reply:
+    """`ask`, but a model that says nothing gets asked again with more room to answer.
+
+    An empty reply killed a whole five-stage build once: the exception escaped the per-stage retry
+    loop, so one transient failure at stage three threw away two stages that had already passed.
+    Transport trouble belongs to the caller of the model, not to the thing being built.
+
+    Each attempt raises the budget, since the failure mode is a reasoning trace that ran long.
+    """
+    budget = max_tokens
+    last: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return ask(
+                messages,
+                model=model,
+                key=key,
+                temperature=temperature,
+                max_tokens=budget,
+            )
+        except NoContent as exc:
+            last = exc
+            budget = int(budget * 1.6)
+        except RuntimeError as exc:
+            last = exc
+            time.sleep(2.0 * (attempt + 1))
+    raise last if last is not None else RuntimeError("no attempt was made")
+
+
 def ask(
     messages: list[dict[str, object]],
     *,
@@ -142,7 +184,7 @@ def ask(
         # looks like a silent empty reply unless it is named.
         reason = choices[0].get("finish_reason")
         thought = (message.get("reasoning") or "")[:300]
-        raise RuntimeError(
+        raise NoContent(
             f"the model returned no content (finish_reason={reason!r}). This usually means "
             f"max_tokens was spent on reasoning before any answer began. Reasoning began: "
             f"{thought!r}"

@@ -92,6 +92,10 @@ import bpy primitives to do what they do — each exists because hand-rolling it
                                                  on the object rather than on air
     aim(obj, target)                             point an object's -Z at a point
     camera(location, target, lens=42.0)          camera looking at target, set as scene camera
+    three_quarter(target, side="left",           a three-quarter view from the named side. USE
+                  distance=3.2, height=1.6)      THIS when the brief describes a viewpoint: the
+                                                 scene faces -Y and front-left has been placed
+                                                 front-right more than once
     frame_all(cam)                               move the camera until everything fits
     frame_all(cam, distance=3.2)                 STAY at that range and solve for the lens
                                                  instead. Use this when the brief gives a

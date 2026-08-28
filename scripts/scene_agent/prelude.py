@@ -513,6 +513,22 @@ def frame_all(cam, margin=1.04, distance=None, floor_names=("Floor", "Backdrop")
     bpy.context.view_layer.update()
     return cam
 
+def three_quarter(target=(0.0, 0.0, 1.0), side="left", distance=3.2, height=1.6, lens=42.0):
+    """A three-quarter view from the named side, set as the scene camera.
+
+    The scene faces -Y, so front-left is negative in both X and Y. The model has placed the camera
+    front-right on a brief asking for front-left more than once, which is not a hard sum but is an
+    easy one to invert, and the answer is visible in every pixel of the result.
+
+    Follow with `frame_all(cam, distance=...)` to fit what you built.
+    """
+    centre = mathutils.Vector(target)
+    hand = -1.0 if str(side).lower().startswith("l") else 1.0
+    reach = distance / (2.0 ** 0.5)
+    return camera(
+        (centre.x + hand * reach, centre.y - reach, height), target, lens=lens
+    )
+
 def area_light(name, location, target, energy=120.0, size=1.2, color=(1.0, 0.98, 0.95)):
     """An area light aimed at `target`. 80-150 W for a key, 20-40 W for a fill, at 2-3 m."""
     data = bpy.data.lights.new(name=name, type="AREA")

@@ -75,6 +75,19 @@ def _tolerant(func):
     def wrapper(*args, **kwargs):
         for given in list(kwargs):
             if given in names:
+                # A valid name is not the same as a valid value. `cylinder(..., segments=mat)`
+                # names a real parameter and hands it a Material, which dies inside bmesh with an
+                # error naming the wrong thing entirely. If the value cannot be what the parameter
+                # takes, it belongs somewhere else.
+                default = signature.parameters[given].default
+                mismatched = isinstance(kwargs[given], bpy.types.Material) and isinstance(
+                    default, (int, float)
+                )
+                if not mismatched:
+                    continue
+                moved = _by_type(kwargs[given], signature, kwargs)
+                if moved and moved != given:
+                    kwargs[moved] = kwargs.pop(given)
                 continue
             wanted = _ALIASES.get(given)
             if wanted not in names:

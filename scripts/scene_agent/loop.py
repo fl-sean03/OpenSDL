@@ -202,10 +202,10 @@ def run(
     model: str = DEFAULT_MODEL,
     key: str | None = None,
     blender: str | None = None,
-    width: int = 960,
-    height: int = 540,
-    engine: str = "BLENDER_EEVEE",
-    samples: int = 64,
+    width: int = 1280,
+    height: int = 720,
+    engine: str = "CYCLES",
+    samples: int = 256,
     on_step: object = None,
 ) -> list[Attempt]:
     """Drive the loop and leave every attempt on disk. Returns the attempts in order."""

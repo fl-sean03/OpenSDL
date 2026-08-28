@@ -39,18 +39,52 @@ _scene.render.filepath = {{RENDER_PATH!r}}
 _scene.render.image_settings.file_format = "PNG"
 _scene.render.resolution_x = {{WIDTH}}
 _scene.render.resolution_y = {{HEIGHT}}
-_available = {{{{item.identifier for item in
-              type(_scene.render).bl_rna.properties["engine"].enum_items}}}}
+# Cycles registers itself as a plugin, so it never appears in the class-level RNA enum even
+# when it is installed and working. Introspecting `enum_items` reports a false negative; the
+# only honest test is to assign and see whether it takes.
 _wanted = {{ENGINE!r}}
 _engine_note = None
-if _wanted not in _available:
+try:
+    _scene.render.engine = _wanted
+except TypeError:
     _engine_note = f"engine {{{{_wanted!r}}}} is unavailable in this Blender; used EEVEE instead"
-    _wanted = "BLENDER_EEVEE" if "BLENDER_EEVEE" in _available else sorted(_available)[0]
+    _wanted = "BLENDER_EEVEE"
 _scene.render.engine = _wanted
 if _wanted == "CYCLES":
     _scene.cycles.samples = {{SAMPLES}}
+    # OptiX first, CUDA second, CPU last. Hardware ray tracing plus OptiX denoising gives a clean
+    # image at sample counts where an undenoised render would still be visibly grainy, which is
+    # the difference between a usable critique and one arguing about noise.
+    _prefs = _bpy.context.preferences.addons["cycles"].preferences
+    _chosen = None
+    for _backend in ("OPTIX", "CUDA"):
+        try:
+            _prefs.compute_device_type = _backend
+            _prefs.refresh_devices()
+        except Exception:
+            continue
+        _gpus = [_d for _d in _prefs.devices if _d.type == _backend]
+        if _gpus:
+            for _d in _prefs.devices:
+                _d.use = _d.type == _backend
+            _chosen = _backend
+            break
+    if _chosen:
+        _scene.cycles.device = "GPU"
+        _report_device = f"{{{{_chosen}}}}:{{{{_gpus[0].name}}}}"
+    else:
+        _scene.cycles.device = "CPU"
+        _report_device = "CPU"
+    try:
+        _scene.cycles.use_denoising = True
+        _scene.cycles.denoiser = "OPTIX" if _chosen == "OPTIX" else "OPENIMAGEDENOISE"
+    except Exception:
+        pass
+else:
+    _report_device = "CPU"
 
-_report = {{{{"engine": _wanted, "objects": [], "cameras": 0, "lights": 0, "meshes": 0, "defects": []}}}}
+
+_report = {{{{"engine": _wanted, "device": _report_device, "objects": [], "cameras": 0, "lights": 0, "meshes": 0, "defects": []}}}}
 if _engine_note:
     _report["defects"].append(_engine_note)
 _at_origin = 0
@@ -132,9 +166,9 @@ def render_script(
     blender: str | None = None,
     width: int = 960,
     height: int = 540,
-    engine: str = "BLENDER_EEVEE",
-    samples: int = 64,
-    timeout: float = 300.0,
+    engine: str = "CYCLES",
+    samples: int = 256,
+    timeout: float = 420.0,
 ) -> RenderOutcome:
     """Run one candidate script in a fresh Blender and return its image and report.
 
@@ -160,7 +194,11 @@ def render_script(
 
     try:
         completed = subprocess.run(  # noqa: S603
-            [blender_executable(blender), "-b", "--factory-startup", "-P", str(script_path)],
+            # No `--factory-startup`: it disables addons, and Cycles never returns to the engine
+            # enum even after `addon_enable`, so the GPU path becomes unreachable. Scene-level
+            # determinism comes from the candidate calling `read_factory_settings(use_empty=True)`,
+            # which resets the scene without resetting preferences.
+            [blender_executable(blender), "-b", "-P", str(script_path)],
             capture_output=True,
             text=True,
             timeout=timeout,

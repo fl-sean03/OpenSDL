@@ -49,8 +49,8 @@ def race(
     key: str | None = None,
     width: int = 1280,
     height: int = 720,
-    samples: int = 64,
-    engine: str = "BLENDER_EEVEE",
+    samples: int = 256,
+    engine: str = "CYCLES",
 ) -> dict[str, Any]:
     """Search for a scene, widthways then depthwise. Returns a summary of what was found."""
 

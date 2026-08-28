@@ -25,6 +25,14 @@ ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 #: and a real decision at a frontier model's.
 DEFAULT_MODEL = "z-ai/glm-5.3-flash"
 
+#: GLM 5.3 Flash does not stop reasoning on its own. Left alone it spends the whole completion
+#: budget thinking and returns `finish_reason="length"` with zero content, which reads as the model
+#: having nothing to say. Measured on one Blender brief: plain, 143s and 6000 tokens of reasoning
+#: for 0 bytes of answer; with this flag, 34s and 2181 bytes. It still reasons — the flag excludes
+#: the trace from the response — but it now yields an answer. `{"enabled": false}` is rejected by
+#: the provider outright.
+REASONING = {"exclude": True}
+
 
 class MissingCredential(RuntimeError):
     """Raised when no key is configured, with the two ways to supply one."""
@@ -81,7 +89,7 @@ def ask(
     model: str = DEFAULT_MODEL,
     key: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 32000,
+    max_tokens: int = 12000,
     timeout: float = 240.0,
 ) -> Reply:
     """One completion. Raises on transport failure so the caller decides whether to retry."""
@@ -92,6 +100,7 @@ def ask(
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "reasoning": REASONING,
         }
     ).encode("utf-8")
 

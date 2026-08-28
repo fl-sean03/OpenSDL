@@ -37,6 +37,14 @@ UPSTREAM = os.environ.get(
 )
 
 #: Anthropic stop reasons keyed by the OpenAI finish reason that means the same thing.
+#: GLM 5.3 Flash does not stop reasoning on its own. Left alone it spends the whole completion
+#: budget thinking and returns `finish_reason="length"` with zero content, which reads as the model
+#: having nothing to say. Measured on one Blender brief: plain, 143s and 6000 tokens of reasoning
+#: for 0 bytes of answer; with this flag, 34s and 2181 bytes. It still reasons — the flag excludes
+#: the trace from the response — but it now yields an answer. `{"enabled": false}` is rejected by
+#: the provider outright.
+REASONING = {"exclude": True}
+
 STOP_REASONS = {
     "stop": "end_turn",
     "length": "max_tokens",
@@ -150,6 +158,7 @@ def to_openai(payload: dict[str, Any], model: str) -> dict[str, Any]:
         "model": model,
         "messages": messages,
         "max_tokens": payload.get("max_tokens", 32000),
+        "reasoning": REASONING,
     }
     if "temperature" in payload:
         request["temperature"] = payload["temperature"]

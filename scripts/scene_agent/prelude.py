@@ -73,6 +73,18 @@ def cylinder(name, radius, depth, location, material_=None, segments=32):
     )
     return _mesh_object(name, bm, location, material_)
 
+def on_surface(name, size, xy, surface_z, material_=None, sink=0.002):
+    """A body standing on a surface at `surface_z`, sunk 2 mm so the faces do not z-fight.
+
+    This is the most common placement in a lab scene and the easiest to get wrong: an instrument
+    whose underside sits at exactly the height of the bench top shares a plane with it, and the two
+    surfaces flicker against each other. Sinking it slightly is what a real object does anyway,
+    since nothing rests on a surface without deforming into it a little.
+
+    `xy` is the centre in plan; the height is computed, so there is no arithmetic to get wrong.
+    """
+    return box(name, size, (xy[0], xy[1], surface_z + size[2] / 2.0 - sink), material_)
+
 def plane(name, size, location=(0.0, 0.0, 0.0), material_=None):
     """A flat square, for floors."""
     bm = bmesh.new()

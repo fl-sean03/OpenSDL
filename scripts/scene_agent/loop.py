@@ -53,6 +53,9 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
     plane(name, size, location, material_)       flat square, for floors
+    on_surface(name, (x,y,z), (cx,cy), surf_z,   a body standing ON a surface, sunk 2 mm so it
+               material_)                        does not z-fight. USE THIS for anything on the
+                                                 bench: it computes the height for you
     aim(obj, target)                             point an object's -Z at a point
     camera(location, target, lens=42.0)          camera looking at target, set as scene camera
     frame_all(cam)                               pull the camera back until everything fits
@@ -66,7 +69,8 @@ Light with `area_light`.
 
 Where two bodies meet, **sink one a few millimetres into the other**. Surfaces that end at exactly
 the same height and overlap in plan will z-fight into flickering dark squares. A bench leg should
-reach up *into* the bench top, not stop level with its surface.
+reach up *into* the bench top, and every instrument on the bench goes through `on_surface`, which
+handles this and computes the height so you never write `surface_z + height/2` by hand.
 
 **Lighting numbers, because these renders keep blowing out.** The harness renders with the Standard
 view transform, so there is no filmic roll-off to hide an overexposed scene. A measured failure: an

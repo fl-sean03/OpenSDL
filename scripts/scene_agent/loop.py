@@ -55,6 +55,9 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
     plane(name, size, location, material_)       flat square, for floors
+    bench(name, width, depth, top_z=0.90,        a whole bench: top placed by its SURFACE height,
+          top_material=, leg_material=)          legs reaching up into it. Use this, do not build
+                                                 a bench out of boxes
     on_surface(name, (x,y,z), (cx,cy), surf_z,   a body standing ON a surface, sunk 2 mm so it
                material_)                        does not z-fight. USE THIS for anything on the
                                                  bench: it computes the height for you

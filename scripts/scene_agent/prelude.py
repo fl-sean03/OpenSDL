@@ -127,6 +127,32 @@ def plane(name, size, location=(0.0, 0.0, 0.0), material_=None):
     bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=size / 2.0)
     return _mesh_object(name, bm, location, material_)
 
+def bench(name, width, depth, top_z=0.90, thickness=0.04, leg=0.05,
+          top_material=None, leg_material=None, inset=0.05):
+    """A bench whose top SURFACE is at `top_z`, with legs that reach up into it.
+
+    Three recurring errors disappear here. The top is placed by its surface rather than its centre,
+    so `top_z + thickness/2` is never written by hand and the bench does not end up 40 mm too tall.
+    The legs run from the floor to just under the surface and overlap the top by a third of its
+    thickness, so their faces never share a plane with it and cannot z-fight. And the leg inset is
+    handled, so feet sit under the top rather than flush with its edge.
+
+    Returns (top, [legs]).
+    """
+    top = box(name, (width, depth, thickness), (0.0, 0.0, top_z - thickness / 2.0), top_material)
+    overlap = thickness / 3.0
+    leg_height = top_z - thickness + overlap
+    x = width / 2.0 - inset - leg / 2.0
+    y = depth / 2.0 - inset - leg / 2.0
+    legs = []
+    for tag, (lx, ly) in {
+        "FL": (-x, -y), "FR": (x, -y), "BL": (-x, y), "BR": (x, y),
+    }.items():
+        legs.append(
+            box(f"{name}_Leg_{tag}", (leg, leg, leg_height), (lx, ly, leg_height / 2.0), leg_material)
+        )
+    return top, legs
+
 def aim(obj, target):
     """Point an object's -Z at `target`. Accepts a tuple or a Vector, which is the whole point."""
     direction = mathutils.Vector(target) - obj.location

@@ -219,7 +219,7 @@ def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=300.0, fill=75.0, rim=45.
     import math
 
     ambient(0.06)
-    centre = mathutils.Vector(target)
+    centre = point_of(target)
     if cam is None:
         cam = bpy.context.scene.camera
     if cam is None:
@@ -248,7 +248,7 @@ def _mesh_object(name, bm, location, material_):
     bm.to_mesh(mesh)
     bm.free()
     obj = bpy.data.objects.new(name, mesh)
-    obj.location = mathutils.Vector(location)
+    obj.location = point_of(location)
     if material_ is not None:
         obj.data.materials.append(material_)
     bpy.context.collection.objects.link(obj)
@@ -272,6 +272,28 @@ def cylinder(name, radius, depth, location, material_=None, segments=32):
         radius1=radius, radius2=radius, depth=depth,
     )
     return _mesh_object(name, bm, location, material_)
+
+def point_of(thing):
+    """A point, from a point, an object, or a group of objects.
+
+    "Look at the bench" is a reasonable thing to mean and the model means it: it passes an object
+    where a location belongs and mathutils reports `sequence index 0 expected a number, found
+    'Object' type`, which names neither the call nor the argument. An object resolves to the centre
+    of what it occupies, a group to the centre of all of it.
+    """
+    if isinstance(thing, mathutils.Vector):
+        return thing.copy()
+    if isinstance(thing, bpy.types.Object):
+        bpy.context.view_layer.update()
+        pts = [thing.matrix_world @ mathutils.Vector(c) for c in thing.bound_box]
+        return sum(pts, mathutils.Vector()) / len(pts)
+    if isinstance(thing, (list, tuple, set)):
+        items = [i for i in thing if i is not None]
+        if items and all(isinstance(i, bpy.types.Object) for i in items):
+            pts = [point_of(i) for i in items]
+            return sum(pts, mathutils.Vector()) / len(pts)
+        return mathutils.Vector(tuple(thing))
+    return mathutils.Vector(thing)
 
 def top_of(thing):
     """The world-space height of the upper face of an object, or of a group of them.
@@ -390,8 +412,8 @@ def strut(name, a, b, thickness=0.06, material_=None, overlap=0.0):
 
     Returns the object, so a chain is just a sequence of struts between joint positions.
     """
-    start = mathutils.Vector(a)
-    end = mathutils.Vector(b)
+    start = point_of(a)
+    end = point_of(b)
     span = end - start
     length = span.length
     if length < 1e-6:
@@ -419,7 +441,7 @@ def gripper(name, at, opening, depth=0.09, thickness=0.012, height=0.05,
     Made as a pair because the failure it prevents is jaws that close on empty air: give it the
     width of the thing being held and the fingers land on its faces.
     """
-    centre = mathutils.Vector(at)
+    centre = point_of(at)
     half = opening / 2.0 + thickness / 2.0
     offsets = (
         (mathutils.Vector((-half, 0.0, 0.0)), mathutils.Vector((half, 0.0, 0.0)))
@@ -449,7 +471,7 @@ def studio(size=60.0, material_=None, sweep=True):
 
 def aim(obj, target):
     """Point an object's -Z at `target`. Accepts a tuple or a Vector, which is the whole point."""
-    direction = mathutils.Vector(target) - obj.location
+    direction = point_of(target) - obj.location
     obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
     return obj
 
@@ -458,7 +480,7 @@ def camera(location, target, lens=42.0):
     data = bpy.data.cameras.new("Camera")
     data.lens = lens
     obj = bpy.data.objects.new("Camera", data)
-    obj.location = mathutils.Vector(location)
+    obj.location = point_of(location)
     bpy.context.collection.objects.link(obj)
     aim(obj, target)
     bpy.context.scene.camera = obj
@@ -563,7 +585,7 @@ def three_quarter(target=(0.0, 0.0, 1.0), side="left", distance=3.2, height=1.6,
 
     Follow with `frame_all(cam, distance=...)` to fit what you built.
     """
-    centre = mathutils.Vector(target)
+    centre = point_of(target)
     hand = -1.0 if str(side).lower().startswith("l") else 1.0
     reach = distance / (2.0 ** 0.5)
     return camera(
@@ -577,7 +599,7 @@ def area_light(name, location, target, energy=120.0, size=1.2, color=(1.0, 0.98,
     data.size = size
     data.color = color
     obj = bpy.data.objects.new(name, data)
-    obj.location = mathutils.Vector(location)
+    obj.location = point_of(location)
     bpy.context.collection.objects.link(obj)
     aim(obj, target)
     return obj

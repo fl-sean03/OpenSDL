@@ -43,6 +43,42 @@ def material(name, color, roughness=0.6, metallic=0.0):
     bsdf.inputs["Metallic"].default_value = metallic
     return mat
 
+#: Measured, not guessed. A swatch ramp from 0.03 to 0.22 albedo was rendered against floors at
+#: 0.55, 0.30 and 0.18, and the finding was that the floor dominates: at 0.55 it bounces so much
+#: light that even a 0.03 surface reads mid-grey and no "dark" material can look dark. These values
+#: are the ones where a dark bench reads dark, steel reads metallic, and labware still reads light.
+PALETTE = {
+    "bench":    ((0.090, 0.090, 0.100), 0.80, 0.0),
+    "polymer":  ((0.055, 0.055, 0.060), 0.85, 0.0),
+    "steel":    ((0.420, 0.430, 0.450), 0.30, 1.0),
+    "aluminium":((0.560, 0.570, 0.585), 0.22, 1.0),
+    "floor":    ((0.300, 0.300, 0.310), 0.90, 0.0),
+    "labware":  ((0.620, 0.620, 0.630), 0.45, 0.0),
+    "glass":    ((0.800, 0.850, 0.860), 0.05, 0.0),
+}
+
+def palette():
+    """Every preset material, ready to use. `p = palette(); box(..., p['steel'])`."""
+    return {
+        name: material(name, colour, roughness, metallic)
+        for name, (colour, roughness, metallic) in PALETTE.items()
+    }
+
+def lab_lighting(target=(0.0, 0.0, 1.0), key=90.0, fill=22.0):
+    """A three-point rig that exposes correctly under the Standard view transform.
+
+    Energies are measured against this palette: 90 W key and 22 W fill at roughly 2.5 to 3 m give
+    a mean luminance near 0.27 with nothing blown and nothing crushed. Higher numbers were what
+    produced a frame that was 48% pure white.
+    """
+    ambient(0.06)
+    centre = mathutils.Vector(target)
+    k = area_light("Key", centre + mathutils.Vector((-1.8, -2.2, 1.9)), target,
+                   energy=key, size=1.4)
+    f = area_light("Fill", centre + mathutils.Vector((2.4, 1.2, 1.1)), target,
+                   energy=fill, size=1.0, color=(0.85, 0.90, 1.0))
+    return k, f
+
 def _mesh_object(name, bm, location, material_):
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)

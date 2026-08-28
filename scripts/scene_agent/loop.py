@@ -50,6 +50,8 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     new_scene()                                  empty scene WITH a world, returns the scene
     ambient(strength=0.1, color=(r,g,b))         world light; keep strength 0.05-0.2
     material(name, color, roughness, metallic)   Principled material
+    palette()                                    dict of measured preset materials
+    lab_lighting(target)                         calibrated three-point rig
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
     plane(name, size, location, material_)       flat square, for floors
@@ -72,7 +74,16 @@ the same height and overlap in plan will z-fight into flickering dark squares. A
 reach up *into* the bench top, and every instrument on the bench goes through `on_surface`, which
 handles this and computes the height so you never write `surface_z + height/2` by hand.
 
-**Lighting numbers, because these renders keep blowing out.** The harness renders with the Standard
+**Use the presets. They are measured, and guessed values keep coming out wrong.**
+
+    p = palette()          bench, polymer, steel, aluminium, floor, labware, glass
+    lab_lighting(target)   the whole three-point rig, exposed correctly
+
+A swatch ramp was rendered to calibrate these. The finding worth knowing: the FLOOR dominates. At
+0.55 albedo it bounces so much light that even a 0.03 surface reads mid-grey and nothing can look
+dark. `p['floor']` is 0.30 for that reason. Do not brighten it.
+
+**Lighting numbers, if you override the rig.** The harness renders with the Standard
 view transform, so there is no filmic roll-off to hide an overexposed scene. A measured failure: an
 800 W key at 2.8 m over 0.2-albedo surfaces put 48% of the frame at pure white.
 

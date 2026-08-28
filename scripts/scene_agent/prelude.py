@@ -96,11 +96,15 @@ def camera(location, target, lens=42.0):
     bpy.context.scene.camera = obj
     return obj
 
-def frame_all(cam, margin=1.25, floor_names=("Floor",)):
+def frame_all(cam, margin=1.06, floor_names=("Floor",)):
     """Pull `cam` back along its own axis until every body fits, then re-aim at their centre.
 
     Guessed camera distances crop things. This measures what is actually in the scene, ignoring
     ground planes because they are meant to run past the frame.
+
+    The margin is deliberately tight. It is computed against the bounding sphere, which already
+    over-reserves for anything that is not a ball, so 1.25 left a bench sitting small in a wide
+    empty floor. Raise it only if something is genuinely being clipped.
     """
     bpy.context.view_layer.update()
     points = []

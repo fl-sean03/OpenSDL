@@ -36,6 +36,12 @@ def _tolerant(func):
 
     names = set(inspect.signature(func).parameters)
 
+    signature = inspect.signature(func)
+    material_params = [
+        n for n, param in signature.parameters.items()
+        if n.startswith("material") or n.endswith("material") or n.endswith("material_")
+    ]
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         for given in list(kwargs):
@@ -44,6 +50,33 @@ def _tolerant(func):
             wanted = _ALIASES.get(given)
             if wanted and wanted in names and wanted not in kwargs:
                 kwargs[wanted] = kwargs.pop(given)
+
+        # A material handed to a numeric parameter is a positional slip, not a type error worth
+        # dying on: `bench(name, w, d, top_material, leg_material)` skips `top_z` and `thickness`
+        # and lands a Material where a float belongs. Move it to the first free material slot and
+        # let the numeric parameter keep its default.
+        if material_params:
+            bound = list(args)
+            positional = [
+                n for n in signature.parameters
+                if signature.parameters[n].kind
+                in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            ]
+            spare = [n for n in material_params if n not in kwargs]
+            keep = []
+            for index, value in enumerate(bound):
+                slot = positional[index] if index < len(positional) else None
+                if (
+                    isinstance(value, bpy.types.Material)
+                    and slot is not None
+                    and slot not in material_params
+                    and spare
+                ):
+                    kwargs[spare.pop(0)] = value
+                    continue
+                keep.append(value)
+            bound = keep
+            return func(*bound, **kwargs)
         return func(*args, **kwargs)
 
     return wrapper

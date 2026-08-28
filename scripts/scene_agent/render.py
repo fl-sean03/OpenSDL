@@ -113,6 +113,23 @@ for _obj in _bpy.data.objects:
                  "location": [round(v, 4) for v in _loc],
                  "dimensions": [round(v, 4) for v in _dims]}}}}
     _report["objects"].append(_entry)
+    if _obj.type == "MESH" and _obj.data.materials:
+        # What the surface actually is, so a critique of how it looks can be checked against it.
+        # The recurring note has been "reads mid-grey, not the dark grey specified", and without
+        # this nobody can tell whether the material is wrong or the light is.
+        _mat = _obj.data.materials[0]
+        try:
+            _bsdf = _mat.node_tree.nodes["Principled BSDF"]
+            _base = _bsdf.inputs["Base Color"].default_value
+            _entry["material"] = {{{{
+                "name": _mat.name,
+                "albedo": round(sum(_base[:3]) / 3.0, 3),
+                "roughness": round(_bsdf.inputs["Roughness"].default_value, 2),
+                "metallic": round(_bsdf.inputs["Metallic"].default_value, 2),
+            }}}}
+        except Exception:
+            pass
+
     if _obj.type == "CAMERA":
         _report["cameras"] += 1
         _entry["lens"] = round(_obj.data.lens, 1)
@@ -274,6 +291,32 @@ if _buried:
         + ". A slot or recess has to break the outer surface: make the detail proud of the face by "
         "1-2 mm, or model the housing as separate panels around the opening"
     )
+
+# Contrast between the subject and what it stands on is a material decision, not a lighting one,
+# and it is the note this build has drawn most often.
+_albedos = {{{{}}}}
+for _entry_ in _report["objects"]:
+    _m = _entry_.get("material")
+    if _m:
+        _albedos[_entry_["name"]] = _m["albedo"]
+_ground_albedo = None
+for _obj in _bpy.data.objects:
+    if _obj.type == "MESH" and max(_obj.dimensions) > 5.0 and _obj.name in _albedos:
+        _ground_albedo = _albedos[_obj.name]
+        break
+if _ground_albedo is not None:
+    _too_close = [
+        _n for _n, _a in _albedos.items()
+        if _n not in ("Floor", "Backdrop")
+        and abs(_a - _ground_albedo) < 0.06
+        and _n in [_o.name for _o in _bpy.data.objects if max(_o.dimensions) <= 5.0]
+    ]
+    if _too_close:
+        _report["defects"].append(
+            f"these surfaces sit within 0.06 albedo of the ground ({{{{_ground_albedo}}}}) and will "
+            f"not read as distinct from it: {{{{', '.join(_too_close[:4])}}}}. Take the material from "
+            "palette() rather than choosing a value"
+        )
 
 if _report["cameras"] == 0:
     _report["defects"].append("the scene has no camera, so nothing can be rendered")

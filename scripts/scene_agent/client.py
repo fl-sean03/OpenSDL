@@ -25,6 +25,13 @@ ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 #: and a real decision at a frontier model's.
 DEFAULT_MODEL = "z-ai/glm-5.3-flash"
 
+#: Two models, because the two jobs need different things. Writing a scene needs no eyes, and
+#: GLM 4.6 does it reliably in 17-116s on every brief measured. Judging a render needs eyes, and
+#: GLM 5.3 Flash is the cheap model that has them. Measured on the same base brief, 4.6 answered
+#: four prompt variants out of four; 5.3 Flash exhausted its budget on all of them.
+GENERATOR_MODEL = "z-ai/glm-4.6"
+CRITIC_MODEL = "z-ai/glm-5.3-flash"
+
 #: GLM 5.3 Flash does not stop reasoning on its own. Left alone it spends the whole completion
 #: budget thinking and returns `finish_reason="length"` with zero content, which reads as the model
 #: having nothing to say. Measured on one Blender brief: plain, 143s and 6000 tokens of reasoning

@@ -24,7 +24,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .client import DEFAULT_MODEL, Reply, ask, fenced_python, image_part
+from .client import CRITIC_MODEL, GENERATOR_MODEL, Reply, ask, fenced_python, image_part
 from .render import RenderOutcome, render_script
 
 SYSTEM = """You author Blender 5.2 Python scripts that build a scene from nothing.
@@ -114,7 +114,9 @@ def _report_digest(outcome: RenderOutcome) -> str:
     return json.dumps(report, indent=1)[:6000]
 
 
-def generate(brief: str, *, model: str, key: str | None) -> tuple[str, Reply]:
+def generate(
+    brief: str, *, model: str = GENERATOR_MODEL, key: str | None = None
+) -> tuple[str, Reply]:
     """First attempt, from the brief alone."""
 
     reply = ask(
@@ -129,7 +131,7 @@ def generate(brief: str, *, model: str, key: str | None) -> tuple[str, Reply]:
 
 
 def critique(
-    brief: str, outcome: RenderOutcome, *, model: str, key: str | None
+    brief: str, outcome: RenderOutcome, *, model: str = CRITIC_MODEL, key: str | None = None
 ) -> tuple[dict[str, object], Reply]:
     """Judge one render, with the image and the scene report both in the prompt."""
 
@@ -199,7 +201,8 @@ def run(
     *,
     iterations: int = 6,
     target_score: int = 85,
-    model: str = DEFAULT_MODEL,
+    model: str = GENERATOR_MODEL,
+    critic_model: str = CRITIC_MODEL,
     key: str | None = None,
     blender: str | None = None,
     width: int = 1280,
@@ -231,7 +234,7 @@ def run(
             engine=engine,
             samples=samples,
         )
-        judgement, critic_reply = critique(brief, outcome, model=model, key=key)
+        judgement, critic_reply = critique(brief, outcome, model=critic_model, key=key)
         spent += critic_reply.cost_usd
 
         raw_score = judgement.get("score")

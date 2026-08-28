@@ -23,7 +23,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .client import DEFAULT_MODEL
+from .client import GENERATOR_MODEL
 from .loop import Attempt, run
 
 #: Beyond this the Blender processes contend and everything gets slower together.
@@ -45,7 +45,7 @@ def race(
     iterations: int = 4,
     rounds: int = 2,
     target_score: int = 88,
-    model: str = DEFAULT_MODEL,
+    model: str = GENERATOR_MODEL,
     key: str | None = None,
     width: int = 1280,
     height: int = 720,

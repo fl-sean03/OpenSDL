@@ -114,8 +114,8 @@ def material(name, color, roughness=0.6, metallic=0.0):
 PALETTE = {
     "bench":    ((0.090, 0.090, 0.100), 0.80, 0.0),
     "polymer":  ((0.055, 0.055, 0.060), 0.85, 0.0),
-    "steel":    ((0.420, 0.430, 0.450), 0.30, 1.0),
-    "aluminium":((0.560, 0.570, 0.585), 0.22, 1.0),
+    "steel":    ((0.420, 0.430, 0.450), 0.18, 1.0),
+    "aluminium":((0.560, 0.570, 0.585), 0.14, 1.0),
     "floor":    ((0.300, 0.300, 0.310), 0.90, 0.0),
     "labware":  ((0.620, 0.620, 0.630), 0.45, 0.0),
     "glass":    ((0.800, 0.850, 0.860), 0.05, 0.0),
@@ -128,7 +128,7 @@ def palette():
         for name, (colour, roughness, metallic) in PALETTE.items()
     }
 
-def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=240.0, fill=60.0, rim=36.0):
+def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=300.0, fill=75.0, rim=45.0):
     """A three-point rig placed relative to the CAMERA, so the light always models the form.
 
     Lighting positioned in world space only works if the camera happens to be somewhere flattering.
@@ -139,6 +139,11 @@ def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=240.0, fill=60.0, rim=36.
     So the key goes 50 degrees off the view axis and above; the fill goes to the other side at a
     quarter of the power and slightly cool; a low rim behind picks the subject off the background.
     Pass the camera returned by `camera()` or `frame_all()`. Call this AFTER framing.
+
+    The sources are large on purpose. A metal with nothing to reflect looks like paint: the legs
+    were repeatedly marked down as "painted plastic, not steel" until the lights were big enough to
+    give them a specular gradient to pick up. Big soft sources are what product photography uses on
+    metal, for exactly this reason, and the energies rise with the area.
 
     The energies are set for lights standing off at roughly the camera distance. They are higher
     than the earlier fixed-position rig because these sit further out, and light falls off with the
@@ -162,11 +167,11 @@ def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=240.0, fill=60.0, rim=36.
             (math.cos(angle) * distance, math.sin(angle) * distance, height)
         )
 
-    k = area_light("Key", _at(50.0, reach * 0.95, reach * 1.05), target, energy=key, size=1.5)
+    k = area_light("Key", _at(50.0, reach * 0.95, reach * 1.05), target, energy=key, size=3.5)
     f = area_light("Fill", _at(-75.0, reach * 0.45, reach * 1.15), target,
-                   energy=fill, size=1.1, color=(0.84, 0.89, 1.0))
+                   energy=fill, size=2.8, color=(0.84, 0.89, 1.0))
     r = area_light("Rim", _at(165.0, reach * 0.85, reach * 0.95), target,
-                   energy=rim, size=0.8, color=(0.92, 0.94, 1.0))
+                   energy=rim, size=2.0, color=(0.92, 0.94, 1.0))
     return k, f, r
 
 def _mesh_object(name, bm, location, material_):

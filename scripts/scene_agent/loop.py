@@ -59,6 +59,8 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     material(name, color, roughness, metallic)   Principled material
     palette()                                    dict of measured preset materials, keyed:
                                                  bench 0.090  polymer 0.055  steel 0.420 metallic
+                                                 (metals are low-roughness on purpose: they need
+                                                 a big soft source to reflect or they read as paint)
                                                  aluminium 0.560 metallic   floor 0.300
                                                  labware 0.620   glass 0.800
     lab_lighting(target, cam)                    three-point rig placed off the CAMERA axis

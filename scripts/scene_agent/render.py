@@ -19,6 +19,8 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .prelude import PRELUDE
+
 #: Blender writes a great deal to stdout. Only the fenced block is ours.
 PROBE_OPEN = "<<<OPENSDL-SCENE-PROBE"
 PROBE_CLOSE = "OPENSDL-SCENE-PROBE>>>"
@@ -269,6 +271,8 @@ def render_script(
     )
 
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as handle:
+        handle.write(PRELUDE)
+        handle.write("\n")
         handle.write(source)
         handle.write("\n")
         handle.write(probe)

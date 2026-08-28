@@ -44,42 +44,35 @@ Rules that are not negotiable:
 You are judged on what the render looks like, so composition, materials and lighting are part of the
 job, not decoration.
 
-Blender 5.2 specifics that have already cost attempts, so get them right first time:
+These helpers are ALREADY DEFINED above your script. Use them. Do not redefine them, and do not
+import bpy primitives to do what they do — each exists because hand-rolling it has failed before.
 
-- `read_factory_settings(use_empty=True)` leaves `scene.world` as **None**. Create one before
-  touching it: `scene.world = bpy.data.worlds.new("World")`.
-- **Aim the camera by tracking, never by guessing Euler angles.** Guessed rotations are the single
-  most common way to render a picture of the floor. Do this:
+    new_scene()                                  empty scene WITH a world, returns the scene
+    ambient(strength=0.1, color=(r,g,b))         world light; keep strength 0.05-0.2
+    material(name, color, roughness, metallic)   Principled material
+    box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
+    cylinder(name, radius, depth, location, m)   upright cylinder
+    plane(name, size, location, material_)       flat square, for floors
+    aim(obj, target)                             point an object's -Z at a point
+    camera(location, target, lens=42.0)          camera looking at target, set as scene camera
+    area_light(name, location, target, energy,   area light aimed at a point
+               size, color)
 
-      import mathutils
-      direction = target_location - cam.location
-      cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+Start with `scene = new_scene()`. Build bodies with `box`, `cylinder` and `plane`. Frame with
+`camera(...)`, which aims correctly — never write rotation_euler by hand. Light with `area_light`.
 
-  where `target_location` is a `mathutils.Vector` at the middle of what you want in shot. Then
-  check the framing is plausible: the camera must be above the subject and far enough back that the
-  whole thing fits.
-- `Material.use_nodes = True` warns as deprecated. Materials already have nodes; set
-  `mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value` directly.
-- `bpy.ops.mesh.primitive_*_add` operates on the active collection and sets the active object. For
-  anything beyond a couple of bodies prefer `bpy.data.meshes.new` plus `bpy.data.objects.new` plus
-  `collection.objects.link`, which does not depend on operator context.
-- `bmesh.ops.create_cylinder` **does not exist**. Use `bmesh.ops.create_cone` with `radius1` equal
-  to `radius2`. The available primitives are `create_cube`, `create_cone`, `create_uvsphere`,
-  `create_icosphere`, `create_grid` and `create_circle`.
+**Lighting numbers, because these renders keep blowing out.** The harness renders with the Standard
+view transform, so there is no filmic roll-off to hide an overexposed scene. A measured failure: an
+800 W key at 2.8 m over 0.2-albedo surfaces put 48% of the frame at pure white.
 
-**Lighting, which is where these renders keep failing.** The harness renders with the Standard view
-transform, so there is no filmic roll-off to hide an overexposed scene: what you light is what you
-get. A measured example — an 800 W key at 2.8 m over a bench of 0.2-albedo surfaces blew 48% of the
-frame to pure white.
+    key   area_light(..., energy=80-150,  size=1.0-1.5)
+    fill  area_light(..., energy=20-40,   size=1.0, cooler colour, opposite side)
+    world ambient(strength=0.05-0.2)
 
-Sane starting points for a bench-scale scene in Cycles, lights 2 to 3 m from the subject:
+Aim for real blacks, real whites, and most of the image between them.
 
-- key area light, 1.0-1.5 m size: **80-150 W**
-- fill area light, opposite side, 1.0 m size: **20-40 W**, and a cooler colour
-- world background strength: **0.05-0.2**
-
-Aim for a picture with real blacks and real whites and most of the image in between. If a surface
-is meant to read as dark grey, it needs both a low albedo and a light that does not overwhelm it."""
+Group each assembly into its own function so the script stays readable as it grows.
+"""
 
 CRITIC_SYSTEM = """You judge a rendered Blender scene against a brief, and you are hard to please.
 

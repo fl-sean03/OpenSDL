@@ -97,6 +97,11 @@ try:
 except Exception:
     pass
 
+# Setting `obj.location` does not update `obj.matrix_world`; the depsgraph does, lazily. Every
+# geometry check below reads matrix_world, so without this they silently read local coordinates
+# and a bench 0.9 m up looks like it straddles the origin. This one line is load-bearing.
+_bpy.context.view_layer.update()
+
 _report = {{{{"engine": _wanted, "device": _report_device, "objects": [], "cameras": 0, "lights": 0, "meshes": 0, "defects": []}}}}
 if _engine_note:
     _report["defects"].append(_engine_note)
@@ -110,8 +115,17 @@ for _obj in _bpy.data.objects:
     _report["objects"].append(_entry)
     if _obj.type == "CAMERA":
         _report["cameras"] += 1
+        _entry["lens"] = round(_obj.data.lens, 1)
     elif _obj.type == "LIGHT":
         _report["lights"] += 1
+        # The critic asked for these by name: without energy and size it cannot tell an
+        # underexposed scene from a correctly lit one that needs a stronger key.
+        _entry["light"] = {{{{
+            "type": _obj.data.type,
+            "energy": round(_obj.data.energy, 1),
+            "size": round(getattr(_obj.data, "size", 0.0), 3),
+            "color": [round(_c, 3) for _c in _obj.data.color],
+        }}}}
     elif _obj.type == "MESH":
         _report["meshes"] += 1
         if len(_obj.data.polygons) == 0:
@@ -131,18 +145,37 @@ try:
     if _cam is not None:
         _visible = 0
         _considered = 0
+        _cropped = []
         for _obj in _bpy.data.objects:
             if _obj.type != "MESH" or not _obj.data.vertices:
                 continue
             _considered += 1
             _corners = [_obj.matrix_world @ _mathutils.Vector(c) for c in _obj.bound_box]
+            _inside = 0
             for _corner in _corners:
                 _ndc = _w2c(_scene, _cam, _corner)
                 if 0.0 <= _ndc.x <= 1.0 and 0.0 <= _ndc.y <= 1.0 and _ndc.z > 0.0:
-                    _visible += 1
-                    break
+                    _inside += 1
+            if _inside:
+                _visible += 1
+            # Partly in shot is its own failure. A leg whose foot is cut off satisfies any check
+            # that asks "is this object visible" and still breaks the composition.
+            #
+            # A ground plane is the exception: it is supposed to run past the frame, and reporting
+            # it every time trains the reader to ignore this defect.
+            _dims = _obj.dimensions
+            _ground = _dims.z < 0.02 and (_dims.x > 4.0 or _dims.y > 4.0)
+            if 0 < _inside < 8 and not _ground:
+                _cropped.append(_obj.name)
         _report["meshes_in_frame"] = _visible
         _report["meshes_considered"] = _considered
+        if _cropped:
+            _report["cropped"] = _cropped
+            _report["defects"].append(
+                "these bodies are cut off by the frame edge: "
+                + ", ".join(_cropped[:6])
+                + ". Pull the camera back or raise the lens until each one is whole"
+            )
         if _considered and _visible == 0:
             _report["defects"].append(
                 "the camera frames none of the geometry. Every mesh is outside the view or "
@@ -155,6 +188,37 @@ try:
             )
 except Exception as _exc:
     _report["defects"].append(f"framing check failed: {{{{_exc}}}}")
+
+# Two bodies whose faces sit at exactly the same height fight for the same pixels. It shows up as
+# flickering squares and it is a modelling mistake, not a render setting: a leg that reaches the
+# top of a bench rather than the underside of it.
+_planes = {{{{}}}}
+for _obj in _bpy.data.objects:
+    if _obj.type != "MESH" or not _obj.data.vertices:
+        continue
+    _zs = [(_obj.matrix_world @ _mathutils.Vector(_c)).z for _c in _obj.bound_box]
+    for _z in (round(min(_zs), 4), round(max(_zs), 4)):
+        _planes.setdefault(_z, []).append(_obj.name)
+import re as _re
+
+def _family(_name):
+    """Leg0 and Leg1 are the same kind of body. Four identical legs sharing a height is not a bug."""
+    return _re.sub(r"[._]?\d+$", "", _name)
+
+for _z, _names in _planes.items():
+    _families = sorted({{{{_family(_n) for _n in _names}}}})
+    if len(_families) >= 2:
+        _report.setdefault("coplanar", []).append(
+            {{{{"z": _z, "objects": sorted(set(_names))[:6], "families": _families}}}}
+        )
+_coplanar = _report.get("coplanar") or []
+_suspect = [_c for _c in _coplanar if _c["z"] != 0.0]
+if _suspect:
+    _report["defects"].append(
+        "surfaces share an exact height and will z-fight: "
+        + "; ".join(f"z={{{{_c['z']}}}} {{{{', '.join(_c['objects'][:3])}}}}" for _c in _suspect[:3])
+        + ". Overlap the bodies or offset them by a millimetre"
+    )
 
 if _report["cameras"] == 0:
     _report["defects"].append("the scene has no camera, so nothing can be rendered")

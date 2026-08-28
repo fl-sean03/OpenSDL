@@ -42,7 +42,27 @@ Rules that are not negotiable:
 - Prefer real dimensions in metres. A bench is about 0.9 m tall, a microplate is 127.76 x 85.48 mm.
 
 You are judged on what the render looks like, so composition, materials and lighting are part of the
-job, not decoration."""
+job, not decoration.
+
+Blender 5.2 specifics that have already cost attempts, so get them right first time:
+
+- `read_factory_settings(use_empty=True)` leaves `scene.world` as **None**. Create one before
+  touching it: `scene.world = bpy.data.worlds.new("World")`.
+- **Aim the camera by tracking, never by guessing Euler angles.** Guessed rotations are the single
+  most common way to render a picture of the floor. Do this:
+
+      import mathutils
+      direction = target_location - cam.location
+      cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+
+  where `target_location` is a `mathutils.Vector` at the middle of what you want in shot. Then
+  check the framing is plausible: the camera must be above the subject and far enough back that the
+  whole thing fits.
+- `Material.use_nodes = True` warns as deprecated. Materials already have nodes; set
+  `mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value` directly.
+- `bpy.ops.mesh.primitive_*_add` operates on the active collection and sets the active object. For
+  anything beyond a couple of bodies prefer `bpy.data.meshes.new` plus `bpy.data.objects.new` plus
+  `collection.objects.link`, which does not depend on operator context."""
 
 CRITIC_SYSTEM = """You judge a rendered Blender scene against a brief, and you are hard to please.
 

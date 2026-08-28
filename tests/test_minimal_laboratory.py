@@ -18,7 +18,14 @@ from pathlib import Path
 import pytest
 
 from opensdl_controller import OpenSDLSystem
-from opensdl_core import RunState, TaskState
+from opensdl_core import (
+    CapabilityDefinition,
+    ExecutionResult,
+    ExecutorType,
+    ResultBasis,
+    RunState,
+    TaskState,
+)
 from opensdl_schemas import validate_manifest_file
 
 MINIMAL = Path(__file__).parents[1] / "examples" / "computation-only" / "opensdl.yaml"
@@ -101,3 +108,39 @@ def test_the_smallest_laboratory_declares_no_optional_service() -> None:
             f"the minimal laboratory now mentions {service!r}. The smallest working laboratory runs "
             "in one process against SQLite with no optional service. See buildout.md decision D4."
         )
+
+
+def test_the_smallest_laboratory_makes_no_prediction_machinery_required() -> None:
+    """Progressive results must cost the one-bench case nothing, including a decision.
+
+    Decision D9 ranks progressive results first because shortening a measurement beats scheduling
+    around one, and decision D4 requires that facility work stay opt-in. Those two meet here: a
+    capability written before predictions existed declares nothing, predicts nothing, and every
+    result it returns is a measurement.
+
+    This assertion lives in this file rather than beside the models because this is the file whose
+    job is noticing a default being flipped.
+    """
+
+    capability = CapabilityDefinition(
+        id="capability/plain",
+        name="a capability that knows nothing about predictions",
+        executor_type=ExecutorType.SIMULATOR,
+        input_schema={},
+        output_schema={},
+    )
+    assert capability.progressive_results is False, (
+        "progressive_results now defaults to True, so every capability claims it can predict. A "
+        "provisional number from an adapter that was never revisited would enter the evidence "
+        "store wearing an instrument's clothes. See docs/development/buildout.md decisions D4 "
+        "and D9."
+    )
+
+    result = ExecutionResult(request_id="request/1")
+    assert result.basis is ResultBasis.MEASURED, (
+        "a result no longer defaults to being a measurement, which silently reclassifies every "
+        "existing adapter's output as a prediction."
+    )
+    assert result.predictor == {}
+    assert result.completeness is None
+    assert result.revises is None

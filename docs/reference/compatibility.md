@@ -62,7 +62,7 @@ These are the contracts a laboratory can depend on, and what each carries today.
 | Manifest `apiVersion` | `LabManifest` in `opensdl-schemas` | Pinned to `opensdl.dev/v0alpha1`. No second version exists. |
 | Manifest secret references | `${env:NAME}` resolved by `load_manifest` | The `${provider:name}` form is stable. Only `env:` is implemented; another prefix is refused by name. |
 | Twin `apiVersion` | `TwinDefinition` in `opensdl-twin` | Pinned to `opensdl.dev/v0alpha1`. No second version exists. |
-| Generated JSON Schemas | `packages/schemas/jsonschema/`, 16 files | Regenerated on every model change. No identity, no version, no compatibility check. |
+| Generated JSON Schemas | `packages/schemas/jsonschema/`, 17 files | Regenerated on every model change. No identity, no version, no compatibility check. |
 | Capability contracts | `CapabilityDefinition` and the identifiers adapters declare | No guarantee. Identifiers are plain strings and there is no registry. |
 | Adapter plugin interface | `CapabilityAdapter`, entry-point group `opensdl.adapters` | No guarantee. Abstract methods may be added. |
 | Optimizer plugin interface | `Optimizer` protocol in `opensdl-core`, group `opensdl.optimizers` | No guarantee. `suggest(history)` and `observe(observation)` are still the whole requirement; `BatchOptimizer`, `ConfigurableOptimizer`, `StatefulOptimizer` and `ResumableOptimizer` are optional and detected by `isinstance`, so adding a member to any of them silently stops matching every plugin that implements the others. It moved out of `opensdl-runtime` so a plugin depends on the contract rather than the execution stack; `opensdl-runtime` re-exports every name. |
@@ -92,7 +92,7 @@ prior version. That work does not exist and is not scheduled.
 
 ### Generated schemas are not identified
 
-The 16 files under `packages/schemas/jsonschema/` are produced by
+The 17 files under `packages/schemas/jsonschema/` are produced by
 `uv run --locked python scripts/generate-schemas.py`. None of them contains `$id`, `$schema`, or any
 version field, so a consumer holding one has no way to say which schema it is or which release
 produced it.

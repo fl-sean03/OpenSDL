@@ -35,7 +35,7 @@ These run in hosted CI and fail the build.
 | Ruff lint and formatting, Pyright | `ci.yml` | Zero errors or warnings |
 | Package import boundaries | `ci.yml` | Every shipped package is declared and stays inside its declared dependencies; an unmapped package fails rather than being skipped |
 | Propagation-graph coverage | `ci.yml` | Every tracked file matches a node, so the blast-radius tool cannot go blind again |
-| Generated JSON Schema freshness | `ci.yml` | The 16 committed schemas match the models |
+| Generated JSON Schema freshness | `ci.yml` | The 17 committed schemas match the models |
 | Repository structure | `ci.yml` | TOML, YAML, JSON, agent instructions, the 11 canonical skills, and every relative Markdown link |
 | Release-version consistency | `ci.yml`, `release.yml` | One version across 22 workspace members, the citation file, and generated dependency floors |
 | Viewer suite, typecheck, build and asset drift | `ci.yml` | 67 Vitest tests, Biome, TypeScript, a deterministic static build, and the committed bundle matching its source |

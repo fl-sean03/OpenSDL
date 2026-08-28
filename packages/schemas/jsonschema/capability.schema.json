@@ -119,6 +119,11 @@
       "title": "Simulator Available",
       "type": "boolean"
     },
+    "progressive_results": {
+      "default": false,
+      "title": "Progressive Results",
+      "type": "boolean"
+    },
     "tags": {
       "items": {
         "type": "string"

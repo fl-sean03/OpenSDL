@@ -11,6 +11,7 @@ from .enums import (
     AuthorizationEffect,
     ExecutorType,
     OperatorType,
+    ResultBasis,
     RetrySafety,
     RiskClass,
     RunState,
@@ -104,6 +105,11 @@ class CapabilityDefinition(OpenSDLModel):
     retry_safety: RetrySafety = RetrySafety.NOT_REPEATABLE
     supports_cancellation: bool = False
     simulator_available: bool = False
+    #: Whether this capability may report a prediction before its measurement completes. The
+    #: default refuses one: a provisional number from a capability that never declared itself
+    #: progressive is rejected rather than consumed, because a permissive default lets an
+    #: unrevisited adapter's guess enter the evidence store wearing an instrument's clothes.
+    progressive_results: bool = False
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -160,12 +166,73 @@ class ExecutionRequest(OpenSDLModel):
 
 
 class ExecutionResult(OpenSDLModel):
+    id: str = Field(default_factory=lambda: new_id("result"))
     request_id: str
     output: dict[str, Any] = Field(default_factory=dict)
     artifacts: list[str] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=utc_now)
     completed_at: datetime = Field(default_factory=utc_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    #: Measured unless the capability says otherwise. Every existing adapter keeps its meaning.
+    basis: ResultBasis = ResultBasis.MEASURED
+    #: What produced a prediction: the model, the fraction of the run it saw, its uncertainty.
+    #: Required for a prediction and refused for a measurement.
+    predictor: dict[str, Any] = Field(default_factory=dict)
+    #: How much of the measurement this result saw, where that is knowable.
+    completeness: float | None = Field(default=None, ge=0, le=1)
+    #: The `id` of the earlier result this one corrects, naming the prediction a measurement
+    #: replaces so provenance can pair them.
+    revises: str | None = None
+
+    @model_validator(mode="after")
+    def basis_must_agree_with_the_evidence(self) -> ExecutionResult:
+        """Refuse a result whose basis and evidence contradict each other.
+
+        A prediction that cannot say what predicted it is not auditable, and a measurement carrying
+        a predictor is claiming an authority it does not have. Both are cheap to catch here and
+        expensive to find later in an evidence store somebody is trying to qualify.
+        """
+        if self.basis is ResultBasis.PREDICTED and not self.predictor:
+            raise ValueError(
+                f"result {self.id} declares basis='{ResultBasis.PREDICTED.value}' with an empty "
+                "predictor. A prediction that cannot say what predicted it is not auditable. "
+                "Record the model, what it saw, and its uncertainty."
+            )
+        if self.basis is ResultBasis.MEASURED and self.predictor:
+            raise ValueError(
+                f"result {self.id} declares basis='{ResultBasis.MEASURED.value}' and carries a "
+                "predictor. A measurement is evidence in its own right; if a model produced this "
+                f"number, say basis='{ResultBasis.PREDICTED.value}'."
+            )
+        if self.revises is not None and self.revises == self.id:
+            raise ValueError(
+                f"result {self.id} revises itself. `revises` names the earlier result this one "
+                "corrects."
+            )
+        return self
+
+
+class PredictedRunResult(OpenSDLModel):
+    """A prediction handed to a caller while the run that will confirm it is still going.
+
+    This is what a progress listener receives. It is deliberately not a `RunRecord`: the run has
+    not finished, its recorded outputs are still empty, and nothing here is written to it. The
+    listener may act on this and must be able to accept a different answer later.
+    """
+
+    run_id: RunId
+    task_id: str
+    step_id: str
+    result_id: str
+    output: dict[str, Any] = Field(default_factory=dict)
+    predictor: dict[str, Any] = Field(default_factory=dict)
+    completeness: float | None = Field(default=None, ge=0, le=1)
+    #: Workflow-declared outputs derivable from the prediction without dispatching anything.
+    published_outputs: dict[str, Any] = Field(default_factory=dict)
+    #: Declared outputs withheld because deriving them would need a descendant step to run. The
+    #: entries name those steps, so a listener can see what it is not being told and why.
+    suppressed_by: list[str] = Field(default_factory=list)
+    predicted_at: datetime = Field(default_factory=utc_now)
 
 
 class RunRecord(OpenSDLModel):

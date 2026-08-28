@@ -65,6 +65,19 @@ UNRESUMABLE_TASK_STATES = frozenset(
 )
 
 
+#: Every reason a `TaskInterventionRequired` event may carry. The vocabulary is enumerated because
+#: two facility features want to extend it — a long-latency capability whose answer is overdue, and
+#: a resource lease swept after a controller restart — and an event whose reason is a free string
+#: cannot be graded, filtered, or reasoned about by a policy. A new reason is added here first, and
+#: `test_every_intervention_reason_is_declared` fails until it is.
+INTERVENTION_REASONS = frozenset(
+    {
+        "execution_cancelled",
+        "execution_timed_out",
+    }
+)
+
+
 def may_repeat_without_outcome(definition: CapabilityDefinition) -> bool:
     """Whether this capability may be dispatched again when nothing reported an outcome at all.
 

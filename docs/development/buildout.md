@@ -700,6 +700,15 @@ immediate-dispatch default, in the same shape as the storage layer, where reposi
 make PostgreSQL a swap. Named here because "we will just add a small daemon"
 is exactly how the small case dies.
 
+**A concrete defect found while designing the facility work, recorded here because it is a
+scheduler question and not a bug fix.** In `packages/runtime/src/opensdl_runtime/engine.py` the
+concurrency semaphore is acquired at line 652, outside `_hold_resources` at line 708, so a task
+waits for a slot and only then contends for its resources. Reordering the two looks obviously
+correct and is not: leases taken first means a task holding a scarce instrument idles behind
+unrelated tasks holding the concurrency slots, and it removes the only bound on concurrent resource
+pollers. Which order is right depends on how scheduling is resolved, so it waits for this decision
+rather than being half-fixed under it.
+
 *Enforced by:* `tests/test_minimal_laboratory.py`, which refuses a manifest containing `scheduler:`
 or `broker:` and fails if the minimum grows past 20 lines. That catches a daemon becoming required.
 It would not catch a daemon becoming the default while staying omissible, which is the subtler

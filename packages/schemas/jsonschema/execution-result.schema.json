@@ -1,6 +1,21 @@
 {
+  "$defs": {
+    "ResultBasis": {
+      "description": "Whether a result was measured or predicted from an incomplete measurement.\n\nA capability that can see where a measurement is heading before it finishes may say so, and a\ncampaign may act on that. What it may never do is let the guess and the measurement look alike\nin the record. This is the field that keeps them apart, so provenance can answer which\nobservations were predictions and whether each one was ever corrected.\n\nThere are two values and deliberately no third. A number read from half a run is either offered\nas the answer, in which case it is a prediction and says so, or it is not offered.",
+      "enum": [
+        "measured",
+        "predicted"
+      ],
+      "title": "ResultBasis",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
   "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
     "request_id": {
       "title": "Request Id",
       "type": "string"
@@ -31,6 +46,41 @@
       "additionalProperties": true,
       "title": "Metadata",
       "type": "object"
+    },
+    "basis": {
+      "$ref": "#/$defs/ResultBasis",
+      "default": "measured"
+    },
+    "predictor": {
+      "additionalProperties": true,
+      "title": "Predictor",
+      "type": "object"
+    },
+    "completeness": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completeness"
+    },
+    "revises": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revises"
     }
   },
   "required": [

@@ -135,16 +135,23 @@ def cylinder(name, radius, depth, location, material_=None, segments=32):
     )
     return _mesh_object(name, bm, location, material_)
 
-def on_surface(name, size, xy, surface_z, material_=None, sink=0.002):
-    """A body standing on a surface at `surface_z`, sunk 2 mm so the faces do not z-fight.
+def top_of(obj):
+    """The world-space height of an object's upper face."""
+    bpy.context.view_layer.update()
+    return max((obj.matrix_world @ mathutils.Vector(c)).z for c in obj.bound_box)
 
-    This is the most common placement in a lab scene and the easiest to get wrong: an instrument
-    whose underside sits at exactly the height of the bench top shares a plane with it, and the two
-    surfaces flicker against each other. Sinking it slightly is what a real object does anyway,
-    since nothing rests on a surface without deforming into it a little.
+def on_surface(name, size, xy, surface, material_=None, sink=0.002):
+    """A body standing on `surface`, sunk 2 mm so the faces do not z-fight.
 
-    `xy` is the centre in plan; the height is computed, so there is no arithmetic to get wrong.
+    `surface` is either a height in metres or **another object**, in which case its upper face is
+    measured. Passing the object is what you want when stacking: a shaker is a base, then a platform
+    on the base, then a plate on the platform, then clamps on the platform, and every one of those
+    heights is a chance to bury a body inside the one below it. That has happened — a platform and a
+    microplate both ended up inside the shaker base, which renders as a plain block.
+
+    `xy` is the centre in plan. Nothing here needs `surface_z + height/2` written by hand.
     """
+    surface_z = surface if isinstance(surface, (int, float)) else top_of(surface)
     return box(name, size, (xy[0], xy[1], surface_z + size[2] / 2.0 - sink), material_)
 
 def plane(name, size, location=(0.0, 0.0, 0.0), material_=None):

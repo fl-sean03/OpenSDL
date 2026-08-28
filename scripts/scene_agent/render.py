@@ -223,8 +223,13 @@ for _i in range(len(_boxes)):
             continue
         if not _overlaps(_p[3], _p[4], _q[3], _q[4]):
             continue
-        for _za in (_p[5], _p[6]):
-            for _zb in (_q[5], _q[6]):
+        # Bottom-to-bottom is not a fight. Two bodies resting on the same surface are both sunk
+        # into it by the same amount, so their undersides coincide inside a third body where
+        # nothing can see them. What fights is a top meeting a top, or a top meeting a bottom.
+        for _ia, _za in ((0, _p[5]), (1, _p[6])):
+            for _ib, _zb in ((0, _q[5]), (1, _q[6])):
+                if _ia == 0 and _ib == 0:
+                    continue
                 if abs(_za - _zb) < 5e-4:
                     _fights.append((_p[0], _q[0], round(_za, 4)))
 if _fights:

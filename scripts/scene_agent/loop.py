@@ -61,9 +61,13 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     bench(name, width, depth, top_z=0.90,        a whole bench: top placed by its SURFACE height,
           top_material=, leg_material=)          legs reaching up into it. Use this, do not build
                                                  a bench out of boxes
-    on_surface(name, (x,y,z), (cx,cy), surf_z,   a body standing ON a surface, sunk 2 mm so it
-               material_)                        does not z-fight. USE THIS for anything on the
-                                                 bench: it computes the height for you
+    on_surface(name, (x,y,z), (cx,cy),           a body standing ON something, sunk 2 mm so it
+               surface, material_)                does not z-fight. `surface` is a height OR
+                                                 ANOTHER OBJECT, whose top face is measured.
+                                                 Stack with it: base = on_surface(..., 0.90);
+                                                 platform = on_surface(..., base);
+                                                 plate = on_surface(..., platform)
+    top_of(obj)                                  height of an object's upper face
     aim(obj, target)                             point an object's -Z at a point
     camera(location, target, lens=42.0)          camera looking at target, set as scene camera
     frame_all(cam)                               pull the camera back until everything fits

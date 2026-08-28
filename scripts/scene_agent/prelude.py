@@ -241,6 +241,21 @@ def gripper(name, at, opening, depth=0.09, thickness=0.012, height=0.05,
         for tag, offset in zip(("L", "R"), offsets)
     ]
 
+def studio(size=60.0, material_=None, sweep=True):
+    """A ground plane large enough that its edge never enters frame, with an optional sweep.
+
+    A 10 m floor looks generous until the camera tilts up and catches its far edge, which reads as
+    a hard diagonal seam across the background. A product photograph solves this with a cyclorama:
+    floor and wall meeting in a curve so there is no horizon at all. The cheap version is a very
+    large floor plus a wall far enough back to fall outside the frame, sharing one material so no
+    join is visible.
+    """
+    ground = plane("Floor", size, (0.0, 0.0, 0.0), material_)
+    if sweep:
+        wall = box("Backdrop", (size, 0.05, size * 0.4), (0.0, size * 0.25, size * 0.2), material_)
+        return ground, wall
+    return ground, None
+
 def aim(obj, target):
     """Point an object's -Z at `target`. Accepts a tuple or a Vector, which is the whole point."""
     direction = mathutils.Vector(target) - obj.location
@@ -258,7 +273,7 @@ def camera(location, target, lens=42.0):
     bpy.context.scene.camera = obj
     return obj
 
-def frame_all(cam, margin=1.04, distance=None, floor_names=("Floor",)):
+def frame_all(cam, margin=1.04, distance=None, floor_names=("Floor", "Backdrop")):
     """Pull `cam` back until every body fits the frame, then re-aim at their centre.
 
     Fits the actual bounding-box corners rather than a bounding sphere. A sphere is simple and
@@ -282,9 +297,9 @@ def frame_all(cam, margin=1.04, distance=None, floor_names=("Floor",)):
     for obj in bpy.data.objects:
         if obj.type != "MESH" or not obj.data.vertices:
             continue
-        if obj.name in floor_names or (
-            obj.dimensions.z < 0.02 and max(obj.dimensions.x, obj.dimensions.y) > 4.0
-        ):
+        # Scenery is not subject. A floor or a backdrop is there to be behind things, and
+        # including it in the fit sends the camera far enough away to see all sixty metres of it.
+        if obj.name in floor_names or max(obj.dimensions) > 5.0:
             continue
         points.extend(obj.matrix_world @ mathutils.Vector(c) for c in obj.bound_box)
     if not points:

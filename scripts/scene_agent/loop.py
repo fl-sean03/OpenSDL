@@ -64,7 +64,11 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     lab_lighting(target, cam)                    three-point rig placed off the CAMERA axis
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
-    plane(name, size, location, material_)       flat square, for floors
+    plane(name, size, location, material_)       flat square
+    studio(material_)                            floor plus backdrop, sized so no edge or horizon
+                                                 enters frame. USE THIS instead of a bare floor
+                                                 plane: a 10 m floor shows its far edge as a hard
+                                                 diagonal seam once the camera tilts up
     bench(name, width, depth, top_z=0.90,        a whole bench: top placed by its SURFACE height,
           top_material=, leg_material=)          legs reaching up into it. Use this, do not build
                                                  a bench out of boxes

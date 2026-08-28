@@ -149,6 +149,8 @@ try:
         for _obj in _bpy.data.objects:
             if _obj.type != "MESH" or not _obj.data.vertices:
                 continue
+            if max(_obj.dimensions) > 5.0:
+                continue
             _considered += 1
             _corners = [_obj.matrix_world @ _mathutils.Vector(c) for c in _obj.bound_box]
             _inside = 0
@@ -163,9 +165,10 @@ try:
             #
             # A ground plane is the exception: it is supposed to run past the frame, and reporting
             # it every time trains the reader to ignore this defect.
+            # Scenery is meant to run past the frame; only subject matter can be "cropped".
             _dims = _obj.dimensions
-            _ground = _dims.z < 0.02 and (_dims.x > 4.0 or _dims.y > 4.0)
-            if 0 < _inside < 8 and not _ground:
+            _scenery = max(_dims) > 5.0
+            if 0 < _inside < 8 and not _scenery:
                 _cropped.append(_obj.name)
         _report["meshes_in_frame"] = _visible
         _report["meshes_considered"] = _considered
@@ -199,8 +202,7 @@ for _obj in _bpy.data.objects:
         continue
     # A ground plane is what everything else rests on, so it shares a height with every body that
     # touches it. That is a floor, not a defect.
-    _d = _obj.dimensions
-    if _d.z < 0.02 and max(_d.x, _d.y) > 4.0:
+    if max(_obj.dimensions) > 5.0:
         continue
     _pts = [_obj.matrix_world @ _mathutils.Vector(_c) for _c in _obj.bound_box]
     _boxes.append(

@@ -20,8 +20,8 @@ import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .client import GENERATOR_MODEL, ask, fenced_python
-from .loop import SYSTEM
+from .client import CRITIC_MODEL, GENERATOR_MODEL, ask, fenced_python
+from .loop import SYSTEM, _strings, critique
 from .render import render_script
 
 STAGE_SYSTEM = (
@@ -43,6 +43,9 @@ class Stage:
     instruction: str
     attempts: int = 0
     ok: bool = False
+    score: int | None = None
+    verdict: str = ""
+    defects: list[str] = field(default_factory=list)
     probe_defects: list[str] = field(default_factory=list)
     stderr: str = ""
     image: str | None = None
@@ -56,7 +59,9 @@ def build(
     out_dir: Path,
     *,
     retries: int = 2,
+    look_bar: int = 70,
     model: str = GENERATOR_MODEL,
+    critic_model: str = CRITIC_MODEL,
     key: str | None = None,
     width: int = 1280,
     height: int = 720,
@@ -118,13 +123,37 @@ def build(
             )
             blocking = [d for d in outcome.defects if not d.startswith("engine ")]
             if outcome.ok and not blocking:
-                script = candidate
-                stage.ok = True
-                stage.image = str(outcome.image)
-                stage.probe_defects = outcome.defects
-                meshes = outcome.report.get("meshes")
-                stage.meshes = int(meshes) if isinstance(meshes, int) else 0
-                break
+                # Structurally sound. Now ask whether it looks like what was asked for, which is
+                # the question the probe cannot reach: it counted six meshes, all in frame, no
+                # defects, on a render where every surface came out white against a brief that
+                # said matte dark grey.
+                judgement, critic_reply = critique(
+                    instruction, outcome, model=critic_model, key=key
+                )
+                spent += critic_reply.cost_usd
+                raw = judgement.get("score")
+                stage.score = int(raw) if isinstance(raw, (int, float)) else None
+                stage.verdict = str(judgement.get("verdict", ""))
+                stage.defects = _strings(judgement.get("defects"))
+
+                good_enough = stage.score is None or stage.score >= look_bar
+                if good_enough or attempt > retries:
+                    script = candidate
+                    stage.ok = True
+                    stage.image = str(outcome.image)
+                    stage.probe_defects = outcome.defects
+                    meshes = outcome.report.get("meshes")
+                    stage.meshes = int(meshes) if isinstance(meshes, int) else 0
+                    break
+
+                actions = _strings(judgement.get("next_actions"))
+                last_error = (
+                    f"It rendered, but a reviewer scored it {stage.score}/100: {stage.verdict}\n"
+                    f"Defects: {json.dumps(stage.defects, indent=1)}\n"
+                    f"Do this: {json.dumps(actions, indent=1)}"
+                )
+                stage.stderr = last_error
+                continue
             # A render that ran is not a render that shows anything. Blocking defects carry the
             # structural failures an image cannot report and, since the framing check landed, the
             # one an image reports loudest: a camera pointed at nothing.

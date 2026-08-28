@@ -85,6 +85,16 @@ else:
     _report_device = "CPU"
 
 
+# Blender defaults the view transform to AgX, which is built for filmic HDR footage: it
+# desaturates and lifts shadows hard. A 0.2-albedo bench under a normal key comes out of it as
+# light grey, so a scene with correct materials renders washed out and the critic blames the
+# materials. Standard is the honest transform for a technical illustration, and the harness owns
+# render settings the same way it owns resolution and engine.
+try:
+    _scene.view_settings.view_transform = "Standard"
+except Exception:
+    pass
+
 _report = {{{{"engine": _wanted, "device": _report_device, "objects": [], "cameras": 0, "lights": 0, "meshes": 0, "defects": []}}}}
 if _engine_note:
     _report["defects"].append(_engine_note)
@@ -157,6 +167,42 @@ if _at_origin > 1:
 try:
     _bpy.ops.render.render(write_still=True)
     _report["rendered"] = True
+    # What the image is actually made of. A render can be structurally perfect and still be a
+    # grey rectangle, and these three numbers say so without anyone looking.
+    try:
+        _img = _bpy.data.images.load({{RENDER_PATH!r}})
+        _px = list(_img.pixels)
+        _lum = [
+            _px[_i] * 0.2126 + _px[_i + 1] * 0.7152 + _px[_i + 2] * 0.0722
+            for _i in range(0, len(_px), 4)
+        ]
+        _n = len(_lum) or 1
+        _mean = sum(_lum) / _n
+        _blown = sum(1 for _v in _lum if _v > 0.98) / _n
+        _crushed = sum(1 for _v in _lum if _v < 0.02) / _n
+        _spread = (sum((_v - _mean) ** 2 for _v in _lum) / _n) ** 0.5
+        _report["exposure"] = {{{{
+            "mean": round(_mean, 3),
+            "blown": round(_blown, 4),
+            "crushed": round(_crushed, 4),
+            "contrast": round(_spread, 3),
+        }}}}
+        if _blown > 0.10:
+            _report["defects"].append(
+                f"{{{{_blown*100:.0f}}}}% of the image is blown to white; the key light is far too strong"
+            )
+        if _crushed > 0.25:
+            _report["defects"].append(
+                f"{{{{_crushed*100:.0f}}}}% of the image is crushed to black; there is not enough fill"
+            )
+        if _spread < 0.06:
+            _report["defects"].append(
+                f"the image has almost no tonal range (contrast {{{{_spread:.3f}}}}); it reads as a "
+                "flat field rather than as lit geometry"
+            )
+        _bpy.data.images.remove(_img)
+    except Exception as _exc:
+        _report["defects"].append(f"exposure check failed: {{{{_exc}}}}")
 except Exception as _exc:
     _report["rendered"] = False
     _report["defects"].append(f"render raised {{{{type(_exc).__name__}}}}: {{{{_exc}}}}")

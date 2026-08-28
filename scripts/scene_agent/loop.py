@@ -62,7 +62,24 @@ Blender 5.2 specifics that have already cost attempts, so get them right first t
   `mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value` directly.
 - `bpy.ops.mesh.primitive_*_add` operates on the active collection and sets the active object. For
   anything beyond a couple of bodies prefer `bpy.data.meshes.new` plus `bpy.data.objects.new` plus
-  `collection.objects.link`, which does not depend on operator context."""
+  `collection.objects.link`, which does not depend on operator context.
+- `bmesh.ops.create_cylinder` **does not exist**. Use `bmesh.ops.create_cone` with `radius1` equal
+  to `radius2`. The available primitives are `create_cube`, `create_cone`, `create_uvsphere`,
+  `create_icosphere`, `create_grid` and `create_circle`.
+
+**Lighting, which is where these renders keep failing.** The harness renders with the Standard view
+transform, so there is no filmic roll-off to hide an overexposed scene: what you light is what you
+get. A measured example — an 800 W key at 2.8 m over a bench of 0.2-albedo surfaces blew 48% of the
+frame to pure white.
+
+Sane starting points for a bench-scale scene in Cycles, lights 2 to 3 m from the subject:
+
+- key area light, 1.0-1.5 m size: **80-150 W**
+- fill area light, opposite side, 1.0 m size: **20-40 W**, and a cooler colour
+- world background strength: **0.05-0.2**
+
+Aim for a picture with real blacks and real whites and most of the image in between. If a surface
+is meant to read as dark grey, it needs both a low albedo and a light that does not overwhelm it."""
 
 CRITIC_SYSTEM = """You judge a rendered Blender scene against a brief, and you are hard to please.
 

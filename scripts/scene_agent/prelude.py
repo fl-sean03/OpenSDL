@@ -29,8 +29,37 @@ _ALIASES = {
     "target_location": "target", "look_at": "target",
 }
 
+def _by_type(value, signature, taken):
+    """Where a value of this kind belongs, when its name gave nothing away."""
+    import inspect
+
+    free = [n for n in signature.parameters if n not in taken]
+    if isinstance(value, bpy.types.Material):
+        for name in free:
+            if "material" in name:
+                return name
+        return None
+    if isinstance(value, (bpy.types.Object, list, tuple, set)):
+        for name in free:
+            if "surface" in name or "on" == name:
+                return name
+        for name in free:
+            if signature.parameters[name].default is inspect.Parameter.empty:
+                return name
+        return None
+    if isinstance(value, (int, float)):
+        for name in free:
+            default = signature.parameters[name].default
+            if isinstance(default, (int, float)) and not isinstance(default, bool):
+                return name
+        for name in free:
+            if "surface" in name:
+                return name
+    return None
+
 def _tolerant(func):
     """Accept the obvious synonyms for a parameter name rather than failing on one."""
+    import difflib
     import functools
     import inspect
 
@@ -48,6 +77,26 @@ def _tolerant(func):
             if given in names:
                 continue
             wanted = _ALIASES.get(given)
+            if wanted not in names:
+                # A fixed alias table does not keep up. The model has now invented `center`,
+                # `center_xy`, `surface_z` and `look_at` for parameters called `xy`, `surface` and
+                # `target`, and it will invent more. Match on containment first, since a compound
+                # name almost always contains the real one, then fall back to nearest spelling.
+                free = [n for n in names if n not in kwargs]
+                token = given.strip("_").lower()
+                hits = [
+                    n for n in free
+                    if n.strip("_").lower() in token or token in n.strip("_").lower()
+                ]
+                if hits:
+                    wanted = min(hits, key=len)
+                else:
+                    close = difflib.get_close_matches(token, free, n=1, cutoff=0.72)
+                    wanted = close[0] if close else None
+            if wanted is None:
+                # Name matching has a limit: `rests_on` does not resemble `surface` in any way a
+                # string comparison can see. What the value IS still says where it belongs.
+                wanted = _by_type(kwargs[given], signature, kwargs)
             if wanted and wanted in names and wanted not in kwargs:
                 kwargs[wanted] = kwargs.pop(given)
 

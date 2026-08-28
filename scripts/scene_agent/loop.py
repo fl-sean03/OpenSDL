@@ -63,7 +63,10 @@ import bpy primitives to do what they do — each exists because hand-rolling it
                                                  a big soft source to reflect or they read as paint)
                                                  aluminium 0.560 metallic   floor 0.300
                                                  labware 0.620   glass 0.800
-    lab_lighting(target, cam)                    three-point rig placed off the CAMERA axis
+    lab_lighting(target, cam, side="left")       three-point rig placed off the CAMERA axis.
+                                                 `side` puts the key left or right AS SEEN FROM
+                                                 THE CAMERA, so a brief asking for a front-left
+                                                 key gets one. Do not place lights by hand
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
     plane(name, size, location, material_)       flat square

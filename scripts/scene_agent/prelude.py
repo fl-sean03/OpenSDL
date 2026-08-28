@@ -128,13 +128,18 @@ def palette():
         for name, (colour, roughness, metallic) in PALETTE.items()
     }
 
-def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=300.0, fill=75.0, rim=45.0):
+def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=300.0, fill=75.0, rim=45.0,
+                 side="left"):
     """A three-point rig placed relative to the CAMERA, so the light always models the form.
 
     Lighting positioned in world space only works if the camera happens to be somewhere flattering.
     A key that lands near the camera-to-subject axis lights everything frontally, kills every
     shading gradient, and the render comes out looking like a diagram of the scene rather than a
     photograph of it. That is a real critique this rig earned, twice.
+
+    `side` decides which way the key sits as seen from the camera, so a brief asking for a
+    front-left key gets one. The rig has been marked down for lighting from the right when the
+    brief said left, which is a real note about a real photograph and not a technicality.
 
     So the key goes 50 degrees off the view axis and above; the fill goes to the other side at a
     quarter of the power and slightly cool; a low rim behind picks the subject off the background.
@@ -167,10 +172,12 @@ def lab_lighting(target=(0.0, 0.0, 1.0), cam=None, key=300.0, fill=75.0, rim=45.
             (math.cos(angle) * distance, math.sin(angle) * distance, height)
         )
 
-    k = area_light("Key", _at(50.0, reach * 0.95, reach * 1.05), target, energy=key, size=3.5)
-    f = area_light("Fill", _at(-75.0, reach * 0.45, reach * 1.15), target,
+    hand = 1.0 if str(side).lower().startswith("l") else -1.0
+    k = area_light("Key", _at(50.0 * hand, reach * 0.95, reach * 1.05), target,
+                   energy=key, size=3.5)
+    f = area_light("Fill", _at(-75.0 * hand, reach * 0.45, reach * 1.15), target,
                    energy=fill, size=2.8, color=(0.84, 0.89, 1.0))
-    r = area_light("Rim", _at(165.0, reach * 0.85, reach * 0.95), target,
+    r = area_light("Rim", _at(165.0 * hand, reach * 0.85, reach * 0.95), target,
                    energy=rim, size=2.0, color=(0.92, 0.94, 1.0))
     return k, f, r
 

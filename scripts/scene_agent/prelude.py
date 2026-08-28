@@ -96,6 +96,38 @@ def camera(location, target, lens=42.0):
     bpy.context.scene.camera = obj
     return obj
 
+def frame_all(cam, margin=1.25, floor_names=("Floor",)):
+    """Pull `cam` back along its own axis until every body fits, then re-aim at their centre.
+
+    Guessed camera distances crop things. This measures what is actually in the scene, ignoring
+    ground planes because they are meant to run past the frame.
+    """
+    bpy.context.view_layer.update()
+    points = []
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or not obj.data.vertices:
+            continue
+        if obj.name in floor_names or (obj.dimensions.z < 0.02 and max(obj.dimensions.x, obj.dimensions.y) > 4.0):
+            continue
+        points.extend(obj.matrix_world @ mathutils.Vector(c) for c in obj.bound_box)
+    if not points:
+        return cam
+    lo = mathutils.Vector((min(p.x for p in points), min(p.y for p in points), min(p.z for p in points)))
+    hi = mathutils.Vector((max(p.x for p in points), max(p.y for p in points), max(p.z for p in points)))
+    centre = (lo + hi) / 2.0
+    radius = (hi - lo).length / 2.0
+    scene = bpy.context.scene
+    aspect = scene.render.resolution_x / max(scene.render.resolution_y, 1)
+    import math
+    half_fov = min(cam.data.angle / 2.0, math.atan(math.tan(cam.data.angle / 2.0) / max(aspect, 1e-6)))
+    distance = (radius * margin) / max(math.sin(half_fov), 1e-6)
+    direction = (cam.location - centre)
+    if direction.length < 1e-6:
+        direction = mathutils.Vector((-1.0, -1.0, 0.6))
+    cam.location = centre + direction.normalized() * distance
+    aim(cam, centre)
+    return cam
+
 def area_light(name, location, target, energy=120.0, size=1.2, color=(1.0, 0.98, 0.95)):
     """An area light aimed at `target`. 80-150 W for a key, 20-40 W for a fill, at 2-3 m."""
     data = bpy.data.lights.new(name=name, type="AREA")

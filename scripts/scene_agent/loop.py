@@ -55,11 +55,18 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     plane(name, size, location, material_)       flat square, for floors
     aim(obj, target)                             point an object's -Z at a point
     camera(location, target, lens=42.0)          camera looking at target, set as scene camera
+    frame_all(cam)                               pull the camera back until everything fits
     area_light(name, location, target, energy,   area light aimed at a point
                size, color)
 
 Start with `scene = new_scene()`. Build bodies with `box`, `cylinder` and `plane`. Frame with
-`camera(...)`, which aims correctly — never write rotation_euler by hand. Light with `area_light`.
+`cam = camera(...)` then `frame_all(cam)` as the last thing before lighting: it measures what you
+actually built and pulls back until none of it is cropped. Never write rotation_euler by hand.
+Light with `area_light`.
+
+Where two bodies meet, **sink one a few millimetres into the other**. Surfaces that end at exactly
+the same height and overlap in plan will z-fight into flickering dark squares. A bench leg should
+reach up *into* the bench top, not stop level with its surface.
 
 **Lighting numbers, because these renders keep blowing out.** The harness renders with the Standard
 view transform, so there is no filmic roll-off to hide an overexposed scene. A measured failure: an

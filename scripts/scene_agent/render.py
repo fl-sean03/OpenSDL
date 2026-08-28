@@ -189,35 +189,52 @@ try:
 except Exception as _exc:
     _report["defects"].append(f"framing check failed: {{{{_exc}}}}")
 
-# Two bodies whose faces sit at exactly the same height fight for the same pixels. It shows up as
-# flickering squares and it is a modelling mistake, not a render setting: a leg that reaches the
-# top of a bench rather than the underside of it.
-_planes = {{{{}}}}
+# Two bodies whose faces sit at the same height AND overlap in plan will fight for the same
+# pixels. Both conditions matter: four legs at one corner height each are a bench, not a bug, and
+# only the pair that also overlaps in x and y can actually z-fight. Testing the geometry rather
+# than the names avoids guessing which of Leg_BL and Leg_FR are siblings.
+_boxes = []
 for _obj in _bpy.data.objects:
     if _obj.type != "MESH" or not _obj.data.vertices:
         continue
-    _zs = [(_obj.matrix_world @ _mathutils.Vector(_c)).z for _c in _obj.bound_box]
-    for _z in (round(min(_zs), 4), round(max(_zs), 4)):
-        _planes.setdefault(_z, []).append(_obj.name)
-import re as _re
-
-def _family(_name):
-    """Leg0 and Leg1 are the same kind of body. Four identical legs sharing a height is not a bug."""
-    return _re.sub(r"[._]?\d+$", "", _name)
-
-for _z, _names in _planes.items():
-    _families = sorted({{{{_family(_n) for _n in _names}}}})
-    if len(_families) >= 2:
-        _report.setdefault("coplanar", []).append(
-            {{{{"z": _z, "objects": sorted(set(_names))[:6], "families": _families}}}}
+    # A ground plane is what everything else rests on, so it shares a height with every body that
+    # touches it. That is a floor, not a defect.
+    _d = _obj.dimensions
+    if _d.z < 0.02 and max(_d.x, _d.y) > 4.0:
+        continue
+    _pts = [_obj.matrix_world @ _mathutils.Vector(_c) for _c in _obj.bound_box]
+    _boxes.append(
+        (
+            _obj.name,
+            min(_p.x for _p in _pts), max(_p.x for _p in _pts),
+            min(_p.y for _p in _pts), max(_p.y for _p in _pts),
+            min(_p.z for _p in _pts), max(_p.z for _p in _pts),
         )
-_coplanar = _report.get("coplanar") or []
-_suspect = [_c for _c in _coplanar if _c["z"] != 0.0]
-if _suspect:
+    )
+
+def _overlaps(_a, _b, _c, _d):
+    return min(_b, _d) - max(_a, _c) > 1e-4
+
+_fights = []
+for _i in range(len(_boxes)):
+    for _j in range(_i + 1, len(_boxes)):
+        _p, _q = _boxes[_i], _boxes[_j]
+        if not _overlaps(_p[1], _p[2], _q[1], _q[2]):
+            continue
+        if not _overlaps(_p[3], _p[4], _q[3], _q[4]):
+            continue
+        for _za in (_p[5], _p[6]):
+            for _zb in (_q[5], _q[6]):
+                if abs(_za - _zb) < 5e-4:
+                    _fights.append((_p[0], _q[0], round(_za, 4)))
+if _fights:
+    _report["coplanar"] = [
+        {{{{"a": _a, "b": _b, "z": _z}}}} for _a, _b, _z in _fights[:8]
+    ]
     _report["defects"].append(
-        "surfaces share an exact height and will z-fight: "
-        + "; ".join(f"z={{{{_c['z']}}}} {{{{', '.join(_c['objects'][:3])}}}}" for _c in _suspect[:3])
-        + ". Overlap the bodies or offset them by a millimetre"
+        "these bodies overlap in plan and share an exact height, so they will z-fight: "
+        + "; ".join(f"{{{{_a}}}}/{{{{_b}}}} at z={{{{_z}}}}" for _a, _b, _z in _fights[:3])
+        + ". Sink one into the other by a few millimetres"
     )
 
 if _report["cameras"] == 0:

@@ -77,6 +77,11 @@ Then `lab_lighting(target, cam)` LAST, after framing, passing the camera it retu
 places itself relative to the view axis so the light always models the form; lighting chosen in
 world space lands frontally as often as not and the render comes out flat.
 
+**A detail placed inside a solid body is invisible.** A slot modelled as its own box, positioned
+within the housing, renders as nothing and the instrument comes out a featureless block. To show a
+recess, either stand the detail 1-2 mm PROUD of the face in a darker material, or build the housing
+as panels around the opening. Never bury a mesh inside another.
+
 Where two bodies meet, **sink one a few millimetres into the other**. Surfaces that end at exactly
 the same height and overlap in plan will z-fight into flickering dark squares. A bench leg should
 reach up *into* the bench top, and every instrument on the bench goes through `on_surface`, which

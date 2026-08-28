@@ -237,6 +237,37 @@ if _fights:
         + ". Sink one into the other by a few millimetres"
     )
 
+# A detail modelled inside a solid body renders as nothing at all. The model builds a slot or a
+# recessed panel as its own box and places it within the housing, where it is invisible and the
+# critic reports a featureless block. Containment is exact and cheap to test, so it should not need
+# an eye.
+_buried = []
+for _i in range(len(_boxes)):
+    for _j in range(len(_boxes)):
+        if _i == _j:
+            continue
+        _a, _b = _boxes[_i], _boxes[_j]
+        _inside = (
+            _a[1] >= _b[1] - 1e-5 and _a[2] <= _b[2] + 1e-5
+            and _a[3] >= _b[3] - 1e-5 and _a[4] <= _b[4] + 1e-5
+            and _a[5] >= _b[5] - 1e-5 and _a[6] <= _b[6] + 1e-5
+        )
+        _smaller = (
+            (_a[2] - _a[1]) * (_a[4] - _a[3]) * (_a[6] - _a[5])
+            < (_b[2] - _b[1]) * (_b[4] - _b[3]) * (_b[6] - _b[5]) * 0.95
+        )
+        if _inside and _smaller:
+            _buried.append((_a[0], _b[0]))
+            break
+if _buried:
+    _report["buried"] = [{{{{"inner": _a, "outer": _b}}}} for _a, _b in _buried[:8]]
+    _report["defects"].append(
+        "these bodies are entirely inside another and cannot be seen: "
+        + "; ".join(f"{{{{_a}}}} inside {{{{_b}}}}" for _a, _b in _buried[:4])
+        + ". A slot or recess has to break the outer surface: make the detail proud of the face by "
+        "1-2 mm, or model the housing as separate panels around the opening"
+    )
+
 if _report["cameras"] == 0:
     _report["defects"].append("the scene has no camera, so nothing can be rendered")
 if _report["lights"] == 0 and _scene.render.engine != "BLENDER_WORKBENCH":

@@ -204,10 +204,23 @@ def cylinder(name, radius, depth, location, material_=None, segments=32):
     )
     return _mesh_object(name, bm, location, material_)
 
-def top_of(obj):
-    """The world-space height of an object's upper face."""
+def top_of(thing):
+    """The world-space height of the upper face of an object, or of a group of them.
+
+    Accepts an object, a list or tuple of objects, or a number passed straight through. `bench()`
+    and `studio()` both return tuples, so the natural thing to write is
+    `on_surface(..., surface=my_bench)` — and rejecting that costs an attempt for no reason. A
+    group returns its highest top, which is what "on top of the bench" means.
+    """
+    if isinstance(thing, (int, float)):
+        return float(thing)
     bpy.context.view_layer.update()
-    return max((obj.matrix_world @ mathutils.Vector(c)).z for c in obj.bound_box)
+    if isinstance(thing, (list, tuple, set)):
+        tops = [top_of(item) for item in thing if item is not None]
+        if not tops:
+            raise ValueError("top_of was given an empty group")
+        return max(tops)
+    return max((thing.matrix_world @ mathutils.Vector(c)).z for c in thing.bound_box)
 
 def on_surface(name, size, xy, surface, material_=None, sink=0.002):
     """A body standing on `surface`, sunk 2 mm so the faces do not z-fight.
@@ -220,7 +233,7 @@ def on_surface(name, size, xy, surface, material_=None, sink=0.002):
 
     `xy` is the centre in plan. Nothing here needs `surface_z + height/2` written by hand.
     """
-    surface_z = surface if isinstance(surface, (int, float)) else top_of(surface)
+    surface_z = top_of(surface)
     return box(name, size, (xy[0], xy[1], surface_z + size[2] / 2.0 - sink), material_)
 
 def plane(name, size, location=(0.0, 0.0, 0.0), material_=None):

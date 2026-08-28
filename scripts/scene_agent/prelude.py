@@ -305,6 +305,47 @@ def on_surface(name, size, xy, surface, material_=None, sink=0.002):
     surface_z = top_of(surface)
     return box(name, size, (xy[0], xy[1], surface_z + size[2] / 2.0 - sink), material_)
 
+def face_detail(name, parent, size, where="front", offset=(0.0, 0.0),
+                material_=None, proud=0.004):
+    """A slot, panel or vent on one FACE of a body, standing slightly proud of it.
+
+    Three things have to be right at once and the model has got each of them wrong: the feature has
+    to be on a face the camera can see, it has to break the surface rather than sit inside the
+    solid, and it must not end flush with the parent or the two will z-fight. All three follow from
+    the parent's own bounding box, so none of them needs deciding.
+
+    `where` is "front", "back", "left", "right" or "top" in scene terms, where front is -Y, which
+    is the side a three-quarter view looks at. `offset` shifts the feature across that face.
+
+    Pass `where="camera"` to put it on whichever face the scene camera is actually looking at.
+    """
+    bpy.context.view_layer.update()
+    pts = [parent.matrix_world @ mathutils.Vector(c) for c in parent.bound_box]
+    lo = mathutils.Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+    hi = mathutils.Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    mid = (lo + hi) / 2.0
+
+    face = str(where).lower()
+    if face == "camera":
+        cam = bpy.context.scene.camera
+        if cam is None:
+            face = "front"
+        else:
+            view = cam.matrix_world.translation - mid
+            face = ("right" if view.x > 0 else "left") if abs(view.x) > abs(view.y) else (
+                "back" if view.y > 0 else "front"
+            )
+
+    depth = size[1] if face in ("front", "back") else size[0] if face in ("left", "right") else size[2]
+    place = {
+        "front": (mid.x + offset[0], lo.y - depth / 2.0 + proud, mid.z + offset[1]),
+        "back": (mid.x + offset[0], hi.y + depth / 2.0 - proud, mid.z + offset[1]),
+        "left": (lo.x - depth / 2.0 + proud, mid.y + offset[0], mid.z + offset[1]),
+        "right": (hi.x + depth / 2.0 - proud, mid.y + offset[0], mid.z + offset[1]),
+        "top": (mid.x + offset[0], mid.y + offset[1], hi.z + depth / 2.0 - proud),
+    }[face]
+    return box(name, size, place, material_)
+
 def plane(name, size, location=(0.0, 0.0, 0.0), material_=None):
     """A flat square, for floors."""
     bm = bmesh.new()

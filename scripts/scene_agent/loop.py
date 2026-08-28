@@ -77,6 +77,9 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     bench(name, width, depth, top_z=0.90,        a whole bench: top placed by its SURFACE height,
           top_material=, leg_material=)          legs reaching up into it. Use this, do not build
                                                  a bench out of boxes
+    face_detail(name, parent, (x,y,z),           a slot or panel ON A FACE of a body, proud of
+                where="camera", offset=(dx,dz),   it and never coplanar. where= front/back/left/
+                material_)                        right/top, or "camera" to pick the visible one
     on_surface(name, (x,y,z), (cx,cy),           a body standing ON something, sunk 2 mm so it
                surface, material_)                does not z-fight. `surface` is a height OR
                                                  ANOTHER OBJECT, whose top face is measured.
@@ -112,6 +115,11 @@ actually built and pulls back until none of it is cropped. Never write rotation_
 Then `lab_lighting(target, cam)` LAST, after framing, passing the camera it returned. The rig
 places itself relative to the view axis so the light always models the form; lighting chosen in
 world space lands frontally as often as not and the render comes out flat.
+
+**Use `face_detail` for slots, panels and vents.** It puts the feature on a face the camera can
+see, standing slightly proud so it breaks the surface, and offset so it cannot z-fight with the
+body. Pass `where="camera"` and it picks the visible face itself. Building these by hand has failed
+on all three counts.
 
 **A detail placed inside a solid body is invisible.** A slot modelled as its own box, positioned
 within the housing, renders as nothing and the instrument comes out a featureless block. To show a

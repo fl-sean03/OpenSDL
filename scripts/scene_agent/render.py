@@ -194,7 +194,8 @@ try:
             _report["defects"].append(
                 "these bodies are cut off by the frame edge: "
                 + ", ".join(_cropped[:6])
-                + ". Pull the camera back or raise the lens until each one is whole"
+                + ". Call frame_all(cam) after building, or frame_all(cam, distance=D) to hold "
+        "a distance and solve the lens"
             )
         if _considered and _visible == 0:
             _report["defects"].append(
@@ -258,7 +259,8 @@ if _fights:
     _report["defects"].append(
         "these bodies overlap in plan and share an exact height, so they will z-fight: "
         + "; ".join(f"{{{{_a}}}}/{{{{_b}}}} at z={{{{_z}}}}" for _a, _b, _z in _fights[:3])
-        + ". Sink one into the other by a few millimetres"
+        + ". Use on_surface(name, size, xy, the_body_below) to stack, or bench() for a bench: "
+        "both sink the joint for you"
     )
 
 # A detail modelled inside a solid body renders as nothing at all. The model builds a slot or a
@@ -288,8 +290,8 @@ if _buried:
     _report["defects"].append(
         "these bodies are entirely inside another and cannot be seen: "
         + "; ".join(f"{{{{_a}}}} inside {{{{_b}}}}" for _a, _b in _buried[:4])
-        + ". A slot or recess has to break the outer surface: make the detail proud of the face by "
-        "1-2 mm, or model the housing as separate panels around the opening"
+        + ". Use face_detail(name, parent, size, where='camera') — it puts the feature on a "
+        "visible face, standing proud of it, and cannot bury it"
     )
 
 # Contrast between the subject and what it stands on is a material decision, not a lighting one,
@@ -358,7 +360,7 @@ if _scene.camera is not None:
         _report["defects"].append(
             "these details sit on the far side of the body they belong to and the camera cannot "
             "see them: " + ", ".join(f"{{{{_a}}}} on {{{{_b}}}}" for _a, _b in _hidden[:4])
-            + ". Put the features on the face the camera is looking at"
+            + ". Use face_detail(..., where='camera'), which picks the visible face itself"
         )
 
 if _report["cameras"] == 0:

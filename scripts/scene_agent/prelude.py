@@ -108,40 +108,65 @@ def camera(location, target, lens=42.0):
     bpy.context.scene.camera = obj
     return obj
 
-def frame_all(cam, margin=1.06, floor_names=("Floor",)):
-    """Pull `cam` back along its own axis until every body fits, then re-aim at their centre.
+def frame_all(cam, margin=1.04, floor_names=("Floor",)):
+    """Pull `cam` back until every body fits the frame, then re-aim at their centre.
 
-    Guessed camera distances crop things. This measures what is actually in the scene, ignoring
-    ground planes because they are meant to run past the frame.
+    Fits the actual bounding-box corners rather than a bounding sphere. A sphere is simple and
+    badly wrong for a bench: a 1.8 m wide, 0.9 m tall object has a 1.08 m bounding radius, and
+    fitting that radius to the *vertical* field of view puts the camera five metres away with the
+    subject small in a wide empty floor. Projecting the eight corners and solving for the worst one
+    is exact, and it is what a person framing a shot actually does.
 
-    The margin is deliberately tight. It is computed against the bounding sphere, which already
-    over-reserves for anything that is not a ball, so 1.25 left a bench sitting small in a wide
-    empty floor. Raise it only if something is genuinely being clipped.
+    Iterative because moving the camera changes the projection. It converges in two or three passes.
     """
+    import math
+
     bpy.context.view_layer.update()
     points = []
     for obj in bpy.data.objects:
         if obj.type != "MESH" or not obj.data.vertices:
             continue
-        if obj.name in floor_names or (obj.dimensions.z < 0.02 and max(obj.dimensions.x, obj.dimensions.y) > 4.0):
+        if obj.name in floor_names or (
+            obj.dimensions.z < 0.02 and max(obj.dimensions.x, obj.dimensions.y) > 4.0
+        ):
             continue
         points.extend(obj.matrix_world @ mathutils.Vector(c) for c in obj.bound_box)
     if not points:
         return cam
+
     lo = mathutils.Vector((min(p.x for p in points), min(p.y for p in points), min(p.z for p in points)))
     hi = mathutils.Vector((max(p.x for p in points), max(p.y for p in points), max(p.z for p in points)))
     centre = (lo + hi) / 2.0
-    radius = (hi - lo).length / 2.0
-    scene = bpy.context.scene
-    aspect = scene.render.resolution_x / max(scene.render.resolution_y, 1)
-    import math
-    half_fov = min(cam.data.angle / 2.0, math.atan(math.tan(cam.data.angle / 2.0) / max(aspect, 1e-6)))
-    distance = (radius * margin) / max(math.sin(half_fov), 1e-6)
-    direction = (cam.location - centre)
+
+    direction = cam.location - centre
     if direction.length < 1e-6:
         direction = mathutils.Vector((-1.0, -1.0, 0.6))
-    cam.location = centre + direction.normalized() * distance
+    direction = direction.normalized()
+
+    from bpy_extras.object_utils import world_to_camera_view
+
+    scene = bpy.context.scene
+    distance = max((cam.location - centre).length, 0.5)
+    for _ in range(6):
+        cam.location = centre + direction * distance
+        aim(cam, centre)
+        bpy.context.view_layer.update()
+        worst = 0.0
+        for point in points:
+            ndc = world_to_camera_view(scene, cam, point)
+            if ndc.z <= 0.0:
+                worst = max(worst, 4.0)
+                continue
+            worst = max(worst, abs(ndc.x - 0.5) * 2.0, abs(ndc.y - 0.5) * 2.0)
+        if worst <= 1e-6:
+            break
+        scale = worst * margin
+        if 0.98 < scale < 1.02:
+            break
+        distance *= scale
+    cam.location = centre + direction * distance
     aim(cam, centre)
+    bpy.context.view_layer.update()
     return cam
 
 def area_light(name, location, target, energy=120.0, size=1.2, color=(1.0, 0.98, 0.95)):

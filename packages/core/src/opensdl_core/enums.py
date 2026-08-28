@@ -21,6 +21,22 @@ class ExecutorType(StrEnum):
     SIMULATOR = "simulator"
 
 
+class ResultBasis(StrEnum):
+    """Whether a result was measured or predicted from an incomplete measurement.
+
+    A capability that can see where a measurement is heading before it finishes may say so, and a
+    campaign may act on that. What it may never do is let the guess and the measurement look alike
+    in the record. This is the field that keeps them apart, so provenance can answer which
+    observations were predictions and whether each one was ever corrected.
+
+    There are two values and deliberately no third. A number read from half a run is either offered
+    as the answer, in which case it is a prediction and says so, or it is not offered.
+    """
+
+    MEASURED = "measured"
+    PREDICTED = "predicted"
+
+
 class RiskClass(StrEnum):
     R0 = "R0"
     R1 = "R1"

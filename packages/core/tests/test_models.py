@@ -7,9 +7,11 @@ from opensdl_core import (
     STARTABLE_RUN_STATES,
     CampaignDefinition,
     CapabilityDefinition,
+    ExecutionResult,
     ExecutorType,
     LifecycleError,
     Quantity,
+    ResultBasis,
     RetrySafety,
     RiskClass,
     RunRecord,
@@ -303,3 +305,59 @@ def test_a_canonical_digest_is_stable_and_reproducible_from_the_document() -> No
     assert canonical_digest(document) == (
         "51e87ed597614733e9ce37f4b71f1240cf418169a9bead3eca263a5551fe15da"
     )
+
+
+def test_a_result_defaults_to_the_measurement() -> None:
+    """Every adapter written before predictions existed keeps its meaning unchanged."""
+
+    result = ExecutionResult(request_id="request/1")
+
+    assert result.basis is ResultBasis.MEASURED
+    assert result.predictor == {}
+    assert result.completeness is None
+    assert result.revises is None
+    assert result.id
+
+
+def test_a_prediction_must_name_what_predicted_it() -> None:
+    """A prediction nobody can trace back to a model is a number with no standing."""
+
+    with pytest.raises(PydanticValidationError) as refused:
+        ExecutionResult(request_id="request/1", basis=ResultBasis.PREDICTED)
+    assert "predictor" in str(refused.value)
+
+    predicted = ExecutionResult(
+        request_id="request/1",
+        basis=ResultBasis.PREDICTED,
+        predictor={"model": "early-fit", "cycles_seen": 100},
+        completeness=0.2,
+    )
+    assert predicted.basis is ResultBasis.PREDICTED
+
+
+def test_a_measurement_cannot_carry_a_predictor() -> None:
+    """Claiming a model produced a number while calling it measured hides the model."""
+
+    with pytest.raises(PydanticValidationError) as refused:
+        ExecutionResult(request_id="request/1", predictor={"model": "early-fit"})
+    assert "predictor" in str(refused.value)
+
+
+def test_a_result_cannot_revise_itself() -> None:
+    """`revises` names an earlier result, so a self-reference is a broken chain."""
+
+    with pytest.raises(PydanticValidationError):
+        ExecutionResult(request_id="request/1", id="result/1", revises="result/1")
+
+
+def test_a_capability_predicts_nothing_unless_it_says_so() -> None:
+    """The strict default is what makes the prediction path opt-in, per decision D4."""
+
+    capability = CapabilityDefinition(
+        id="cap/plain",
+        name="plain",
+        executor_type=ExecutorType.SIMULATOR,
+        input_schema={},
+        output_schema={},
+    )
+    assert capability.progressive_results is False

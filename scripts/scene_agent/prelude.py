@@ -18,6 +18,36 @@ import bpy
 import math
 import mathutils
 
+#: Names a caller might reasonably use for a parameter, mapped to the one the helper declares.
+#: A model that writes `center=` where the signature says `xy` is not wrong about what it means,
+#: and a TypeError for a synonym costs a whole attempt. It has cost three.
+_ALIASES = {
+    "center": "xy", "centre": "xy", "position": "xy", "at": "xy", "location": "xy",
+    "color": "colour", "mat": "material_", "material": "material_",
+    "surface_z": "surface", "on": "surface", "height": "surface",
+    "size_xyz": "size", "dimensions": "size", "dims": "size",
+    "target_location": "target", "look_at": "target",
+}
+
+def _tolerant(func):
+    """Accept the obvious synonyms for a parameter name rather than failing on one."""
+    import functools
+    import inspect
+
+    names = set(inspect.signature(func).parameters)
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        for given in list(kwargs):
+            if given in names:
+                continue
+            wanted = _ALIASES.get(given)
+            if wanted and wanted in names and wanted not in kwargs:
+                kwargs[wanted] = kwargs.pop(given)
+        return func(*args, **kwargs)
+
+    return wrapper
+
 def new_scene():
     """An empty scene with a world, which an empty factory reset does not give you."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -374,4 +404,9 @@ def area_light(name, location, target, energy=120.0, size=1.2, color=(1.0, 0.98,
     bpy.context.collection.objects.link(obj)
     aim(obj, target)
     return obj
+for _name in (
+    "material", "box", "cylinder", "plane", "on_surface", "bench", "strut", "joint",
+    "gripper", "camera", "area_light", "lab_lighting", "frame_all", "studio",
+):
+    globals()[_name] = _tolerant(globals()[_name])
 '''

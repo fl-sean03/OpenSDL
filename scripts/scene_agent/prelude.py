@@ -203,7 +203,7 @@ def camera(location, target, lens=42.0):
     bpy.context.scene.camera = obj
     return obj
 
-def frame_all(cam, margin=1.04, floor_names=("Floor",)):
+def frame_all(cam, margin=1.04, distance=None, floor_names=("Floor",)):
     """Pull `cam` back until every body fits the frame, then re-aim at their centre.
 
     Fits the actual bounding-box corners rather than a bounding sphere. A sphere is simple and
@@ -213,6 +213,12 @@ def frame_all(cam, margin=1.04, floor_names=("Floor",)):
     is exact, and it is what a person framing a shot actually does.
 
     Iterative because moving the camera changes the projection. It converges in two or three passes.
+
+    Pass `distance` to stand at a chosen range and solve for the LENS instead of moving. That is how
+    a brief specifying "3.2 m from the bench" should be met, and it removes an interaction that is
+    easy to get backwards: a longer lens is narrower, so it needs MORE room, not less. One attempt
+    reached for a 65 mm lens reasoning that it would let the camera come closer, and ended up at
+    5.4 m on a brief asking for 3.2.
     """
     import math
 
@@ -241,6 +247,29 @@ def frame_all(cam, margin=1.04, floor_names=("Floor",)):
     from bpy_extras.object_utils import world_to_camera_view
 
     scene = bpy.context.scene
+
+    if distance is not None:
+        # Stand at the requested range and choose the lens that fits. Widen until nothing is
+        # outside the frame; the sensor is 36 mm, so lens = 18 / tan(half-angle).
+        cam.location = centre + direction * float(distance)
+        aim(cam, centre)
+        for _ in range(8):
+            bpy.context.view_layer.update()
+            worst = 0.0
+            for point in points:
+                ndc = world_to_camera_view(scene, cam, point)
+                if ndc.z <= 0.0:
+                    worst = max(worst, 4.0)
+                    continue
+                worst = max(worst, abs(ndc.x - 0.5) * 2.0, abs(ndc.y - 0.5) * 2.0)
+            if abs(worst * margin - 1.0) < 0.02:
+                break
+            half = math.atan(18.0 / max(cam.data.lens, 1.0))
+            half = math.atan(math.tan(half) * worst * margin)
+            cam.data.lens = max(8.0, min(200.0, 18.0 / max(math.tan(half), 1e-6)))
+        bpy.context.view_layer.update()
+        return cam
+
     distance = max((cam.location - centre).length, 0.5)
     for _ in range(6):
         cam.location = centre + direction * distance

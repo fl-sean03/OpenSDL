@@ -77,7 +77,13 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     top_of(obj)                                  height of an object's upper face
     aim(obj, target)                             point an object's -Z at a point
     camera(location, target, lens=42.0)          camera looking at target, set as scene camera
-    frame_all(cam)                               pull the camera back until everything fits
+    frame_all(cam)                               move the camera until everything fits
+    frame_all(cam, distance=3.2)                 STAY at that range and solve for the lens
+                                                 instead. Use this when the brief gives a
+                                                 distance. Do NOT change `lens` to control
+                                                 framing: a longer lens is narrower and needs
+                                                 MORE room, which is the opposite of what it
+                                                 looks like
     area_light(name, location, target, energy,   area light aimed at a point
                size, color)
 

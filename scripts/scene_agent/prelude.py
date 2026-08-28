@@ -15,6 +15,7 @@ Injected before the candidate, so every name below is already defined when its f
 PRELUDE = '''
 import bmesh
 import bpy
+import math
 import mathutils
 
 def new_scene():
@@ -185,6 +186,60 @@ def bench(name, width, depth, top_z=0.90, thickness=0.04, leg=0.05,
             box(f"{name}_Leg_{tag}", (leg, leg, leg_height), (lx, ly, leg_height / 2.0), leg_material)
         )
     return top, legs
+
+def strut(name, a, b, thickness=0.06, material_=None, overlap=0.0):
+    """A square limb spanning from point `a` to point `b`, correctly oriented.
+
+    An articulated arm is the case where hand-written orientation goes wrong every time: the model
+    has to pick a rotation for each segment, and a rotation that is wrong by a sign puts the forearm
+    through the bench. Given two points there is no rotation to choose.
+
+    `overlap` extends the segment past both ends, which is how you make joints look continuous
+    instead of leaving daylight between a limb and its hub.
+
+    Returns the object, so a chain is just a sequence of struts between joint positions.
+    """
+    start = mathutils.Vector(a)
+    end = mathutils.Vector(b)
+    span = end - start
+    length = span.length
+    if length < 1e-6:
+        return box(name, (thickness, thickness, thickness), start, material_)
+    obj = box(name, (thickness, thickness, length + overlap * 2.0), (0.0, 0.0, 0.0), material_)
+    obj.location = (start + end) / 2.0
+    obj.rotation_euler = span.to_track_quat("Z", "Y").to_euler()
+    bpy.context.view_layer.update()
+    return obj
+
+def joint(name, at, radius=0.045, depth=None, material_=None, axis="Z"):
+    """A cylindrical hub at a joint position, so limbs meet in something rather than in mid-air."""
+    obj = cylinder(name, radius, depth if depth is not None else radius * 2.2, at, material_)
+    if axis.upper() == "Y":
+        obj.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    elif axis.upper() == "X":
+        obj.rotation_euler = (0.0, math.radians(90.0), 0.0)
+    bpy.context.view_layer.update()
+    return obj
+
+def gripper(name, at, opening, depth=0.09, thickness=0.012, height=0.05,
+            material_=None, along="x"):
+    """Two parallel fingers `opening` apart, centred on `at`, bracketing whatever sits between them.
+
+    Made as a pair because the failure it prevents is jaws that close on empty air: give it the
+    width of the thing being held and the fingers land on its faces.
+    """
+    centre = mathutils.Vector(at)
+    half = opening / 2.0 + thickness / 2.0
+    offsets = (
+        (mathutils.Vector((-half, 0.0, 0.0)), mathutils.Vector((half, 0.0, 0.0)))
+        if along == "x"
+        else (mathutils.Vector((0.0, -half, 0.0)), mathutils.Vector((0.0, half, 0.0)))
+    )
+    size = (thickness, depth, height) if along == "x" else (depth, thickness, height)
+    return [
+        box(f"{name}_{tag}", size, centre + offset, material_)
+        for tag, offset in zip(("L", "R"), offsets)
+    ]
 
 def aim(obj, target):
     """Point an object's -Z at `target`. Accepts a tuple or a Vector, which is the whole point."""

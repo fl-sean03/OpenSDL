@@ -75,6 +75,12 @@ import bpy primitives to do what they do — each exists because hand-rolling it
                                                  platform = on_surface(..., base);
                                                  plate = on_surface(..., platform)
     top_of(obj)                                  height of an object's upper face
+    strut(name, a, b, thickness, material_)      a limb spanning two POINTS, oriented for you.
+                                                 Build an arm from these: pick the joint
+                                                 positions, never the rotations
+    joint(name, at, radius, material_, axis)     a cylindrical hub at a joint
+    gripper(name, at, opening, material_)        two fingers `opening` apart, so the jaws close
+                                                 on the object rather than on air
     aim(obj, target)                             point an object's -Z at a point
     camera(location, target, lens=42.0)          camera looking at target, set as scene camera
     frame_all(cam)                               move the camera until everything fits

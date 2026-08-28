@@ -318,6 +318,49 @@ if _ground_albedo is not None:
             "palette() rather than choosing a value"
         )
 
+# Detail modelled on a face the camera cannot see is the same waste as detail buried inside a
+# body: a loading slot on the back of an instrument is invisible and the housing reads as a plain
+# block. Small bodies touching a much larger one are checked against the view direction.
+if _scene.camera is not None:
+    _eye = _scene.camera.matrix_world.translation
+    _hidden = []
+    for _i in range(len(_boxes)):
+        for _j in range(len(_boxes)):
+            if _i == _j:
+                continue
+            _s, _big = _boxes[_i], _boxes[_j]
+            _vs = (_s[2] - _s[1]) * (_s[4] - _s[3]) * (_s[6] - _s[5])
+            _vb = (_big[2] - _big[1]) * (_big[4] - _big[3]) * (_big[6] - _big[5])
+            if _vb <= 0 or _vs > _vb * 0.35 or _vb > 2.0:
+                continue
+            _touch = (
+                min(_s[2], _big[2]) - max(_s[1], _big[1]) > -0.02
+                and min(_s[4], _big[4]) - max(_s[3], _big[3]) > -0.02
+                and min(_s[6], _big[6]) - max(_s[5], _big[5]) > -0.02
+            )
+            if not _touch:
+                continue
+            _cs = _mathutils.Vector(((_s[1] + _s[2]) / 2, (_s[3] + _s[4]) / 2, (_s[5] + _s[6]) / 2))
+            # A feature on a housing sits within that housing's own height. A leg sits below the
+            # bench it holds up, and is structure rather than detail, so it is not this check's
+            # business even though it is small and touching and behind.
+            if not (_big[5] - 1e-4 <= _cs.z <= _big[6] + 1e-4):
+                continue
+            _cb = _mathutils.Vector(
+                ((_big[1] + _big[2]) / 2, (_big[3] + _big[4]) / 2, (_big[5] + _big[6]) / 2)
+            )
+            _view = (_cb - _eye).normalized()
+            if (_cs - _cb).dot(_view) > 0.01:
+                _hidden.append((_s[0], _big[0]))
+            break
+    if _hidden:
+        _report["facing_away"] = [{{{{"detail": _a, "body": _b}}}} for _a, _b in _hidden[:6]]
+        _report["defects"].append(
+            "these details sit on the far side of the body they belong to and the camera cannot "
+            "see them: " + ", ".join(f"{{{{_a}}}} on {{{{_b}}}}" for _a, _b in _hidden[:4])
+            + ". Put the features on the face the camera is looking at"
+        )
+
 if _report["cameras"] == 0:
     _report["defects"].append("the scene has no camera, so nothing can be rendered")
 if _report["lights"] == 0 and _scene.render.engine != "BLENDER_WORKBENCH":

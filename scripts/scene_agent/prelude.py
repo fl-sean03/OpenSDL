@@ -288,9 +288,23 @@ def point_of(thing):
         pts = [thing.matrix_world @ mathutils.Vector(c) for c in thing.bound_box]
         return sum(pts, mathutils.Vector()) / len(pts)
     if isinstance(thing, (list, tuple, set)):
-        items = [i for i in thing if i is not None]
-        if items and all(isinstance(i, bpy.types.Object) for i in items):
-            pts = [point_of(i) for i in items]
+        # Groups nest. `bench()` returns (top, [legs]), so a caller writing
+        # `three_quarter(my_bench)` hands over an object AND a list in one tuple, and a flat
+        # all-objects test misses it and falls through to a raw Vector that fails naming neither.
+        flat = []
+
+        def _walk(item):
+            if item is None:
+                return
+            if isinstance(item, bpy.types.Object):
+                flat.append(item)
+            elif isinstance(item, (list, tuple, set)):
+                for inner in item:
+                    _walk(inner)
+
+        _walk(thing)
+        if flat:
+            pts = [point_of(obj) for obj in flat]
             return sum(pts, mathutils.Vector()) / len(pts)
         return mathutils.Vector(tuple(thing))
     return mathutils.Vector(thing)
@@ -311,6 +325,11 @@ def top_of(thing):
         if not tops:
             raise ValueError("top_of was given an empty group")
         return max(tops)
+    if not hasattr(thing, "bound_box"):
+        raise TypeError(
+            f"top_of cannot measure {type(thing).__name__}; pass an object, a group of them, "
+            "or a height in metres"
+        )
     return max((thing.matrix_world @ mathutils.Vector(c)).z for c in thing.bound_box)
 
 def on_surface(name, size, xy, surface, material_=None, sink=0.002):

@@ -206,7 +206,7 @@ jobs:
 
       - name: Review against this repository's rules
         id: review
-        uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1.0.198
+        uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Load-bearing; see note 4 at the top of this file. Without it the action tries the OIDC

@@ -181,6 +181,11 @@ PALETTE = {
     "floor":    ((0.300, 0.300, 0.310), 0.90, 0.0),
     "labware":  ((0.620, 0.620, 0.630), 0.45, 0.0),
     "glass":    ((0.800, 0.850, 0.860), 0.05, 0.0),
+    "worktop":  ((0.520, 0.470, 0.400), 0.55, 0.0),
+    "timber":   ((0.310, 0.210, 0.130), 0.65, 0.0),
+    "copper":   ((0.560, 0.290, 0.170), 0.24, 1.0),
+    "crate":    ((0.140, 0.260, 0.400), 0.70, 0.0),
+    "tile":     ((0.400, 0.380, 0.365), 0.45, 0.0),
 }
 
 def palette():
@@ -477,8 +482,104 @@ def gripper(name, at, opening, depth=0.09, thickness=0.012, height=0.05,
 #: rather than by size, which matters once a scene has a six-metre counter run that IS subject.
 SHELL_PREFIX = "Shell_"
 
+def tiled(name, colour=(0.42, 0.40, 0.38), grout=(0.26, 0.25, 0.24), tile=0.45,
+          roughness=0.45):
+    """A checkered floor material. Tile is most of what makes an interior read as a real room.
+
+    A flat grey floor is the single clearest tell that a render is a diagram. Real floors have a
+    grid, the grid gives the eye scale, and scale is what makes a room feel like a room rather than
+    a grey plane with objects on it. This is a checker rather than true grout lines, which is
+    cheaper and reads correctly at any distance a camera in the room will be.
+    """
+    mat = bpy.data.materials.new(name)
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+    checker = nodes.new("ShaderNodeTexChecker")
+    coords = nodes.new("ShaderNodeTexCoord")
+    checker.inputs["Color1"].default_value = (*colour, 1.0)
+    checker.inputs["Color2"].default_value = (*grout, 1.0)
+    # The checker has period 1 in scaled object space, and box() builds at real size with unit
+    # object scale, so object space is metres and the cell edge is 1/scale. Ask for the tile edge
+    # in metres, because that is the number anyone reasoning about a floor actually has.
+    checker.inputs["Scale"].default_value = 1.0 / max(float(tile), 1e-3)
+    links.new(coords.outputs["Object"], checker.inputs["Vector"])
+    links.new(checker.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = roughness
+    return mat
+
+def daylight(direction=(-0.5, 0.7, -0.9), energy=3.5, warmth=(1.0, 0.95, 0.88), angle=0.02):
+    """A sun. Directional light is what gives an interior its shape.
+
+    Ceiling panels alone light a room evenly and evenly is the problem: no gradient, no cast
+    shadow, nothing to tell one surface from another. A sun through a window wall does what the
+    key light does outdoors, and it is the difference between a lit room and a diagram of one.
+    """
+    data = bpy.data.lights.new(name="Sun", type="SUN")
+    data.energy = energy
+    data.color = warmth
+    data.angle = angle
+    obj = bpy.data.objects.new("Sun", data)
+    bpy.context.collection.objects.link(obj)
+    obj.rotation_euler = mathutils.Vector(direction).to_track_quat("-Z", "Y").to_euler()
+    return obj
+
+def outside(shell, side="right", distance=6.0, brightness=3.0,
+            colour=(0.62, 0.72, 0.90), span=8.0):
+    """A lit plane beyond a glazed wall, so the window reads as daylight.
+
+    A window with nothing behind it renders as a black rectangle, which is worse than a blank wall:
+    the eye reads it as a hole. World background alone will not do it either, because the room is
+    sealed and the background is only visible through the opening at grazing angles. What works is
+    the thing that works on a film set — put a bright card outside the window.
+    """
+    bounds = _shell_bounds(shell)
+    if bounds is None:
+        bounds = ((-5.0, -5.0, 0.0), (5.0, 5.0, 3.2))
+    (lo_x, lo_y, lo_z), (hi_x, hi_y, hi_z) = bounds
+    w, d = hi_x - lo_x, hi_y - lo_y
+    size = max(w, d) * span
+    side = str(side).lower()
+    where = {
+        "right": ((hi_x + distance, (lo_y + hi_y) / 2.0, (lo_z + hi_z) / 2.0), (0.0, 1.5708, 0.0)),
+        "left": ((lo_x - distance, (lo_y + hi_y) / 2.0, (lo_z + hi_z) / 2.0), (0.0, 1.5708, 0.0)),
+        "back": (((lo_x + hi_x) / 2.0, hi_y + distance, (lo_z + hi_z) / 2.0), (1.5708, 0.0, 0.0)),
+        "front": (((lo_x + hi_x) / 2.0, lo_y - distance, (lo_z + hi_z) / 2.0), (1.5708, 0.0, 0.0)),
+    }[side]
+    mat = bpy.data.materials.new("Outside")
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    emission = nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = (*colour, 1.0)
+    emission.inputs["Strength"].default_value = brightness
+    links.new(emission.outputs["Emission"], nodes["Material Output"].inputs["Surface"])
+    obj = plane(f"{SHELL_PREFIX}Outside_{side.title()}", size, where[0], mat)
+    obj.rotation_euler = where[1]
+    # The card catches rays that leave through the window roughly square-on. A ray leaving at a
+    # grazing angle overshoots any finite card, and that ray is the one through the window furthest
+    # from the camera, so the far windows are exactly the ones that come back black. Tint the world
+    # to the same colour as the backstop for everything the card misses.
+    # Calibrated: at 0.25x the card brightness the world alone lifted the ceiling to white and
+    # blew 8% of the frame. The card is the light; the sky is only there to fill the rays that
+    # miss it, so it wants to be dim enough that a sealed room does not notice it.
+    ambient(strength=min(brightness * 0.12, 0.5), color=colour)
+    return obj
+
+def _shell_bounds(shell):
+    """The world-space extent of whatever room() returned, or None if it holds no meshes."""
+    pts = []
+    for body in (shell.values() if isinstance(shell, dict) else shell):
+        for candidate in (body if isinstance(body, (list, tuple)) else [body]):
+            if getattr(candidate, "bound_box", None) is None:
+                continue
+            pts.extend(candidate.matrix_world @ mathutils.Vector(c) for c in candidate.bound_box)
+    if not pts:
+        return None
+    return (
+        (min(v.x for v in pts), min(v.y for v in pts), min(v.z for v in pts)),
+        (max(v.x for v in pts), max(v.y for v in pts), max(v.z for v in pts)),
+    )
+
 def room(width=9.0, depth=7.0, height=3.2, floor_material=None, wall_material=None,
-         ceiling_material=None, open_side="front", thickness=0.12):
+         ceiling_material=None, open_side="front", thickness=0.12, glazed=None):
     """An interior: floor, ceiling and walls, with one side left open for the camera.
 
     Bench scenes stand an object on a ground plane and look at it from outside. A room is the
@@ -502,8 +603,38 @@ def room(width=9.0, depth=7.0, height=3.2, floor_material=None, wall_material=No
         "left": ((thickness, depth, height), (-half_w, 0.0, height / 2.0)),
         "right": ((thickness, depth, height), (half_w, 0.0, height / 2.0)),
     }
+    glass = str(glazed).lower() if glazed else None
     for side, (size, where) in walls.items():
         if side == str(open_side).lower():
+            continue
+        if side == glass:
+            # A wall with a band of openings: sill below, header above, mullions between. The
+            # daylight that makes an interior look photographed has to get in somewhere.
+            sill, head = 0.95, 2.45
+            horiz = side in ("back", "front")
+            span = width if horiz else depth
+            lo = (0.0, where[1]) if horiz else (where[0], 0.0)
+            built[f"{side}_sill"] = box(
+                f"{SHELL_PREFIX}Wall_{side.title()}_Sill",
+                (span, thickness, sill) if horiz else (thickness, span, sill),
+                (lo[0], lo[1], sill / 2.0) if horiz else (lo[0], lo[1], sill / 2.0),
+                wall_material,
+            )
+            built[f"{side}_head"] = box(
+                f"{SHELL_PREFIX}Wall_{side.title()}_Head",
+                (span, thickness, height - head) if horiz else (thickness, span, height - head),
+                (lo[0], lo[1], (height + head) / 2.0),
+                wall_material,
+            )
+            for m in range(5):
+                f = (m + 1) / 6.0
+                mx = (-span / 2.0 + span * f, lo[1]) if horiz else (lo[0], -span / 2.0 + span * f)
+                built[f"{side}_mullion{m}"] = box(
+                    f"{SHELL_PREFIX}Wall_{side.title()}_Mullion{m}",
+                    (0.06, thickness, head - sill) if horiz else (thickness, 0.06, head - sill),
+                    (mx[0], mx[1], (sill + head) / 2.0),
+                    wall_material,
+                )
             continue
         built[side] = box(f"{SHELL_PREFIX}Wall_{side.title()}", size, where, wall_material)
     return built

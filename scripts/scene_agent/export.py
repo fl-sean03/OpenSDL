@@ -75,7 +75,10 @@ class Export:
 
 #: A body worth binding is one a capability could plausibly act on. Everything else is set
 #: dressing, and listing the floor as a resource would make the draft worse than useless.
-SCENERY = ("floor", "backdrop", "wall", "ground")
+#: `shell_` is the prefix `room()` puts on the floor, ceiling, walls, mullions and the lit card
+#: outside the glazing. A mullion is small enough to pass the size cut below, so the prefix is what
+#: keeps a window frame out of a list of things a capability can address.
+SCENERY = ("floor", "backdrop", "wall", "ground", "shell_", "lane_", "fixture", "tray_", "duct")
 
 
 def _looks_bindable(node: dict[str, object]) -> bool:

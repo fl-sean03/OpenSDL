@@ -473,6 +473,94 @@ def gripper(name, at, opening, depth=0.09, thickness=0.012, height=0.05,
         for tag, offset in zip(("L", "R"), offsets)
     ]
 
+#: Shell bodies are the room itself. They are named so the checks can classify them by intent
+#: rather than by size, which matters once a scene has a six-metre counter run that IS subject.
+SHELL_PREFIX = "Shell_"
+
+def room(width=9.0, depth=7.0, height=3.2, floor_material=None, wall_material=None,
+         ceiling_material=None, open_side="front", thickness=0.12):
+    """An interior: floor, ceiling and walls, with one side left open for the camera.
+
+    Bench scenes stand an object on a ground plane and look at it from outside. A room is the
+    opposite problem — the camera lives inside, the walls are what stop the light escaping, and the
+    thing that makes it read as a room is the boundary rather than the furniture.
+
+    `open_side` omits one wall so a camera outside that face can see in without a clipping plane.
+    Every body is named `Shell_*` so the checks know it is the room and not a thing in the room.
+
+    Returns a dict: floor, ceiling, and the walls that were built.
+    """
+    half_w, half_d = width / 2.0, depth / 2.0
+    built = {}
+    built["floor"] = box(f"{SHELL_PREFIX}Floor", (width, depth, thickness),
+                         (0.0, 0.0, -thickness / 2.0), floor_material)
+    built["ceiling"] = box(f"{SHELL_PREFIX}Ceiling", (width, depth, thickness),
+                           (0.0, 0.0, height + thickness / 2.0), ceiling_material)
+    walls = {
+        "back": ((width, thickness, height), (0.0, half_d, height / 2.0)),
+        "front": ((width, thickness, height), (0.0, -half_d, height / 2.0)),
+        "left": ((thickness, depth, height), (-half_w, 0.0, height / 2.0)),
+        "right": ((thickness, depth, height), (half_w, 0.0, height / 2.0)),
+    }
+    for side, (size, where) in walls.items():
+        if side == str(open_side).lower():
+            continue
+        built[side] = box(f"{SHELL_PREFIX}Wall_{side.title()}", size, where, wall_material)
+    return built
+
+def interior_view(target=(0.0, 0.0, 1.4), stand=(0.0, -4.0, 1.55), lens=24.0):
+    """A camera inside a room, at eye height, on a wide lens.
+
+    Interiors are shot wide because a normal lens inside four walls sees a cupboard. 24 mm is the
+    honest default; going below 18 mm bends the verticals enough to look like an estate agent.
+    Do NOT follow this with `frame_all` — fitting every body would push the camera through a wall.
+    """
+    return camera(stand, target, lens=lens)
+
+def interior_lighting(shell, rows=2, cols=3, energy=420.0, size=1.1,
+                      colour=(1.0, 0.97, 0.92), bounce=0.35):
+    """Ceiling panels inside a room, plus a weak ambient so the corners are not holes.
+
+    A three-point rig fails indoors for a simple reason: it stands the lights where a photographer
+    would, which is outside the walls, and the walls stop the light. First attempt at a room came
+    out at mean luminance 0.025 with 52% of the frame crushed to black.
+
+    Real interiors are lit from the ceiling in a grid, and the room does the rest by bouncing. Pass
+    the dict `room()` returned. Energies are per panel and high because a ceiling panel lights a
+    floor several metres below it.
+    """
+    ambient(bounce)
+    ceiling = shell.get("ceiling") if isinstance(shell, dict) else None
+    floor = shell.get("floor") if isinstance(shell, dict) else None
+    if ceiling is None:
+        raise ValueError("interior_lighting needs the dict that room() returned")
+
+    bpy.context.view_layer.update()
+    pts = [ceiling.matrix_world @ mathutils.Vector(c) for c in ceiling.bound_box]
+    lo = mathutils.Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+    hi = mathutils.Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    drop = lo.z - 0.06
+
+    made = []
+    for r in range(rows):
+        for c in range(cols):
+            fx = (c + 0.5) / cols
+            fy = (r + 0.5) / rows
+            x = lo.x + (hi.x - lo.x) * fx
+            y = lo.y + (hi.y - lo.y) * fy
+            data = bpy.data.lights.new(name=f"Panel_{r}_{c}", type="AREA")
+            data.energy = energy
+            data.size = size
+            data.color = colour
+            obj = bpy.data.objects.new(f"Panel_{r}_{c}", data)
+            obj.location = mathutils.Vector((x, y, drop))
+            bpy.context.collection.objects.link(obj)
+            obj.rotation_euler = (0.0, 0.0, 0.0)  # area lights emit along -Z by default
+            made.append(obj)
+    if floor is not None:
+        bpy.context.view_layer.update()
+    return made
+
 def studio(size=60.0, material_=None, sweep=True):
     """A ground plane large enough that its edge never enters frame, with an optional sweep.
 

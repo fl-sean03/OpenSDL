@@ -70,6 +70,14 @@ import bpy primitives to do what they do — each exists because hand-rolling it
     box(name, (x,y,z), location, material_)      box of that size in metres, centred on location
     cylinder(name, radius, depth, location, m)   upright cylinder
     plane(name, size, location, material_)       flat square
+    room(width, depth, height, floor_material,   an INTERIOR: floor, ceiling, walls, one side
+         wall_material, ceiling_material,        left open for the camera. Bodies are named
+         open_side="front")                      Shell_* so the checks know they are the room
+    interior_view(target, stand, lens=24.0)      a camera INSIDE a room at eye height, wide.
+                                                 Do not call frame_all after it
+    interior_lighting(shell, rows, cols)         ceiling panels INSIDE the room. A three-point
+                                                 rig stands its lights outside the walls and the
+                                                 room comes out black
     studio(material_)                            floor plus backdrop, sized so no edge or horizon
                                                  enters frame. USE THIS instead of a bare floor
                                                  plane: a 10 m floor shows its far edge as a hard

@@ -166,7 +166,7 @@ try:
         for _obj in _bpy.data.objects:
             if _obj.type != "MESH" or not _obj.data.vertices:
                 continue
-            if max(_obj.dimensions) > 5.0:
+            if _obj.name.startswith("Shell_") or max(_obj.dimensions) > 5.0:
                 continue
             _considered += 1
             _corners = [_obj.matrix_world @ _mathutils.Vector(c) for c in _obj.bound_box]
@@ -184,7 +184,7 @@ try:
             # it every time trains the reader to ignore this defect.
             # Scenery is meant to run past the frame; only subject matter can be "cropped".
             _dims = _obj.dimensions
-            _scenery = max(_dims) > 5.0
+            _scenery = _obj.name.startswith("Shell_") or max(_dims) > 5.0
             if 0 < _inside < 8 and not _scenery:
                 _cropped.append(_obj.name)
         _report["meshes_in_frame"] = _visible
@@ -220,7 +220,7 @@ for _obj in _bpy.data.objects:
         continue
     # A ground plane is what everything else rests on, so it shares a height with every body that
     # touches it. That is a floor, not a defect.
-    if max(_obj.dimensions) > 5.0:
+    if _obj.name.startswith("Shell_") or max(_obj.dimensions) > 5.0:
         continue
     _pts = [_obj.matrix_world @ _mathutils.Vector(_c) for _c in _obj.bound_box]
     _boxes.append(
@@ -303,7 +303,9 @@ for _entry_ in _report["objects"]:
         _albedos[_entry_["name"]] = _m["albedo"]
 _ground_albedo = None
 for _obj in _bpy.data.objects:
-    if _obj.type == "MESH" and max(_obj.dimensions) > 5.0 and _obj.name in _albedos:
+    if _obj.type == "MESH" and (
+        _obj.name.startswith("Shell_") or max(_obj.dimensions) > 5.0
+    ) and _obj.name in _albedos:
         _ground_albedo = _albedos[_obj.name]
         break
 if _ground_albedo is not None:

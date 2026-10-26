@@ -22,7 +22,7 @@
     "gltf-validator": "2.0.0-dev.3.10",
     "typescript": "7.0.2",
     "vite": "8.2.0",
-    "vitest": "4.1.10"
+    "vitest": "4.1.12"
   },
   "engines": {
     "node": ">=22.12"
